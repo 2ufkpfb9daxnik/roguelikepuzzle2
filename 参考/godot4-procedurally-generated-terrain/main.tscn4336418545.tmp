@@ -1,7 +1,7 @@
-[gd_scene load_steps=9 format=3 uid="uid://detacysixr15p"]
+[gd_scene load_steps=6 format=3 uid="uid://detacysixr15p"]
 
 [ext_resource type="Environment" uid="uid://gejkg4ou3v7t" path="res://env.tres" id="1_rmrta"]
-[ext_resource type="Script" path="res://CharacterBody3D.gd" id="2_kxns7"]
+[ext_resource type="Script" uid="uid://vrnhoo85utq6" path="res://CharacterBody3D.gd" id="2_kxns7"]
 [ext_resource type="PackedScene" uid="uid://ry3c5djemip2" path="res://terrain.tscn" id="2_vayhu"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_ipq3q"]
@@ -11,12 +11,6 @@ dof_blur_far_enabled = true
 dof_blur_far_distance = 50.0
 dof_blur_far_transition = 20.0
 dof_blur_amount = 0.02
-
-[sub_resource type="BoxMesh" id="BoxMesh_nluk4"]
-
-[sub_resource type="Skin" id="Skin_ej08y"]
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_hbome"]
 
 [node name="main" type="Node3D"]
 
@@ -31,7 +25,7 @@ environment = ExtResource("1_rmrta")
 player = NodePath("../CharacterBody3D")
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="."]
-transform = Transform3D(0.1, 0, 0, 0, 0.1, 0, 0, 0, 0.1, 2.35719, 7.94387, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10, 0)
 script = ExtResource("2_kxns7")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D"]
@@ -41,14 +35,4 @@ shape = SubResource("CapsuleShape3D_ipq3q")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.70056, 0)
 attributes = SubResource("CameraAttributesPractical_g0irq")
 
-[node name="cube" type="Node" parent="."]
-
-[node name="StaticBody3D" type="StaticBody3D" parent="cube"]
-transform = Transform3D(1, 0, 0, 0, 0.998713, -0.050715, 0, 0.050715, 0.998713, 1e+09, 1e+09, 1e+09)
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="cube/StaticBody3D"]
-mesh = SubResource("BoxMesh_nluk4")
-skin = SubResource("Skin_ej08y")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="cube/StaticBody3D"]
-shape = SubResource("BoxShape3D_hbome")
+[connection signal="map_ready" from="terrain" to="CharacterBody3D" method="_on_terrain_map_ready"]

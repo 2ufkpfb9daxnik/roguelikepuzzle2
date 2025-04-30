@@ -1,12 +1,12 @@
 extends CharacterBody3D
 
 #==> EXPORT <==#
-@export var speed = 5
+@export var speed = 25
 @export var jump_speed = 5
 @export var mouse_sensitivity = 2
 
 #==> OTHER <==#
-var gravity = 0.0
+var gravity = 9.8
 
 #==> CODE <==#
 func _ready():
@@ -21,6 +21,7 @@ func _physics_process(delta):
 	move_and_slide()
 	if is_on_floor() and Input.is_action_just_pressed("ui_accept"):
 		velocity.y = jump_speed
+		
 
 func _input(event):
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
