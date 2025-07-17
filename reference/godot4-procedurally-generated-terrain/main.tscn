@@ -32,7 +32,7 @@ environment = ExtResource("1_rmrta")
 player = NodePath("../CharacterBody3D")
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="."]
-transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 2.357, 100, 0)
+transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 2.357, 200, 0)
 script = ExtResource("2_kxns7")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D"]
@@ -53,3 +53,13 @@ shape = SubResource("BoxShape3D_hbome")
 [node name="MeshInstance3D" type="MeshInstance3D" parent="StaticBody3D"]
 mesh = SubResource("BoxMesh_h2yge")
 surface_material_override/0 = SubResource("StandardMaterial3D_h2yge")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Sprite2D" type="Sprite2D" parent="CanvasLayer"]
+
+[node name="map" type="Node" parent="CanvasLayer"]
+
+[node name="TextureRect" type="TextureRect" parent="CanvasLayer/map"]
+offset_right = 40.0
+offset_bottom = 40.0
