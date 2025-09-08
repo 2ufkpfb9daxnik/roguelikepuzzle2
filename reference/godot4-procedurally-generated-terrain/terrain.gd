@@ -5,6 +5,7 @@ extends Node3D
 @export var material_rock : Material = preload("res://texture/rock/material_rock.tres")
 @export var material_grass : Material = preload("res://texture/grass/material_grass.tres")
 @export var material_dirt : Material = preload("res://texture/dirt/material_dirt.tres")
+@export var material_water : Material = preload("res://texture/water/material_water.tres")
 
 var exp = 9
 var h = pow(2, exp) + 1
@@ -17,16 +18,33 @@ var visibility_update_threshold = 4.0  # プレイヤーが移動したとみな
 var visibility_radius_squared = 2500.0  # 可視範囲の半径の2乗（距離50相当）
 var max_height = 1.0 # 地形全体の最大高さを格納する変数
 var SNOWHEIGHT = 0.75
+var SEAHEIGHT = 0.0
+var snowseparation = 0.5
 # パフォーマンス向上のため、FastNoiseLiteは一度だけ初期化する
 var noise = FastNoiseLite.new()
 
-func diamondsquare(amplitude=10.0):
-	map[0][0] = randf_range(-1, 1) * amplitude
-	map[0][w - 1] = randf_range(-1, 1) * amplitude
-	map[h - 1][0] = randf_range(-1, 1) * amplitude
-	map[h - 1][w - 1] = randf_range(-1, 1) * amplitude
+#地形生成
+func diamondsquare(amplitude=1.5):
 	var size = h - 1
-	amplitude *= 0.53
+	
+	# --- [変更点] マップの初期設定を変更 ---
+	# 特定の山を定義せず、全体がなだらかになるように設定
+	# マップ全体を0.0で初期化
+	for i in range(h):
+		for j in range(w):
+			map[i][j] = 0.0
+
+	# 四隅にランダムな初期値を設定し、自然な起伏のベースを生成
+	# この値を小さくすると、より平坦な地形から始まる
+	map[0][0] = -1.5
+	map[0][w - 1] = -1.5
+	map[h - 1][0] = -1.5
+	map[h - 1][w - 1] = -1.5
+	map[size/2][0] = 1.5
+	map[size/2][size/4] = 1.5
+	map[size/2][size/2] = 1.5
+	amplitude *= 0.8
+	size/=2
 	while size > 1:
 		for y in range(0, h - 1, size):
 			for x in range(0, w - 1, size):
@@ -62,7 +80,53 @@ func diamondsquare(amplitude=10.0):
 				map[my][x] = map[my][x] / add + randf_range(-1, 1) * amplitude
 
 		size /= 2
-		amplitude *= 0.53
+		amplitude *= 0.8
+
+# --- [新規追加] 地形のなだらかな部分を平坦化する関数 ---
+func smooth_terrain(passes: int, threshold: float):
+	"""
+	地形のなだらかな部分を平坦化します。
+	passes: スムージングを適用する回数。大きいほど効果が強くなります。
+	threshold: スムージングを適用する「なだらかさ」のしきい値。
+			   周囲3x3マスの最大高低差がこの値より小さい場合、その地点は平坦化されます。
+	"""
+	for p in range(passes):
+		# 毎パス、現在のマップの状態をコピーして読み取り元とします。
+		# これにより、1パス内の計算が他のピクセルに影響を与えるのを防ぎます。
+		var read_map = []
+		for i in range(h):
+			read_map.append(map[i].duplicate())
+
+		# 境界を除いた全てのピクセルをループします。
+		for i in range(1, h - 1):
+			for j in range(1, w - 1):
+				# 周囲3x3のピクセルの高さをリストに集めます。
+				var neighbors = [
+					read_map[i - 1][j - 1], read_map[i - 1][j], read_map[i - 1][j + 1],
+					read_map[i][j - 1],     read_map[i][j],     read_map[i][j + 1],
+					read_map[i + 1][j - 1], read_map[i + 1][j], read_map[i + 1][j + 1]
+				]
+
+				# 周囲3x3エリア内の最大の高さと最小の高さを探します。
+				var max_neighbor_height = neighbors[0]
+				var min_neighbor_height = neighbors[0]
+				for height_val in neighbors:
+					if height_val > max_neighbor_height:
+						max_neighbor_height = height_val
+					if height_val < min_neighbor_height:
+						min_neighbor_height = height_val
+				
+				# 最大と最小の高さの差を計算します。
+				var height_difference = max_neighbor_height - min_neighbor_height
+
+				# 高さの差が設定したしきい値よりも小さい場合（＝なだらかな地形）、平坦化処理を行います。
+				if height_difference < threshold:
+					# 平均値を計算して高さを更新し、平坦にします。
+					var average_height = 0.0
+					for height_val in neighbors:
+						average_height += height_val
+					# 'map' (書き込み先) の中央ピクセルを平均値で更新します。
+					map[i][j] = average_height / 9.0
 
 func get_slope(i: int, j: int) -> float:
 	# 勾配計算 (変更なし)
@@ -81,7 +145,8 @@ func get_slope(i: int, j: int) -> float:
 	elif j == w - 1 and w > 1:
 		dz = map[i][j] - map[i][j - 1]
 	return sqrt(dx * dx + dz * dz)
-	
+
+#マテリアル割り当て
 func assign_material(i: int, j: int, current_height: float, box: Node3D,snowheight: float):
 	var mesh = box.get_node_or_null("MeshInstance3D")
 	if not mesh:
@@ -93,21 +158,24 @@ func assign_material(i: int, j: int, current_height: float, box: Node3D,snowheig
 	var SNOW_SLOPE_MAX = 0.3      # 雪が積もる最大勾配。これより急だと岩になる
 
 	# 岩 (Rock) の設定
-	var ROCK_SLOPE_MIN = 0.55     # 岩肌が露出し始める基本勾配
+	var ROCK_SLOPE_MIN = 0.55      # 岩肌が露出し始める基本勾配
 	var ROCK_HEIGHT_FACTOR = 0.3  # 高さが上がるほど岩になりやすくなる度合い
 
 	# 草 (Grass) と 土 (Dirt) の設定
-	var GRASS_SLOPE_MAX = 0.6     # 草が生える最大勾配。これより急だと土になる
-	var GRASS_BAND_LOW = 0.1      # 草が生え始める下限の高さ
-	var GRASS_BAND_PEAK = 0.4     # 草が最も密集する高さ
-	var GRASS_BAND_HIGH = 0.8     # 草が生えなくなる上限の高さ
+	var GRASS_SLOPE_MAX = 0.6      # 草が生える最大勾配。これより急だと土になる
+	var GRASS_BAND_LOW = 0.1       # 草が生え始める下限の高さ
+	var GRASS_BAND_PEAK = 0.4      # 草が最も密集する高さ
+	var GRASS_BAND_HIGH = 0.8      # 草が生えなくなる上限の高さ
 	
 	# --- 準備 ---
 	var slope = get_slope(i, j)
 	var normalized_height = current_height / max_height if max_height > 0 else 0.0
 	
 	# --- マテリアル割り当てロジック (優先順位を考慮) ---
-
+	#海判定
+	if current_height == 0.0:
+		mesh.material_override = material_water
+		return
 	# 1.【最優先】急勾配は「岩」にする
 	# 高い場所ほど、より緩やかな勾配でも岩になるように調整
 	var rock_slope_threshold = ROCK_SLOPE_MIN - (normalized_height * ROCK_HEIGHT_FACTOR)
@@ -115,8 +183,8 @@ func assign_material(i: int, j: int, current_height: float, box: Node3D,snowheig
 		mesh.material_override = material_rock
 		return # マテリアルが確定したので処理を終了
 
-	# 2. 高く、緩やかな場所は「雪」にする
-	if normalized_height > SNOW_START_HEIGHT and slope < SNOW_SLOPE_MAX:
+	# 2. 高い場所は「雪」にする
+	if normalized_height > SNOW_START_HEIGHT:
 		mesh.material_override = material_snow
 		return
 
@@ -145,6 +213,7 @@ func assign_material(i: int, j: int, current_height: float, box: Node3D,snowheig
 		# それ以外（麓、標高が高すぎる、ノイズの範囲外）は「土」を配置
 		mesh.material_override = material_dirt
 
+#マップ生成
 func assign_map(snowheight:float):
 	# --- パラメータ (ここで地形の見た目を調整) ---
 	# 雪 (Snow) の設定
@@ -152,14 +221,14 @@ func assign_map(snowheight:float):
 	var SNOW_SLOPE_MAX = 0.3      # 雪が積もる最大勾配。これより急だと岩になる
 
 	# 岩 (Rock) の設定
-	var ROCK_SLOPE_MIN = 0.55     # 岩肌が露出し始める基本勾配
+	var ROCK_SLOPE_MIN = 0.55      # 岩肌が露出し始める基本勾配
 	var ROCK_HEIGHT_FACTOR = 0.3  # 高さが上がるほど岩になりやすくなる度合い
 
 	# 草 (Grass) と 土 (Dirt) の設定
-	var GRASS_SLOPE_MAX = 0.6     # 草が生える最大勾配。これより急だと土になる
-	var GRASS_BAND_LOW = 0.1      # 草が生え始める下限の高さ
-	var GRASS_BAND_PEAK = 0.4     # 草が最も密集する高さ
-	var GRASS_BAND_HIGH = 0.8     # 草が生えなくなる上限の高さ
+	var GRASS_SLOPE_MAX = 0.6      # 草が生える最大勾配。これより急だと土になる
+	var GRASS_BAND_LOW = 0.1       # 草が生え始める下限の高さ
+	var GRASS_BAND_PEAK = 0.4      # 草が最も密集する高さ
+	var GRASS_BAND_HIGH = 0.8      # 草が生えなくなる上限の高さ
 	var image = Image.create(w/2, h/2, false, Image.FORMAT_RGB8)
 	for k in range(h/2):
 		for l in range(w/2):
@@ -167,16 +236,18 @@ func assign_map(snowheight:float):
 			var grasscount = 0
 			var rockcount = 0
 			var snowcount = 0
-			var sprite = Sprite2D.new()
-			var darkness = 0.0
+			var watercount = 0;
+			var avgheight = 0.0
 			for i in range(2):
 				for j in range(2):	
 					
 					var slope = get_slope(k*2+i, l*2+j)
 					var normalized_height = map[k*2+i][l*2+j] / max_height if max_height > 0 else 0.0
-					darkness += normalized_height
+					avgheight += normalized_height
 					# --- マテリアル割り当てロジック (優先順位を考慮) ---
-
+					if(map[k*2+i][l*2+j]==0.0):
+						watercount += 1
+						continue						
 					# 1.【最優先】急勾配は「岩」にする
 					# 高い場所ほど、より緩やかな勾配でも岩になるように調整
 					var rock_slope_threshold = ROCK_SLOPE_MIN - (normalized_height * ROCK_HEIGHT_FACTOR)
@@ -185,7 +256,7 @@ func assign_map(snowheight:float):
 						continue
 
 					# 2. 高く、緩やかな場所は「雪」にする
-					if normalized_height > SNOW_START_HEIGHT and slope < SNOW_SLOPE_MAX:
+					if normalized_height > SNOW_START_HEIGHT:
 						snowcount += 1
 						continue
 
@@ -214,15 +285,19 @@ func assign_map(snowheight:float):
 						# それ以外（麓、標高が高すぎる、ノイズの範囲外）は「土」を配置
 						dirtcount += 1
 			var color : Color
-			darkness /= 4
-			if(snowcount>=max(max(snowcount,dirtcount),max(grasscount,rockcount))):
-				color = Color8(240*darkness, 240*darkness, 240*darkness)
-			elif(rockcount>=max(max(snowcount,dirtcount),max(grasscount,rockcount))):
-				color = Color8(100*darkness, 100*darkness, 100*darkness)
-			elif(dirtcount>=max(max(snowcount,dirtcount),max(grasscount,rockcount))):
-				color = Color8(0, 160*darkness, 0)
+			avgheight /= 4
+			if(watercount>=max(max(snowcount,dirtcount),max(grasscount,rockcount))):
+				color = Color8(0, 0, 200)
 			else:
-				color = Color8(110*darkness, 80*darkness, 50*darkness)
+				if(snowcount>=max(max(snowcount,dirtcount),max(grasscount,rockcount))):
+					color = Color8(240, 240, 240)
+				elif(rockcount>=max(max(snowcount,dirtcount),max(grasscount,rockcount))):
+					color = Color8(100, 100, 100)
+				elif(dirtcount>=max(max(snowcount,dirtcount),max(grasscount,rockcount))):
+					color = Color8(0, 160,0)
+				else:
+					color = Color8(110, 80, 50)
+				color.a *= avgheight
 			image.set_pixel(k, l, color)
 
 	var tex = ImageTexture.create_from_image(image)
@@ -230,6 +305,7 @@ func assign_map(snowheight:float):
 	texture_rect.texture = tex
 	texture_rect.scale *= 2
 	texture_rect.position = Vector2(300,100)
+
 func _process(delta):
 	var cur_pos = player.global_transform.origin
 	if playerpos.distance_squared_to(cur_pos) >= visibility_update_threshold:
@@ -286,14 +362,6 @@ func _ready():
 		push_error("Player is not defined. Check terrain right panel to set player.")
 		queue_free()
 		return
-	# ノイズのプロパティをここで一度だけ設定
-	noise.seed = randi() # 毎回違う地形を生成するためにseedをランダムに
-	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
-	noise.frequency = 0.02 # ノイズの細かさ。値を小さくすると、より大きな模様が生成される
-	noise.fractal_type = FastNoiseLite.FRACTAL_FBM
-	noise.fractal_octaves = 4
-	noise.fractal_gain = 0.5
-	noise.fractal_lacunarity = 2.0
 
 	for i in range(h):
 		var arrw = []
@@ -309,22 +377,86 @@ func _ready():
 			row_around.append(999999.0)
 		map.append(row_map)
 		aroundheightmin.append(row_around)
-
+	
 	diamondsquare()
 	
+	smooth_terrain(10, 3.5)
+	
+	var sea_left: float = -1e9
+	var sea_right: float = 1e9
+	var seablocksum = 0
+	while (sea_right - sea_left > 0.01):
+		var sea_mid: float = (sea_left + sea_right) / 2
+		var count = 0
+		for i in range(h):
+			for j in range(w):
+				if map[i][j] <= sea_mid:
+					count += 1
+		if count >= h * w / 3:
+			sea_right = sea_mid
+		else:
+			sea_left = sea_mid
+	SEAHEIGHT = sea_right
+	for i in range(h):
+		for j in range(w):
+			if(map[i][j] <= SEAHEIGHT):
+				map[i][j] = SEAHEIGHT
+				seablocksum += 1
+	playerpos = player.global_transform.origin
+
+	# --- [修正箇所] 雪の高さを加算するロジックを全面的に見直し ---
+	
+	# 1. まず、生成された陸地の最小値と最大値を見つけます。
 	var minheight_val = 1e9
 	var maxheight_val = -1e9
 	for i in range(h):
 		for j in range(w):
-			minheight_val = min(minheight_val, map[i][j])
-	
+			if map[i][j] > SEAHEIGHT: # 海は計算に含めない
+				minheight_val = min(minheight_val, map[i][j])
+			maxheight_val = max(maxheight_val, map[i][j])
+
+	# 2. 陸地の最低地点が0になるように全体を正規化します。
 	for i in range(h):
 		for j in range(w):
-			map[i][j] -= minheight_val
-			maxheight_val = max(maxheight_val, map[i][j])
+			if map[i][j] > SEAHEIGHT:
+				map[i][j] -= minheight_val
+			else: # 海は0にします
+				map[i][j] = 0.0
 	
-	max_height = maxheight_val if maxheight_val > 0 else 1.0
+	# 最小値を引いたので、最大値も更新します
+	maxheight_val -= minheight_val
+
+	# 3. 正規化されたマップで、雪が降り始める標高（陸地の上位半分）を決定します。
+	var snow_threshold: float = 0.0
+	var heightleft: float = 0.0
+	var heightright: float = maxheight_val
+	while (heightright - heightleft > 0.01):
+		var heightmid: float = (heightleft + heightright) / 2
+		var boxsum = 0
+		for i in range(h):
+			for j in range(w):
+				if map[i][j] > heightmid:
+					boxsum += 1
+		if (boxsum >= (h * w - seablocksum) / 2):
+			heightleft = heightmid
+		else:
+			heightright = heightmid
+	snow_threshold = heightleft
+
+	# 4. 雪のしきい値を超えた地点の高さを一律で加算します。
+	for i in range(h):
+		for j in range(w):
+			if (map[i][j] > snow_threshold):
+				map[i][j] += snowseparation
+
+	# 5. 雪を高くした結果、全体の最大標高が変わったので、最終的な最大値を更新します。
+	# これがマテリアルを割り当てる際の基準になります。
+	max_height = maxheight_val + snowseparation
+
+	# 6. マテリアル用の雪の高さを、最終的なマップのスケールに合わせて正規化して設定します。
+	SNOWHEIGHT = snow_threshold / max_height
 	
+	# 7. 最終的なマップ情報で、隣接ブロックの高さを計算します。
 	for i in range(h):
 		for j in range(w):
 			if i - 1 >= 0 and j - 1 >= 0:
@@ -344,19 +476,5 @@ func _ready():
 			if j - 1 >= 0:
 				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i][j - 1])
 			aroundheightmin[i][j] = min(map[i][j], aroundheightmin[i][j])
-	playerpos = player.global_transform.origin
-	var heightleft:float = -1e9
-	var heightright:float = 1e9
-	while(heightright-heightleft>1):
-		var heightmid:float = (heightleft+heightright)/2
-		var boxsum = 0
-		for i in range(h):
-			for j in range(w):
-				if map[i][j]>=heightmid:
-					boxsum+=1
-		if(boxsum>=h*w/3):
-			heightleft = heightmid
-		else:
-			heightright = heightmid
-	SNOWHEIGHT = float(heightleft/maxheight_val)
+
 	assign_map(SNOWHEIGHT)
