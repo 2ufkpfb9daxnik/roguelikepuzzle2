@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://b2mnpwmuxsxob"
+=======
+uid="uid://2bngwf4ssdrx"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path="res://.godot/imported/Animation_Running_withSkin.glb-802a06cbc818b3a399c2aec44ac0e939.scn"
 
 [deps]

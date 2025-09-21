@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://5ghdiepp8xen"
+=======
+uid="uid://dj7qe13fducsi"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path.s3tc="res://.godot/imported/Animation_Arise_withSkin_texture_0.png-6a082e15a291772adeacbaa7f0d56961.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

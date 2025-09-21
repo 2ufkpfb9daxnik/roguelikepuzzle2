@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://xqg4ytg1iu1g"
+=======
+uid="uid://e402vpo7tvhs"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path.s3tc="res://.godot/imported/Animation_Alert_withSkin_texture_0.png-4022ecf56f0d2510c12a44ce05af14bb.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

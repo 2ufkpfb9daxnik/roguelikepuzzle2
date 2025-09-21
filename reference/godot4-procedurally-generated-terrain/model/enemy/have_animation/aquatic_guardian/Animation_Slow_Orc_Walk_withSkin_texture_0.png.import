@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://b5jfp7nmxe2q6"
+=======
+uid="uid://dg3mh52quk7th"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path.s3tc="res://.godot/imported/Animation_Slow_Orc_Walk_withSkin_texture_0.png-000d74d5f7eb4714dde75eb5ae8e8789.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

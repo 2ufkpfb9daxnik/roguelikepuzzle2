@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://0arbt2214yxy"
+=======
+uid="uid://3gi0q5yc5ajq"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path.s3tc="res://.godot/imported/Animation_You_Groove_withSkin_texture_0.png-97da0decebeed25ce7bf5a3abd634a95.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://btu47twtmhcj7"
+=======
+uid="uid://c3lv4rvgj4ewk"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path="res://.godot/imported/sasori_preview_rev_1.png-093fe28d0adff2b38e0ab11a9dcadbf5.ctex"
 metadata={
 "vram_texture": false

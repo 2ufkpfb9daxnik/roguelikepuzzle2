@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://dqgcos2700jv2"
+=======
+uid="uid://6eii67we72kw"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path="res://.godot/imported/snow_shop.glb-013e1916a11e55985a567db0a85c75ad.scn"
 
 [deps]

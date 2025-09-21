@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://dj0iqgu72xkop"
+=======
+uid="uid://bpgxmwb7ksljo"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path.s3tc="res://.godot/imported/Animation_Walking_withSkin_texture_0.png-a64cc8113f1b0bdf73e7dd77d911a403.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

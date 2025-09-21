@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://cskmowm7kldd2"
+=======
+uid="uid://v4imada0cbg1"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path.s3tc="res://.godot/imported/Animation_RunFast_withSkin_texture_0.png-53f4cac99306515733cc922f11190f98.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

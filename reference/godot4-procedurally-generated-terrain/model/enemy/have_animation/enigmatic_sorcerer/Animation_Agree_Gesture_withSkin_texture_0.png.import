@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://bgw2knd34cyfu"
+=======
+uid="uid://wmewgwx0hnkq"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path.s3tc="res://.godot/imported/Animation_Agree_Gesture_withSkin_texture_0.png-9d437040a340d2ed9fa41ccefc4fe68a.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

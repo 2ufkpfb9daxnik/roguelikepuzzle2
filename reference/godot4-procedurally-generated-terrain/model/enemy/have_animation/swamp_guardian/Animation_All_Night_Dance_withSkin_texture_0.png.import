@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://dkivs1a36iwvh"
+=======
+uid="uid://drgugd5uqshco"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path.s3tc="res://.godot/imported/Animation_All_Night_Dance_withSkin_texture_0.png-40f235d7e2e3b4ff0d5de827a2819fee.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

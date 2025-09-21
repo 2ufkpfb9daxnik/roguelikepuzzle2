@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://ctjmu3tjw3a1p"
+=======
+uid="uid://818xs1172msk"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path="res://.godot/imported/castle_shop.glb-1647e6ab4877fb8f5e10c209d2428637.scn"
 
 [deps]

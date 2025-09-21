@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://bj1j7gvhng8d4"
+=======
+uid="uid://c7e7jrxyv43eh"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path.s3tc="res://.godot/imported/19883ee0-20ba-4651-9119-91db9f1499be_tripo_image_20e99630-9d73-4440-8876-73e419493fed_0.jpg-4c9ee9c2b90a06def8231cef75df083d.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

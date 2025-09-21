@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://bntra7tugema8"
+=======
+uid="uid://dlktubx5y67md"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path="res://.godot/imported/Animation_Dead_withSkin.glb-b38c5d756c8c27cc8258f6295e9cd9bb.scn"
 
 [deps]

@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://clbq8mk04edlo"
+=======
+uid="uid://c41e26noparnn"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path.s3tc="res://.godot/imported/Animation_Dead_withSkin_texture_0.png-85b53decd5f799d4e6eb68433316fab6.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

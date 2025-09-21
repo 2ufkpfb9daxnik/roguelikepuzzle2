@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://85oq4lah4rwo"
+=======
+uid="uid://8mb36ncvb2qq"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path="res://.godot/imported/desert_shop.glb-25aec94fe25a5e57be013f074ea4f27b.scn"
 
 [deps]

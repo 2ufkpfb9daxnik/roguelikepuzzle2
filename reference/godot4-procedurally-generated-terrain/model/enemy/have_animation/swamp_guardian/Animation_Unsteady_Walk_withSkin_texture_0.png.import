@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://drtuv1yx6oy3a"
+=======
+uid="uid://bqb4k2wor8wbo"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path.s3tc="res://.godot/imported/Animation_Unsteady_Walk_withSkin_texture_0.png-d5f4d1e5559720cf5aa17da0d024947e.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

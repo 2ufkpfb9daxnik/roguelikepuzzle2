@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://icj5nk4g74rv"
+=======
+uid="uid://i43veic8a1ln"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path="res://.godot/imported/Animation_Arise_withSkin.glb-152a47e1388c25046f26bb04262ed0f4.scn"
 
 [deps]

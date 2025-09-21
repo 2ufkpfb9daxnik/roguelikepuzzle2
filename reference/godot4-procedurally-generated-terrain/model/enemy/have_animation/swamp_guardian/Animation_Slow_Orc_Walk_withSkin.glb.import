@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://wpq3rqx3r12r"
+=======
+uid="uid://b63yngxvml5sm"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path="res://.godot/imported/Animation_Slow_Orc_Walk_withSkin.glb-f7beca9ed3b12af2c3dda5d01f146ea0.scn"
 
 [deps]

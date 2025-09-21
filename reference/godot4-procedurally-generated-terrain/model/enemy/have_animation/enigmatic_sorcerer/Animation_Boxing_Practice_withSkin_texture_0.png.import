@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://ckrf7ya7ll5ca"
+=======
+uid="uid://bhb6n5nglih10"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path.s3tc="res://.godot/imported/Animation_Boxing_Practice_withSkin_texture_0.png-0c72512cc79725637d07bc137908dbd5.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

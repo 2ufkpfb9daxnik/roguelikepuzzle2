@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://dly3vubjc5v5j"
+=======
+uid="uid://0v4gpd6kmr7b"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path.s3tc="res://.godot/imported/Animation_Boom_Dance_withSkin_texture_0.png-610a2dea42d076e23b5b9233781e6ef3.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

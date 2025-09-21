@@ -12,8 +12,11 @@ var h = pow(2, exp) + 1
 var w = pow(2, exp) + 1
 var map = []
 var map3d = []
+<<<<<<< HEAD
 var collisiondata = []
 var map3dnum = []
+=======
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 var assignnum = []
 var aroundheightmin = []
 var boxmap = []
@@ -134,6 +137,7 @@ func get_slope(i: int, j: int) -> float:
 
 ### 変更: マテリアル割り当て関数を修正
 #マテリアル割り当て
+<<<<<<< HEAD
 func assign_material(i:int,j:int,k:int,multimesh:MultiMeshInstance3D):
 	# --- マテリアル割り当てロジック (優先度順) ---
 	# 1. 海
@@ -158,6 +162,44 @@ func assign_material(i:int,j:int,k:int,multimesh:MultiMeshInstance3D):
 	# 5. 土
 	if map3dnum[k][i][j] == 5:
 		multimesh.material_override = material_dirt
+=======
+func assign_material(i: int, j: int, current_height: float, box: Node3D, snowheight: float):
+	var mesh = box.get_node_or_null("MeshInstance3D")
+	if not mesh:
+		return
+
+	# --- パラメータ ---
+	var SNOW_START_HEIGHT = snowheight
+	var ROCK_SLOPE_MIN = 0.55
+	var ROCK_HEIGHT_FACTOR = 0.3
+	
+	# --- 準備 ---
+	var slope = get_slope(i, j)
+	var normalized_height = current_height / max_height if max_height > 0 else 0.0
+	
+	# --- マテリアル割り当てロジック (優先度順) ---
+	
+	# 1.【最優先】海
+	if assignnum[i][j] == 1:
+		mesh.material_override = material_water
+		return
+
+	# 2. 急な勾配は「岩」
+	if assignnum[i][j] == 2:
+		mesh.material_override = material_rock
+		return
+
+	# 3. 高い場所は「雪」
+	if assignnum[i][j] == 3:
+		mesh.material_override = material_snow
+		return
+
+	# ノイズを使い、草と土を50/50の割合でまだら模様に配置する
+	if assignnum[i][j] == 4:
+		mesh.material_override = material_grass
+	if assignnum[i][j] == 5:
+		mesh.material_override = material_dirt
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 
 #マップ生成
 func assign_map(snowheight:float):
@@ -255,6 +297,7 @@ func update_visibility(center_pos: Vector3):
 				if(map3d[k][i][j]!=-1):
 					boxmap[map3d[k][i][j]].visible = true
 
+<<<<<<< HEAD
 # あなたのコードのロジックを尊重し、バグ修正と高速化を行ったバージョン
 func create_collision_body(voxel_data: Array) -> StaticBody3D:
 	var static_body = StaticBody3D.new()
@@ -315,6 +358,47 @@ func create_collision_body(voxel_data: Array) -> StaticBody3D:
 							for ij in range(depth):
 								mask[k + ik][i + ii][j + ij] = true
 	return static_body
+=======
+			for y in range(y_start, y_end):
+				var block_pos = Vector3(i, y, j)
+				if center_pos.distance_squared_to(block_pos) <= visibility_radius_squared:
+					if boxmap[i][j].size() == 0:
+						if diff * 0.1 >= 0.2:
+							var static_body = get_parent().get_node("StaticBody3D")
+							if static_body:
+								var static_body_copy = static_body.duplicate(true)
+								static_body_copy.position = Vector3(i, height, j)
+								assign_material(i, j, current_height_map_value, static_body_copy,SNOWHEIGHT)
+								get_parent().get_node("cube").add_child(static_body_copy)
+								boxmap[i][j].append(static_body_copy)
+							for k in range(diff):
+								if static_body:
+									var static_body_copy1 = static_body.duplicate(true)
+									static_body_copy1.position = Vector3(i, height - k - 1, j)
+									assign_material(i, j, current_height_map_value, static_body_copy1,SNOWHEIGHT)
+									var mesh = static_body_copy1.get_node_or_null("MeshInstance3D")
+									if(mesh.material_override == material_snow):
+										mesh.material_override = material_rock
+									get_parent().get_node("cube").add_child(static_body_copy1)
+									boxmap[i][j].append(static_body_copy1)
+						else:
+							var static_body = get_parent().get_node("StaticBody3D")
+							if static_body:
+								var static_body_copy = static_body.duplicate(true)
+								static_body_copy.position = Vector3(i, height, j)
+								assign_material(i, j, current_height_map_value, static_body_copy,SNOWHEIGHT)
+								get_parent().get_node("cube").add_child(static_body_copy)
+								boxmap[i][j].append(static_body_copy)
+					
+					for box_node in boxmap[i][j]:
+						if center_pos.distance_squared_to(box_node.global_transform.origin) <= visibility_radius_squared:
+							box_node.visible = true
+						else:
+							box_node.visible = false
+				else:
+					for box_node in boxmap[i][j]:
+						box_node.visible = false
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 func _ready():
 	if not player:
 		push_error("Player is not defined. Check terrain right panel to set player.")
@@ -345,6 +429,7 @@ func _ready():
 			for j in range(w):
 				row_for_z.append(-1) 
 			z_level_map.append(row_for_z)
+<<<<<<< HEAD
 		map3dnum.append(z_level_map)
 	
 	for k in range(50):
@@ -364,6 +449,10 @@ func _ready():
 				row_for_z.append([]) 
 			z_level_map.append(row_for_z)
 		collisiondata.append(z_level_map)
+=======
+		map3d.append(z_level_map)
+	
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 	diamondsquare()
 	
 	smooth_terrain(10, 3.5)
@@ -502,6 +591,7 @@ func _ready():
 			var around = int(floor(aroundheightmin[i][j]/0.1))
 			var diff = height-around
 			for k in range(diff+1):
+<<<<<<< HEAD
 				map3dnum[height-k][i][j] = assignnum[i][j]
 	for i in range(h):
 		for j in range(w):
@@ -564,3 +654,18 @@ func _ready():
 	if static_body:
 		physics_parent.add_child(static_body)
 	print_debug(collcnt)
+=======
+				map3d[height-k][i][j] = assignnum[i][j]
+			for k in range(around):
+				print_debug(k)
+				map3d[k][i][j] = 0
+	for k in range(len(map3d)):
+		for i in range(h):
+			var prevnum = -1
+			for j in range(w):
+				if(map3d[k][i][j]==0):
+					map3d[k][i][j] = prevnum
+				else:
+					prevnum = map3d[k][i][j]
+	
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f

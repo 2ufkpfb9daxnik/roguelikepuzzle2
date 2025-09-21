@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://0ytsikqle8op"
+=======
+uid="uid://dv5wxgotdqyya"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path="res://.godot/imported/Animation_All_Night_Dance_withSkin.glb-f9312934574da4c43086bac0892f652a.scn"
 
 [deps]

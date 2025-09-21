@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://cvtv7y2xurxwx"
+=======
+uid="uid://dvewsttfwxpa5"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path.s3tc="res://.godot/imported/desert_shop_tripo_image_5703bab1-9b91-4326-87cc-268c491e2bae_0.jpg-eb8d0c1f43195fb2c1ec79bbc66a96e2.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

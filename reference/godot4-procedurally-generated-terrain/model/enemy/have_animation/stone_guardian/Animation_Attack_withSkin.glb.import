@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://l11l7hvdpt8o"
+=======
+uid="uid://bpo5h75nvr4h0"
+>>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 path="res://.godot/imported/Animation_Attack_withSkin.glb-d3a873c94f31cd19fc838a6a23477211.scn"
 
 [deps]
