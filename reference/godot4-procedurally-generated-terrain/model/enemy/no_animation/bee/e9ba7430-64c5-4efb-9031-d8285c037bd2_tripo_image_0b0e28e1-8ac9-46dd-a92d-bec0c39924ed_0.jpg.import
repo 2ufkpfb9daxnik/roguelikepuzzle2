@@ -1,0 +1,38 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://bpt3c24nmjmo7"
+path.s3tc="res://.godot/imported/e9ba7430-64c5-4efb-9031-d8285c037bd2_tripo_image_0b0e28e1-8ac9-46dd-a92d-bec0c39924ed_0.jpg-ac6958628421aa41a9747ef2bb2da602.s3tc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
+generator_parameters={
+"md5": "4a2b5cfd932b8c3ae6e5464e672772a5"
+}
+
+[deps]
+
+source_file="res://model/enemy/no_animation/bee/e9ba7430-64c5-4efb-9031-d8285c037bd2_tripo_image_0b0e28e1-8ac9-46dd-a92d-bec0c39924ed_0.jpg"
+dest_files=["res://.godot/imported/e9ba7430-64c5-4efb-9031-d8285c037bd2_tripo_image_0b0e28e1-8ac9-46dd-a92d-bec0c39924ed_0.jpg-ac6958628421aa41a9747ef2bb2da602.s3tc.ctex"]
+
+[params]
+
+compress/mode=2
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=0
