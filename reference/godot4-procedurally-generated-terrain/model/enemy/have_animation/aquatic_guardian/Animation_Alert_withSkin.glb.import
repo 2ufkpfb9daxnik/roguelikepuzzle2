@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://ckti4ny4i2g7o"
-=======
-uid="uid://beqqh0j5dll76"
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
+uid="uid://cteg4316ny0b5"
 path="res://.godot/imported/Animation_Alert_withSkin.glb-80085a768c8d2c33f4698419408e818b.scn"
 
 [deps]
@@ -37,5 +33,5 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 _subresources={}
-gltf/naming_version=1
+gltf/naming_version=0
 gltf/embedded_image_handling=1

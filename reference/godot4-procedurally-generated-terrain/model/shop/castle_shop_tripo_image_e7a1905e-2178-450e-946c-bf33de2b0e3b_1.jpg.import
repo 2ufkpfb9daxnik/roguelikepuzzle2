@@ -2,34 +2,26 @@
 
 importer="texture"
 type="CompressedTexture2D"
-<<<<<<< HEAD
-uid="uid://kkhdpmhs4gy5"
-=======
-uid="uid://fy63w6u8uht0"
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
-path.s3tc="res://.godot/imported/castle_shop_tripo_image_e7a1905e-2178-450e-946c-bf33de2b0e3b_1.jpg-451311cd363f6aa5dbfa75326a80ee04.s3tc.ctex"
+uid="uid://2tk2ntgmgd70"
+path="res://.godot/imported/castle_shop_tripo_image_e7a1905e-2178-450e-946c-bf33de2b0e3b_1.jpg-451311cd363f6aa5dbfa75326a80ee04.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
-}
-generator_parameters={
-"md5": "b7076d3bd3aa2bb6098a321775a2d17a"
+"vram_texture": false
 }
 
 [deps]
 
 source_file="res://model/shop/castle_shop_tripo_image_e7a1905e-2178-450e-946c-bf33de2b0e3b_1.jpg"
-dest_files=["res://.godot/imported/castle_shop_tripo_image_e7a1905e-2178-450e-946c-bf33de2b0e3b_1.jpg-451311cd363f6aa5dbfa75326a80ee04.s3tc.ctex"]
+dest_files=["res://.godot/imported/castle_shop_tripo_image_e7a1905e-2178-450e-946c-bf33de2b0e3b_1.jpg-451311cd363f6aa5dbfa75326a80ee04.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -39,4 +31,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

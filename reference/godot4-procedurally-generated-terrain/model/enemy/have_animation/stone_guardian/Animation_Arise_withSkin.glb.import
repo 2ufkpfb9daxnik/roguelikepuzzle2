@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://m3sqvwbum6au"
-=======
-uid="uid://d2147jbq3ep3v"
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
+uid="uid://dy66q5acxco1p"
 path="res://.godot/imported/Animation_Arise_withSkin.glb-1f0beef33f02ceac2e45db41b41811ae.scn"
 
 [deps]
@@ -37,5 +33,5 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 _subresources={}
-gltf/naming_version=1
+gltf/naming_version=0
 gltf/embedded_image_handling=1

@@ -2,34 +2,26 @@
 
 importer="texture"
 type="CompressedTexture2D"
-<<<<<<< HEAD
-uid="uid://ouc28ww556je"
-=======
-uid="uid://dknvwlm6gujjr"
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
-path.s3tc="res://.godot/imported/6556a1fa-d84b-4e87-819e-e1a8346fda3f_tripo_image_db74c0c1-9cf9-4e00-82c0-7f141ae2beb9_0.jpg-bad6376c604acfb3215eb362f09b0e9a.s3tc.ctex"
+uid="uid://t5lpp8l2ymff"
+path="res://.godot/imported/6556a1fa-d84b-4e87-819e-e1a8346fda3f_tripo_image_db74c0c1-9cf9-4e00-82c0-7f141ae2beb9_0.jpg-bad6376c604acfb3215eb362f09b0e9a.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
-}
-generator_parameters={
-"md5": "bce20359815ae29496fffed90b7ea3f0"
+"vram_texture": false
 }
 
 [deps]
 
 source_file="res://model/enemy/no_animation/mushroom_man/6556a1fa-d84b-4e87-819e-e1a8346fda3f_tripo_image_db74c0c1-9cf9-4e00-82c0-7f141ae2beb9_0.jpg"
-dest_files=["res://.godot/imported/6556a1fa-d84b-4e87-819e-e1a8346fda3f_tripo_image_db74c0c1-9cf9-4e00-82c0-7f141ae2beb9_0.jpg-bad6376c604acfb3215eb362f09b0e9a.s3tc.ctex"]
+dest_files=["res://.godot/imported/6556a1fa-d84b-4e87-819e-e1a8346fda3f_tripo_image_db74c0c1-9cf9-4e00-82c0-7f141ae2beb9_0.jpg-bad6376c604acfb3215eb362f09b0e9a.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -39,4 +31,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

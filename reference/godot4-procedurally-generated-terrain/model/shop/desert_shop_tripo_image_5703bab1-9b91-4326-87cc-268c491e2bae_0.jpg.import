@@ -2,34 +2,26 @@
 
 importer="texture"
 type="CompressedTexture2D"
-<<<<<<< HEAD
-uid="uid://cvtv7y2xurxwx"
-=======
-uid="uid://dvewsttfwxpa5"
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
-path.s3tc="res://.godot/imported/desert_shop_tripo_image_5703bab1-9b91-4326-87cc-268c491e2bae_0.jpg-eb8d0c1f43195fb2c1ec79bbc66a96e2.s3tc.ctex"
+uid="uid://w2fei46k147t"
+path="res://.godot/imported/desert_shop_tripo_image_5703bab1-9b91-4326-87cc-268c491e2bae_0.jpg-eb8d0c1f43195fb2c1ec79bbc66a96e2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
-}
-generator_parameters={
-"md5": "4241ea73c636d47cdaf21e6f70f49234"
+"vram_texture": false
 }
 
 [deps]
 
 source_file="res://model/shop/desert_shop_tripo_image_5703bab1-9b91-4326-87cc-268c491e2bae_0.jpg"
-dest_files=["res://.godot/imported/desert_shop_tripo_image_5703bab1-9b91-4326-87cc-268c491e2bae_0.jpg-eb8d0c1f43195fb2c1ec79bbc66a96e2.s3tc.ctex"]
+dest_files=["res://.godot/imported/desert_shop_tripo_image_5703bab1-9b91-4326-87cc-268c491e2bae_0.jpg-eb8d0c1f43195fb2c1ec79bbc66a96e2.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -39,4 +31,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

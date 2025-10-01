@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://clux3c0b8fpsd"
-=======
-uid="uid://digk082pdx4fv"
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
+uid="uid://bymrnsp4byjnp"
 path="res://.godot/imported/19883ee0-20ba-4651-9119-91db9f1499be.glb-50809d52d6e397692e1158b2e1954164.scn"
 
 [deps]
@@ -37,5 +33,5 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 _subresources={}
-gltf/naming_version=1
+gltf/naming_version=0
 gltf/embedded_image_handling=1

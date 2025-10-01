@@ -2,34 +2,26 @@
 
 importer="texture"
 type="CompressedTexture2D"
-<<<<<<< HEAD
-uid="uid://bclja55vikupx"
-=======
-uid="uid://clbymdimbo1np"
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
-path.s3tc="res://.godot/imported/Animation_Attack_withSkin_texture_0.png-2f51c8628baa5c53a09a09c9f441563e.s3tc.ctex"
+uid="uid://utqyacmfql0e"
+path="res://.godot/imported/Animation_Attack_withSkin_texture_0.png-2f51c8628baa5c53a09a09c9f441563e.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
-}
-generator_parameters={
-"md5": "9e8ae9480dafe46d9bdac0a2be450871"
+"vram_texture": false
 }
 
 [deps]
 
 source_file="res://model/enemy/have_animation/enigmatic_sorcerer/Animation_Attack_withSkin_texture_0.png"
-dest_files=["res://.godot/imported/Animation_Attack_withSkin_texture_0.png-2f51c8628baa5c53a09a09c9f441563e.s3tc.ctex"]
+dest_files=["res://.godot/imported/Animation_Attack_withSkin_texture_0.png-2f51c8628baa5c53a09a09c9f441563e.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -39,4 +31,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

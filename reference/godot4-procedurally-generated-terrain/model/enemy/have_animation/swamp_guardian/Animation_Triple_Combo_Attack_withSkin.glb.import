@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://bbw65lslqd5p4"
-=======
-uid="uid://cxhk1pok507tw"
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
+uid="uid://bgr0ryp7v3dk1"
 path="res://.godot/imported/Animation_Triple_Combo_Attack_withSkin.glb-41482fc4e88752aa3c6dbd2cdf168a9f.scn"
 
 [deps]
@@ -37,5 +33,5 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 _subresources={}
-gltf/naming_version=1
+gltf/naming_version=0
 gltf/embedded_image_handling=1

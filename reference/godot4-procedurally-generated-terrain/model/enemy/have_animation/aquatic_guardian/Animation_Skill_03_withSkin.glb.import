@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://b5v33jxg65bp8"
-=======
-uid="uid://dp1a2e3yu6gcg"
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
+uid="uid://21csv6a7pgbc"
 path="res://.godot/imported/Animation_Skill_03_withSkin.glb-5d9510b652ff63352933e5ba74cf386f.scn"
 
 [deps]
@@ -37,5 +33,5 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 _subresources={}
-gltf/naming_version=1
+gltf/naming_version=0
 gltf/embedded_image_handling=1

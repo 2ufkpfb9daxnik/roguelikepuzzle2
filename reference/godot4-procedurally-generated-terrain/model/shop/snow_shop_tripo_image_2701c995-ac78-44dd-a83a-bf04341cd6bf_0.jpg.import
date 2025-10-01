@@ -2,34 +2,26 @@
 
 importer="texture"
 type="CompressedTexture2D"
-<<<<<<< HEAD
-uid="uid://dmxk3qojb2xt3"
-=======
-uid="uid://ccpicesk4j85w"
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
-path.s3tc="res://.godot/imported/snow_shop_tripo_image_2701c995-ac78-44dd-a83a-bf04341cd6bf_0.jpg-6af64d998e6044ab97e4fa65baeea1ea.s3tc.ctex"
+uid="uid://dvjy12dtjnwhc"
+path="res://.godot/imported/snow_shop_tripo_image_2701c995-ac78-44dd-a83a-bf04341cd6bf_0.jpg-6af64d998e6044ab97e4fa65baeea1ea.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
-}
-generator_parameters={
-"md5": "4ba7516fdece9e926fb8117f64ae1111"
+"vram_texture": false
 }
 
 [deps]
 
 source_file="res://model/shop/snow_shop_tripo_image_2701c995-ac78-44dd-a83a-bf04341cd6bf_0.jpg"
-dest_files=["res://.godot/imported/snow_shop_tripo_image_2701c995-ac78-44dd-a83a-bf04341cd6bf_0.jpg-6af64d998e6044ab97e4fa65baeea1ea.s3tc.ctex"]
+dest_files=["res://.godot/imported/snow_shop_tripo_image_2701c995-ac78-44dd-a83a-bf04341cd6bf_0.jpg-6af64d998e6044ab97e4fa65baeea1ea.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -39,4 +31,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

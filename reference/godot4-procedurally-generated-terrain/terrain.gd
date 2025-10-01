@@ -10,20 +10,22 @@ extends Node3D
 var exp = 6
 var h = pow(2, exp) + 1
 var w = pow(2, exp) + 1
+var rh = 4
+var rw = 4
+var collision
 var map = []
 var map3d = []
-<<<<<<< HEAD
 var collisiondata = []
+var multimeshdata = []
 var map3dnum = []
-=======
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 var assignnum = []
 var aroundheightmin = []
-var boxmap = []
+var collisionmap = []
+var multimeshmap = []
 var multimesharr = []
-var playerpos
-var visibility_update_threshold = 4.0  # プレイヤーが移動したとみなす距離の2乗
-var visibility_radius_squared = 2500.0  # 可視範囲の半径の2乗（距離50相当）
+var playerpos = Vector3(1e9,1e9,1e9)
+var visiblelength = 3
+var removelength = 4
 var max_height = 1.0 # 地形全体の最大高さを格納する変数
 var SNOWHEIGHT = 0.75
 var SEAHEIGHT = 0.0
@@ -31,6 +33,9 @@ var snowseparation = 1
 # パフォーマンス向上のため、FastNoiseLiteは一度だけ初期化する
 var noise = FastNoiseLite.new()
 var collcnt = 0
+var template_mesh: Mesh
+var cube_node: Node3D
+var physics_parent: Node3D 
 #地形生成
 func diamondsquare(amplitude=1.5):
 	var size = h - 1
@@ -87,7 +92,7 @@ func diamondsquare(amplitude=1.5):
 		size /= 2
 		amplitude *= 0.65
 
-# --- [新規追加] 地形のなだらかな部分を平坦化する関数 ---
+#地形のなだらかな部分を平坦化する関数
 func smooth_terrain(passes: int, threshold: float):
 	for p in range(passes):
 		var read_map = []
@@ -135,10 +140,9 @@ func get_slope(i: int, j: int) -> float:
 		dz = map[i][j] - map[i][j - 1]
 	return sqrt(dx * dx + dz * dz)
 
-### 変更: マテリアル割り当て関数を修正
 #マテリアル割り当て
-<<<<<<< HEAD
 func assign_material(i:int,j:int,k:int,multimesh:MultiMeshInstance3D):
+	var mat_num = map3dnum[k][i][j]
 	# --- マテリアル割り当てロジック (優先度順) ---
 	# 1. 海
 	if map3dnum[k][i][j] == 1:
@@ -162,44 +166,6 @@ func assign_material(i:int,j:int,k:int,multimesh:MultiMeshInstance3D):
 	# 5. 土
 	if map3dnum[k][i][j] == 5:
 		multimesh.material_override = material_dirt
-=======
-func assign_material(i: int, j: int, current_height: float, box: Node3D, snowheight: float):
-	var mesh = box.get_node_or_null("MeshInstance3D")
-	if not mesh:
-		return
-
-	# --- パラメータ ---
-	var SNOW_START_HEIGHT = snowheight
-	var ROCK_SLOPE_MIN = 0.55
-	var ROCK_HEIGHT_FACTOR = 0.3
-	
-	# --- 準備 ---
-	var slope = get_slope(i, j)
-	var normalized_height = current_height / max_height if max_height > 0 else 0.0
-	
-	# --- マテリアル割り当てロジック (優先度順) ---
-	
-	# 1.【最優先】海
-	if assignnum[i][j] == 1:
-		mesh.material_override = material_water
-		return
-
-	# 2. 急な勾配は「岩」
-	if assignnum[i][j] == 2:
-		mesh.material_override = material_rock
-		return
-
-	# 3. 高い場所は「雪」
-	if assignnum[i][j] == 3:
-		mesh.material_override = material_snow
-		return
-
-	# ノイズを使い、草と土を50/50の割合でまだら模様に配置する
-	if assignnum[i][j] == 4:
-		mesh.material_override = material_grass
-	if assignnum[i][j] == 5:
-		mesh.material_override = material_dirt
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
 
 #マップ生成
 func assign_map(snowheight:float):
@@ -209,8 +175,8 @@ func assign_map(snowheight:float):
 	var ROCK_HEIGHT_FACTOR = 0.3
 	
 	var image = Image.create(w/2, h/2, false, Image.FORMAT_RGB8)
-	for k in range(h/2):
-		for l in range(w/2):
+	for k in range(h/2+1):
+		for l in range(w/2+1):
 			var dirtcount = 0
 			var grasscount = 0
 			var rockcount = 0
@@ -222,6 +188,9 @@ func assign_map(snowheight:float):
 				for j in range(2):
 					var world_i = k * 2 + i
 					var world_j = l * 2 + j
+					if(world_i>=h||world_j>=w):
+						continue
+					
 					var current_height = map[world_i][world_j]
 					
 					var slope = get_slope(world_i, world_j)
@@ -282,23 +251,60 @@ func assign_map(snowheight:float):
 
 func _process(delta):
 	var cur_pos = player.global_transform.origin
-	if playerpos.distance_squared_to(cur_pos) >= visibility_update_threshold:
+	if(int(playerpos.x/rh)!=int(cur_pos.x/rh)||int(playerpos.z/rw)!=int(cur_pos.z/rw)):
 		playerpos = cur_pos
-		#update_visibility(cur_pos)
+		update_visibility(cur_pos)
 
 func update_visibility(center_pos: Vector3):
 	var px = int(center_pos.x)
-	var py = int(center_pos.y)
 	var pz = int(center_pos.z)
-	var r = int(sqrt(visibility_radius_squared))
-	for i in range(max(0, px - r), min(w, px + r + 1)):
-		for j in range(max(0, pz - r), min(h, pz + r + 1)):
-			for k in range(max(0,py - r), min(50, py + r + 1)):
-				if(map3d[k][i][j]!=-1):
-					boxmap[map3d[k][i][j]].visible = true
+	px/=rh
+	pz/=rw
+	for i in range(max(0,px-visiblelength),min(h,px+visiblelength+1)):
+		for j in range(max(0, pz-visiblelength),min(w,pz+visiblelength+1)):
+			if(i>=collisionmap.size()||i<0||j>=collisionmap[0].size()||j<0):
+				continue
+			var cube = get_parent().get_node("cube")
+			if(len(collisionmap[i][j])==0&&len(collisiondata[i][j])!=0):
+				var static_body = StaticBody3D.new()
+				for k in range(len(collisiondata[i][j])):
+					var shape = BoxShape3D.new()
+					shape.size = collisiondata[i][j][k][0]
+					var cshape = CollisionShape3D.new()
+					cshape.shape = shape
+					cshape.position = collisiondata[i][j][k][1]
+					static_body.add_child(cshape)
+				collisionmap[i][j].append(static_body)
+				cube.add_child(static_body)
+			if(len(multimeshmap[i][j])==0&&len(multimeshdata[i][j])!=0):
+				var static_body = StaticBody3D.new()
+				for group in multimeshdata[i][j]:
+					if group.size()==0:
+						continue
+					var multimesh = MultiMesh.new()
+					multimesh.transform_format = MultiMesh.TRANSFORM_3D
+					multimesh.mesh = template_mesh
+					multimesh.instance_count = group.size()
+					var multimeshinstance = MultiMeshInstance3D.new()
+					multimeshinstance.multimesh = multimesh
+					cube.add_child(multimeshinstance)
+					for k in range(group.size()):
+						var blockt = group[k]
+						var t = Transform3D()
+						t.origin = Vector3(blockt[0],blockt[2],blockt[1])
+						multimesh.set_instance_transform(k,t)
+					var blockt = group[0]
+					assign_material(blockt[0],blockt[1],blockt[2],multimeshinstance)
+					multimeshmap[i][j].append(multimeshinstance)
+	#for i in range(max(0,px-removelength), min(h,px+removelength+1)):
+		#for j in range(max(0,pz-removelength), min(w,pz+removelength+1)):
+			#if(i<px-removelength||i>px+removelength||j<pz-removelength||j>pz+removelength):
+				#collisionmap[i][j][0].queue_free()
+				#multimeshmap[i][j][0].queue_free()
+				#collisionmap[i][j].pop_back()
+				#multimeshmap[i][j].pop_back()
 
-<<<<<<< HEAD
-# あなたのコードのロジックを尊重し、バグ修正と高速化を行ったバージョン
+#コリジョンを生成する関数
 func create_collision_body(voxel_data: Array) -> StaticBody3D:
 	var static_body = StaticBody3D.new()
 	var max_k = voxel_data.size()
@@ -314,91 +320,97 @@ func create_collision_body(voxel_data: Array) -> StaticBody3D:
 			row_j.fill(false) # false = 未処理
 			plane_i.append(row_j)
 		mask.append(plane_i)
-		
+	
 	for k in range(max_k):
-		for i in range(max_i):
-			for j in range(max_j):
-				if not mask[k][i][j] and voxel_data[k][i][j] != -1:
-					var current_material = voxel_data[k][i][j]
-					var depth = 1
-					while j + depth < max_j and not mask[k][i][j + depth] and voxel_data[k][i][j + depth] == current_material:
-						depth += 1
+		for i1 in range(collisiondata.size()):
+			for j1 in range(collisiondata[0].size()):
+				for i in range(rh):
+					if(i1*rh+i>=h):
+						continue
+					for j in range(rw):
+						if(j1*rw+j>=w):
+							continue
+						if not mask[k][i1*rh+i][j1*rw+j] and voxel_data[k][i1*rh+i][j1*rw+j] != -1:
+							var current_material = voxel_data[k][i1*rh+i][j1*rw+j]
+							var depth = 1
+							while j1*rw+j+depth<w and j+depth<rw and not mask[k][int(i1*rh+i)][int(j1*rw+j+depth)] and voxel_data[k][int(i1*rh+i)][int(j1*rw+j+depth)] == current_material:
+								depth += 1
 						
-					var width = 1
-					var done = false
-					while i + width < max_i and not done:
-						for l in range(depth):
-							if mask[k][i + width][j + l] or voxel_data[k][i + width][j + l] != current_material:
-								done = true
-								break
-						if not done:
-							width += 1
-					var height = 1
-					done = false
-					while k + height < max_k and not done:
-						for m in range(width):
-							for l in range(depth):
-								if mask[k + height][i + m][j + l] or voxel_data[k + height][i + m][j + l] != current_material:
-									done = true
-									break
-							if done: break
-						if not done:
-							height += 1
-							
-					var shape = BoxShape3D.new()
-					shape.size = Vector3(width, height, depth) 
-					var cshape = CollisionShape3D.new()
-					cshape.shape = shape
-					
-					cshape.position = Vector3(i + width / 2.0,k + height / 2.0,j + depth / 2.0)
-					cshape.position -= Vector3(0.5, 0.5, 0.5)
-					static_body.add_child(cshape)
-					for ik in range(height):
-						for ii in range(width):
-							for ij in range(depth):
-								mask[k + ik][i + ii][j + ij] = true
-	return static_body
-=======
-			for y in range(y_start, y_end):
-				var block_pos = Vector3(i, y, j)
-				if center_pos.distance_squared_to(block_pos) <= visibility_radius_squared:
-					if boxmap[i][j].size() == 0:
-						if diff * 0.1 >= 0.2:
-							var static_body = get_parent().get_node("StaticBody3D")
-							if static_body:
-								var static_body_copy = static_body.duplicate(true)
-								static_body_copy.position = Vector3(i, height, j)
-								assign_material(i, j, current_height_map_value, static_body_copy,SNOWHEIGHT)
-								get_parent().get_node("cube").add_child(static_body_copy)
-								boxmap[i][j].append(static_body_copy)
-							for k in range(diff):
-								if static_body:
-									var static_body_copy1 = static_body.duplicate(true)
-									static_body_copy1.position = Vector3(i, height - k - 1, j)
-									assign_material(i, j, current_height_map_value, static_body_copy1,SNOWHEIGHT)
-									var mesh = static_body_copy1.get_node_or_null("MeshInstance3D")
-									if(mesh.material_override == material_snow):
-										mesh.material_override = material_rock
-									get_parent().get_node("cube").add_child(static_body_copy1)
-									boxmap[i][j].append(static_body_copy1)
-						else:
-							var static_body = get_parent().get_node("StaticBody3D")
-							if static_body:
-								var static_body_copy = static_body.duplicate(true)
-								static_body_copy.position = Vector3(i, height, j)
-								assign_material(i, j, current_height_map_value, static_body_copy,SNOWHEIGHT)
-								get_parent().get_node("cube").add_child(static_body_copy)
-								boxmap[i][j].append(static_body_copy)
-					
-					for box_node in boxmap[i][j]:
-						if center_pos.distance_squared_to(box_node.global_transform.origin) <= visibility_radius_squared:
-							box_node.visible = true
-						else:
-							box_node.visible = false
-				else:
-					for box_node in boxmap[i][j]:
-						box_node.visible = false
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
+							var width = 1
+							var done = false
+							while i1*rh+i+width<h and i+width<rh and not done:
+								for l in range(depth):
+									if mask[k][i1*rh+i+width][j1*rw+j+l] or voxel_data[k][i1*rh+i+width][j1*rw+j+l] != current_material:
+										done = true
+										break
+								if not done:
+									width += 1
+							var height = 1
+							done = false
+							while k + height < max_k and not done:
+								for m in range(width):
+									for l in range(depth):
+										if mask[k+height][i1*rh+i+m][j1*rw+j+l] or voxel_data[k+height][i1*rh+i+m][j1*rw+j+l] != current_material:
+											done = true
+											break
+									if done: break
+								if not done:
+									height += 1
+							var shape = BoxShape3D.new()
+							shape.size = Vector3(width, height, depth) 
+							var cshape = CollisionShape3D.new()
+							cshape.shape = shape
+							cshape.position = Vector3(int(i1*rh+i)+width/2.0,k+height/2.0,int(j1*rw+j)+depth/2.0)
+							cshape.position -= Vector3(0.5, 0.5, 0.5)
+							collisiondata[i1][j1].append([shape.size,cshape.position])
+							for ik in range(height):
+								for ii in range(width):
+									for ij in range(depth):
+										mask[k+ik][i1*rh+i+ii][j1*rw+j+ij] = true
+	return
+
+func create_multimesh_body(voxel_data: Array) -> StaticBody3D:
+	for i1 in range(multimeshdata.size()):
+		for j1 in range(multimeshdata[0].size()):
+			for i in range(rh):
+				if(i1*rh+i>=h):
+					continue
+				for j in range(rw):
+					if(j1*rw+j>=w):
+						continue
+					var k = int(floor(map[i1*rh+i][j1*rw+j]/0.1))
+					var curmap3d = map3d[k][i1*rh+i][j1*rw+j]
+					var curmap3dnum = map3dnum[k][i1*rh+i][j1*rw+j]
+					if curmap3d != -1 or curmap3dnum == -1:
+						continue
+					var que = Dequeue.new()
+					que.push_back([i1*rh+i,j1*rw+j,k])
+					multimeshdata[i1][j1].append([])
+					while not que.is_empty():
+						var cur = que.pop_front()
+						if(map3d[cur[2]][cur[0]][cur[1]]!=-1):
+							continue
+						map3d[cur[2]][cur[0]][cur[1]] = len(multimeshdata[i1][j1])-1
+						multimeshdata[i1][j1][len(multimeshdata[i1][j1])-1].push_back(cur)
+						if(cur[0]-1>=0&&cur[0]-1>=i1*rh):
+							if(map3dnum[cur[2]][cur[0]-1][cur[1]]==curmap3dnum&&map3d[cur[2]][cur[0]-1][cur[1]]==-1):
+								que.push_back([cur[0]-1,cur[1],cur[2]])
+						if(cur[0]+1<h&&cur[0]+1<(i1+1)*rh):
+							if(map3dnum[cur[2]][cur[0]+1][cur[1]]==curmap3dnum&&map3d[cur[2]][cur[0]+1][cur[1]]==-1):
+								que.push_back([cur[0]+1,cur[1],cur[2]])
+						if(cur[1]-1>=0&&cur[1]-1>=j1*rw):
+							if(map3dnum[cur[2]][cur[0]][cur[1]-1]==curmap3dnum&&map3d[cur[2]][cur[0]][cur[1]-1]==-1):
+								que.push_back([cur[0],cur[1]-1,cur[2]])
+						if(cur[1]+1<w&&cur[1]+1<(j1+1)*rw):
+							if(map3dnum[cur[2]][cur[0]][cur[1]+1]==curmap3dnum&&map3d[cur[2]][cur[0]][cur[1]+1]==-1):
+								que.push_back([cur[0],cur[1]+1,cur[2]])
+						if(cur[2]-1>=0):
+							if(map3dnum[cur[2]-1][cur[0]][cur[1]]==curmap3dnum&&map3d[cur[2]-1][cur[0]][cur[1]]==-1):
+								que.push_back([cur[0],cur[1],cur[2]-1])
+						if(cur[2]+1<len(map3dnum)):
+							if(map3dnum[cur[2]+1][cur[0]][cur[1]]==curmap3dnum&&map3d[cur[2]+1][cur[0]][cur[1]]==-1):
+								que.push_back([cur[0],cur[1],cur[2]+1])
+	return 
 func _ready():
 	if not player:
 		push_error("Player is not defined. Check terrain right panel to set player.")
@@ -429,7 +441,6 @@ func _ready():
 			for j in range(w):
 				row_for_z.append(-1) 
 			z_level_map.append(row_for_z)
-<<<<<<< HEAD
 		map3dnum.append(z_level_map)
 	
 	for k in range(50):
@@ -440,23 +451,34 @@ func _ready():
 				row_for_z.append(-1) 
 			z_level_map.append(row_for_z)
 		map3d.append(z_level_map)
-	
-	for k in range(50):
-		var z_level_map = []
-		for i in range(h):
-			var row_for_z = []
-			for j in range(w):
-				row_for_z.append([]) 
-			z_level_map.append(row_for_z)
-		collisiondata.append(z_level_map)
-=======
-		map3d.append(z_level_map)
-	
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
+	var chunkh = h/rh
+	var chunkw = w/rw
+	if(chunkw*rw<w):
+		chunkw+=1
+	if(chunkh*rh<h):
+		chunkh+=1
+	for i in range(chunkh):
+		var row_for_z = []
+		for j in range(chunkw):
+			row_for_z.append([])
+		collisiondata.append(row_for_z)
+	for i in range(chunkh):
+		var row_for_z = []
+		for j in range(chunkw):
+			row_for_z.append([])
+		multimeshdata.append(row_for_z)
+	for i in range(collisiondata.size()):
+		var row_for_z = []
+		for j in range(collisiondata[0].size()):
+			row_for_z.append([])
+		collisionmap.append(row_for_z)
+	for i in range(chunkh):
+		var row_for_z = []
+		for j in range(chunkw):
+			row_for_z.append([])
+		multimeshmap.append(row_for_z)
 	diamondsquare()
-	
 	smooth_terrain(10, 3.5)
-	
 	var sea_left: float = -1e9
 	var sea_right: float = 1e9
 	var seablocksum = 0
@@ -477,7 +499,6 @@ func _ready():
 			if(map[i][j] <= SEAHEIGHT):
 				map[i][j] = SEAHEIGHT
 				seablocksum += 1
-	playerpos = player.global_transform.origin
 	
 	var minheight_val = 1e9
 	var maxheight_val = -1e9
@@ -591,81 +612,9 @@ func _ready():
 			var around = int(floor(aroundheightmin[i][j]/0.1))
 			var diff = height-around
 			for k in range(diff+1):
-<<<<<<< HEAD
 				map3dnum[height-k][i][j] = assignnum[i][j]
-	for i in range(h):
-		for j in range(w):
-			var k = int(floor(map[i][j]/0.1))
-			var curmap3d = map3d[k][i][j]
-			var curmap3dnum = map3dnum[k][i][j]
-			if(curmap3d!=-1&&curmap3dnum==-1):
-				continue
-			var que = Dequeue.new()
-			que.push_back([i,j,k])
-			multimesharr.append([])
-			while not que.is_empty():
-				var cur = que.pop_front()
-				if(map3d[cur[2]][cur[0]][cur[1]]!=-1):
-					continue
-				map3d[cur[2]][cur[0]][cur[1]] = len(multimesharr)-1
-				multimesharr[len(multimesharr)-1].push_back(cur)
-				if(cur[0]-1>=0):
-					if(map3dnum[cur[2]][cur[0]-1][cur[1]]==curmap3dnum&&map3d[cur[2]][cur[0]-1][cur[1]]==-1):
-						que.push_back([cur[0]-1,cur[1],cur[2]])
-				if(cur[0]+1<h):
-					if(map3dnum[cur[2]][cur[0]+1][cur[1]]==curmap3dnum&&map3d[cur[2]][cur[0]+1][cur[1]]==-1):
-						que.push_back([cur[0]+1,cur[1],cur[2]])
-				if(cur[1]-1>=0):
-					if(map3dnum[cur[2]][cur[0]][cur[1]-1]==curmap3dnum&&map3d[cur[2]][cur[0]][cur[1]-1]==-1):
-						que.push_back([cur[0],cur[1]-1,cur[2]])
-				if(cur[1]+1<w):
-					if(map3dnum[cur[2]][cur[0]][cur[1]+1]==curmap3dnum&&map3d[cur[2]][cur[0]][cur[1]+1]==-1):
-						que.push_back([cur[0],cur[1]+1,cur[2]])
-				if(cur[2]-1>=0):
-					if(map3dnum[cur[2]-1][cur[0]][cur[1]]==curmap3dnum&&map3d[cur[2]-1][cur[0]][cur[1]]==-1):
-						que.push_back([cur[0],cur[1],cur[2]-1])
-				if(cur[2]+1<len(map3dnum)):
-					if(map3dnum[cur[2]+1][cur[0]][cur[1]]==curmap3dnum&&map3d[cur[2]+1][cur[0]][cur[1]]==-1):
-						que.push_back([cur[0],cur[1],cur[2]+1])
-	var static_body = get_parent().get_node("StaticBody3D")
-	var meshinstance = static_body.get_node("MeshInstance3D")
-	var template_mesh: Mesh
-	template_mesh = meshinstance.mesh
-	var cube = get_parent().get_node("cube")
-	for k in range(len(multimesharr)):
-		if multimesharr[k].is_empty():
-			continue
-		var multimesh = MultiMesh.new()
-		multimesh.transform_format = MultiMesh.TRANSFORM_3D
-		multimesh.mesh = template_mesh
-		multimesh.instance_count = len(multimesharr[k])
-		var multimeshinstance = MultiMeshInstance3D.new()
-		multimeshinstance.multimesh = multimesh
-		cube.add_child(multimeshinstance)
-		for l in range(len(multimesharr[k])):
-			var t = Transform3D()
-			t.origin = Vector3(multimesharr[k][l][0],multimesharr[k][l][2],multimesharr[k][l][1])
-			multimesh.set_instance_transform(l,t)
-		assign_material(multimesharr[k][0][0],multimesharr[k][0][1],multimesharr[k][0][2],multimeshinstance)
-	var physics_parent = Node3D.new()
-	physics_parent.name = "TerrainCollision"
-	add_child(physics_parent)
-	static_body = create_collision_body(map3dnum)
-	if static_body:
-		physics_parent.add_child(static_body)
-	print_debug(collcnt)
-=======
-				map3d[height-k][i][j] = assignnum[i][j]
-			for k in range(around):
-				print_debug(k)
-				map3d[k][i][j] = 0
-	for k in range(len(map3d)):
-		for i in range(h):
-			var prevnum = -1
-			for j in range(w):
-				if(map3d[k][i][j]==0):
-					map3d[k][i][j] = prevnum
-				else:
-					prevnum = map3d[k][i][j]
+	print(collisiondata.size())
+	template_mesh = get_parent().get_node("StaticBody3D/MeshInstance3D").mesh
+	create_multimesh_body(map3dnum)
+	create_collision_body(map3dnum)
 	
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f

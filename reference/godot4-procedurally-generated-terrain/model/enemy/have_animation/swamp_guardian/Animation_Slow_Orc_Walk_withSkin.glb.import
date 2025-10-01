@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://wpq3rqx3r12r"
-=======
-uid="uid://b63yngxvml5sm"
->>>>>>> ba02b9fdd8400b1ed783049398999d8e24a0759f
+uid="uid://dvgu5gs4oos5o"
 path="res://.godot/imported/Animation_Slow_Orc_Walk_withSkin.glb-f7beca9ed3b12af2c3dda5d01f146ea0.scn"
 
 [deps]
@@ -37,5 +33,5 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 _subresources={}
-gltf/naming_version=1
+gltf/naming_version=0
 gltf/embedded_image_handling=1
