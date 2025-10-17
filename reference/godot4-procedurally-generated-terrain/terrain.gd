@@ -6,12 +6,27 @@ extends Node3D
 @export var material_grass : Material = preload("res://texture/grass/material_grass.tres")
 @export var material_dirt : Material = preload("res://texture/dirt/material_dirt.tres")
 @export var material_water : Material = preload("res://texture/water/material_water.tres")
-
-var exp = 6
+@export var CAVE_MIN_SIZE = 8
+@export var CAVE_EXTRA_EDGES = 3
+@export var CAVE_HEIGHT = 5
+@export var CAVE_AUTOMATON_STEPS = 5
+@export_range(0.5, 1.0, 0.05) var CAVE_ENTRANCE_SOLIDITY_REQUIREMENT: float = 0.8
+var exp = 7
 var h = pow(2, exp) + 1
 var w = pow(2, exp) + 1
-var rh = 4
-var rw = 4
+var worldh = h*3
+var worldw = w*4
+var plane_start_h = h
+var plane_start_w = w*2
+var desert_start_h = h
+var desert_start_w = w
+var cave_start_h = h
+var cave_start_w = w*3/2
+var d = 80
+var entrance_width_radius: float = 3.0
+var entrance_height_radius: float = 3.0
+var rh = 32
+var rw = 32
 var collision
 var map = []
 var map3d = []
@@ -36,23 +51,12 @@ var collcnt = 0
 var template_mesh: Mesh
 var cube_node: Node3D
 var physics_parent: Node3D 
-#地形生成
-func diamondsquare(amplitude=1.5):
-	var size = h - 1
-	
-	for i in range(h):
-		for j in range(w):
-			map[i][j] = 0.0
+var bsp_leaf_nodes: Array = []
+var dungeon_grid: Array = []
 
-	map[0][0] = -1.5
-	map[0][w - 1] = -1.5
-	map[h - 1][0] = -1.5
-	map[h - 1][w - 1] = -1.5
-	map[size/2][0] = 2
-	map[size/2][size/8] = 2
-	map[size/2][size/4] = 2
-	map[size/2][size*3/8] = 2
-	map[size/2][size/2] = 2
+#地形生成
+func diamondsquare(map:Array,amplitude=1.5)->Array:
+	var size = h - 1
 	amplitude *= 0.65
 	size/=2
 	while size > 1:
@@ -91,9 +95,9 @@ func diamondsquare(amplitude=1.5):
 
 		size /= 2
 		amplitude *= 0.65
-
+	return map
 #地形のなだらかな部分を平坦化する関数
-func smooth_terrain(passes: int, threshold: float):
+func smooth_terrain(passes: int, threshold: float,map:Array):
 	for p in range(passes):
 		var read_map = []
 		for i in range(h):
@@ -123,7 +127,7 @@ func smooth_terrain(passes: int, threshold: float):
 						average_height += height_val
 					map[i][j] = average_height / 9.0
 
-func get_slope(i: int, j: int) -> float:
+func get_slope(i: int, j: int,map:Array) -> float:
 	var dx = 0.0
 	var dz = 0.0
 	if i > 0 and i < h - 1:
@@ -167,87 +171,423 @@ func assign_material(i:int,j:int,k:int,multimesh:MultiMeshInstance3D):
 	if map3dnum[k][i][j] == 5:
 		multimesh.material_override = material_dirt
 
-#マップ生成
-func assign_map(snowheight:float):
+class rectangle:
+	var x:int
+	var y:int
+	var w:int
+	var h:int
+	func _init(_x,_y,_w,_h):
+		x = _x
+		y = _y
+		w = _w
+		h = _h
+
+class edge:
+	var u:int
+	var v:int
+	var w:int
+	func _init(u,v,w):
+		self.u = u
+		self.v = v
+		self.w = w
+class dsu:
+	var parent = []
+	var rank = []
+	func _init(n):
+		parent.resize(n)
+		rank.resize(n)
+		for i in range(n):
+			parent[i] = i
+			rank[i] = 0
+	func find(x):
+		if parent[x] != x:
+			parent[x] = find(parent[x])
+		return parent[x]
+	func union(x,y):
+		var rx = find(x)
+		var ry = find(y)
+		if rx == ry:
+			return false
+		if rank[rx]<rank[ry]:
+			parent[rx] = ry
+		elif rank[rx]>rank[ry]:
+			parent[ry] = rx
+		else:
+			parent[ry] = rx
+			rank[rx] += 1
+		return true
+		
+func kruskal(n:int,edges:Array)->Array:
+	edges.sort_custom(func(a,b):return a.w<b.w)
+	var dsu = dsu.new(n)
+	var mst = []
+	var total_cost = 0
+	for e in edges:
+		if dsu.union(e.u,e.v):
+			mst.append(e)
+			total_cost += e.w
+	return mst
+	
+func bsp(rect:rectangle,min_size:int)->Array:
+	var result = []
+	if rect.w<min_size*2 and rect.h<min_size*2:
+		result.append(rect)
+		return result
+	 
+	var horizontal = false
+	if rect.w > rect.h and rect.w >= min_size*2:
+		horizontal = false
+	elif rect.h > rect.w and rect.h >= min_size*2:
+		horizontal = true
+	else:
+		horizontal = randi()%2 == 0
+	if horizontal and rect.h >= min_size*2:
+		var cut = randf_range(min_size,rect.h-min_size)
+		var r1 = rectangle.new(rect.x,rect.y,rect.w,cut)
+		var r2 = rectangle.new(rect.x,rect.y+cut,rect.w,rect.h-cut)
+		result.append_array(bsp(r1,min_size))
+		result.append_array(bsp(r2,min_size))
+	elif not horizontal and rect.w > min_size*2:
+		var cut = randf_range(min_size,rect.w-min_size)
+		var r1 = rectangle.new(rect.x,rect.y,cut,rect.h)
+		var r2 = rectangle.new(rect.x+cut,rect.y,rect.w-cut,rect.h)
+		result.append_array(bsp(r1,min_size))
+		result.append_array(bsp(r2,min_size))
+	else:
+		result.append(rect)
+	return result
+func make_graph(cells:Array)->Dictionary:
+	var graph = {}
+	for i in range(cells.size()):
+		graph[i] = []
+		for j in range(cells.size()):
+			if i!=j and cells[i].intersects(cells[j]):
+				graph[i].append(j)
+	return graph
+
+func make_room(cell:rectangle,map:Array,min_size:int=5)->rectangle:
+	var width
+	if cell.w > min_size:
+		width = randi()%(cell.w-min_size)+min_size
+	else:
+		width = cell.w
+	var height
+	if cell.h > min_size:
+		height = randi()%(cell.h-min_size)+min_size
+	else:
+		height = cell.h
+	var x
+	if cell.w > width:
+		x = cell.x+randi()%(cell.w-width)
+	else:
+		x = cell.x		
+	var y
+	if cell.h > height:
+		y = cell.y+randi()%(cell.h-height)
+	else:
+		y = cell.y
+	for i in range(y,y+height):
+		for j in range(x,x+width):
+			map[i][j] = -1
+	return rectangle.new(x,y,width,height)
+
+func make_corridor(map:Array,p1:Vector2,p2:Vector2):
+	if randf() < 0.5:
+		for x in range(min(p1.x,p2.x),max(p1.x,p2.x)+1):
+			if map[p1.y][x] != 1:
+				map[p1.y][x] = 0
+		for y in range(min(p1.y,p2.y),max(p1.y,p2.y)+1):
+			if map[y][p2.x] != 1:
+				map[y][p2.x] = 0
+	else:
+		for y in range(min(p1.y,p2.y),max(p1.y,p2.y)+1):
+			if map[y][p1.x] != 1:
+				map[y][p1.x] = 0
+		for x in range(min(p1.x,p2.x),max(p1.x,p2.x)+1):
+			if map[p2.y][x] != 1:
+				map[p2.y][x] = 0
+
+func cell_automaton(map:Array,steps:int=1):
+	for i in range(steps):
+		var nmap = map.duplicate(true)
+		for y in range(map.size()):
+			for x in range(map[0].size()):
+				if map[y][x] == 0:
+					continue
+				var wallcnt = 0
+				for dy in range(-1,2):
+					for dx in range(-1,2):
+						if dx == 0 and dy == 0:
+							continue
+						var ny = y+dy
+						var nx = x+dx
+						if ny < 0 or nx < 0 or ny >= map.size() or nx >= map[0].size():
+							wallcnt += 1
+						elif map[ny][nx] == 5:
+							wallcnt += 1
+				if wallcnt > 4:
+					nmap[y][x] = 5
+				else:
+					nmap[y][x] = -1
+		map = nmap
+	return map
+
+func bfs(map:Array) -> Array:
+	var labels = []
+	for y in range(map.size()):
+		labels.append([])
+		for x in range(map[0].size()):
+			labels[y].append(-1)
+	
+	var id = 0
+	for y in range(map.size()):
+		for x in range(map[0].size()):
+			if map[y][x] == -1 and labels[y][x] == -1:
+				var queue = [Vector2(x,y)]
+				while queue.size()>0:
+					var p = queue.pop_front()
+					if labels[p.y][p.x] != -1:
+						continue
+					labels[p.y][p.x] = id
+					if p.x-1>=0 :
+						if map[p.y][p.x-1]==-1 and labels[p.y][p.x-1] == -1:
+							queue.append(Vector2(p.x-1,p.y))
+					if p.y-1>=0 :
+						if map[p.y-1][p.x]==-1 and labels[p.y-1][p.x] == -1:
+							queue.append(Vector2(p.x,p.y-1))
+					if p.x+1<map[0].size():
+						if map[p.y][p.x+1]==-1 and labels[p.y][p.x+1] == -1:
+							queue.append(Vector2(p.x+1,p.y))
+					if p.y+1<map.size() :
+						if map[p.y+1][p.x]==-1 and labels[p.y+1][p.x] == -1:
+							queue.append(Vector2(p.x,p.y+1))
+				id += 1
+	return labels
+func generate_cave(width:int,height:int,floorheightmi:int,min_size:int=10):
+	var cavemap = []
+	var caves = []
+	for y in range(height):
+		cavemap.append([])
+		for x in range(width):
+			cavemap[y].append(5)
+	var root = rectangle.new(0,0,width,height)
+	var cells = bsp(root,min_size)
+	var rooms = []
+	for i in range(cells.size()):
+		rooms.append(make_room(cells[i],cavemap))
+	for i in range(cells.size()):
+		for y in range(cells[i].y+cells[i].h/4,cells[i].y+cells[i].h*3/4):
+			for x in range(cells[i].x+cells[i].w/4,cells[i].x+cells[i].w*3/4):
+				if cavemap[y][x]==-1:
+					cavemap[y][x] = 0
+	var edges = []
+	for i in range(rooms.size()):
+		for j in range(i+1,rooms.size()):
+			var dx = rooms[i].x-rooms[j].x
+			var dy = rooms[i].y-rooms[j].y
+			var dist = int(sqrt(dx*dx+dy*dy))
+			edges.append(edge.new(i,j,dist))
+	
+	var mst = kruskal(rooms.size(),edges)
+	for i in range(randi()%5+1):
+		mst.append(edges[randi()%edges.size()])
+	
+	for i in range(mst.size()):
+		var r1 = rooms[mst[i].u]
+		var r2 = rooms[mst[i].v]
+		var p1 = Vector2(r1.x+r1.w/2,r1.y+r1.h/2)
+		var p2 = Vector2(r2.x+r2.w/2,r2.y+r2.h/2)
+		make_corridor(cavemap,p1,p2)
+	
+	for y in range(1,height-1):
+		for x in range(1,width-1):
+			if (cavemap[y][x] == -1 or cavemap[y][x] == 1) and randf() < 0.1:
+				cavemap[y+randi_range(-1,1)][x+randi_range(-1,1)] = -1
+	
+	for y in range(height):
+		for x in range(width):
+			if y == 0 or x == 0 or y == height-1 or x == width-1:
+				cavemap[y][x] = 5
+	for i in range(5):
+		cavemap = cell_automaton(cavemap)
+	caves.append(cavemap)
+	for i in range(29-floorheightmi):
+		caves.append(cell_automaton(caves[i]))
+	for i in range(10):
+		for y in range(height):
+			for x in range(width):
+				if y == 0 or x == 0 or y == height-1 or x == width-1:
+					caves[i][y][x] = 5
+		for y in range(1,height-1):
+			for x in range(1,width-1):
+				if caves[i][y][x] == 0:
+					caves[i][y][x] = -1
+		var labels = bfs(caves[i])
+		var counts = {}
+		for y in range(height):
+			for x in range(width):
+				var id = labels[y][x]
+				if id != -1:
+					counts[id] = counts.get(id,0)+1
+		
+		var max_id = -1
+		var max_count = -1
+		for id in counts.keys():
+			if counts[id] > max_count:
+				max_count = counts[id]
+				max_id = id
+					
+		for y in range(height):
+			for x in range(width):
+				if labels[y][x] != max_id:
+					caves[i][y][x] = 5
+		for y in range(height):
+			for x in range(width):
+				if y == 0 or x == 0 or y == height-1 or x == width-1:
+					caves[i][y][x] = 5
+	return caves
+func find_cave_entrance(sth:int,stw:int,map:Array):
+	var candidates = []
+	for y in range(1,d):
+		for x in range(sth,sth+h):
+			for z in range(stw,stw+w):
+				if map3dnum[y][x][z] != 2:
+					continue
+				if map3dnum[y-1][x][z] != -1:
+					continue
+				if y+entrance_height_radius >= d or y-entrance_height_radius < 0:
+					continue
+				if x+entrance_width_radius < worldh and x-entrance_width_radius >= 0:
+					var ok = true
+					for dx in range(-entrance_width_radius,entrance_width_radius+1):
+						for dy in range(-entrance_height_radius,entrance_height_radius+1):
+							if (dx/entrance_width_radius)**2+(dy/entrance_height_radius)**2 > 1:
+								continue
+							var near = false
+							for dz in range(-1,2):
+								if z+dz >= worldw or z+dz < 0:
+									continue
+								if map3dnum[y+dy][x+dx][z+dz] == 2:
+									near = true
+							if !near:
+								ok = false
+					if ok:
+						if  map[x-sth][z-1-stw] < map[x-sth][z-stw] || map[x-sth][z-stw] < map[x-sth][z+1-stw]:
+							candidates.append([Vector3i(x,y,z),0,1])
+						else:
+							candidates.append([Vector3i(x,y,z),0,0])
+					ok = true
+					for dz in range(-entrance_width_radius,entrance_width_radius+1):
+						for dy in range(entrance_height_radius+1):
+							if (dz/entrance_width_radius)**2+(dy/entrance_height_radius)**2 > 1:
+								continue
+							var near = false
+							if y+dy < 0 or y+dy >= d or z+dz < 0 or z+dz >= worldw:
+								ok = false
+								continue
+							for dx in range(-1,2):
+								if x+dx >= worldh or x+dx < 0:
+									continue
+								if map3dnum[y+dy][x+dx][z+dz] == 2:
+									near = true
+							if !near:
+								ok = false
+					if ok:
+						if  map[x-1-sth][z-stw] < map[x-sth][z-stw] or map[x-sth][z-stw] < map[x+1-sth][z-stw]:
+							candidates.append([Vector3i(x,y,z),1,1])
+						else:
+							candidates.append([Vector3i(x,y,z),1,0])
+						
+	if candidates.is_empty():
+		print("ERROR: No suitable and accessible cave entrance location found.")
+		return null
+		
+	return candidates.pick_random()
+								
+func find_longest_point(cave:Array,st:Vector2i)->Vector2i:
+	var dist = cave.duplicate(true)
+	var caveh = cave.size()
+	var cavew = cave[0].size()
+	for i in range(caveh):
+		for j in range(cavew):
+			dist[i][j] = 1e9
+	dist[st.x][st.y] = 0
+	var que = Dequeue.new()
+	que.push_back(st.x*cavew+st.y)
+	while que.size() > 0:
+		var q = que.peek_front()
+		que.pop_front()
+		var i = q/cavew
+		var j = q%cavew
+		if i-1 >= 0:
+			if cave[i-1][j] != 5 and dist[i-1][j] > dist[i][j]+1:
+				dist[i-1][j] = dist[i][j]+1
+				que.push_back((i-1)*cavew+j)
+		if i+1 < caveh:
+			if cave[i+1][j] != 5 and dist[i+1][j] > dist[i][j]+1:
+				dist[i+1][j] = dist[i][j]+1
+				que.push_back((i+1)*cavew+j)
+		if j-1 >= 0:
+			if cave[i][j-1] != 5 and dist[i][j-1] > dist[i][j]+1:
+				dist[i][j-1] = dist[i][j]+1
+				que.push_back(i*cavew+j-1)
+		if j+1 < cavew:
+			if cave[i][j+1] != 5 and dist[i][j+1] > dist[i][j]+1:
+				dist[i][j+1] = dist[i][j]+1
+				que.push_back(i*cavew+j+1)
+	var px = -1
+	var py = -1
+	var cur = -1
+	for i in range(caveh):
+		for j in range(cavew):
+			if dist[i][j] == 1e9:
+				continue
+			if cur < dist[i][j]:
+				cur = dist[i][j]
+				px = i
+				py = j
+	return Vector2i(px,py)
+	
+func assign_map(snowheight:float,assignnum:Array,map:Array,max_height:float)->Array:
 	# --- パラメータ ---
 	var SNOW_START_HEIGHT = snowheight
 	var ROCK_SLOPE_MIN = 0.55
 	var ROCK_HEIGHT_FACTOR = 0.3
-	
-	var image = Image.create(w/2, h/2, false, Image.FORMAT_RGB8)
-	for k in range(h/2+1):
-		for l in range(w/2+1):
-			var dirtcount = 0
-			var grasscount = 0
-			var rockcount = 0
-			var snowcount = 0
-			var watercount = 0
-			var avgheight = 0.0
+	for i in range(h):
+		for j in range(w):
+			if(i>=h||j>=w):
+				continue
 			
-			for i in range(2):
-				for j in range(2):
-					var world_i = k * 2 + i
-					var world_j = l * 2 + j
-					if(world_i>=h||world_j>=w):
-						continue
-					
-					var current_height = map[world_i][world_j]
-					
-					var slope = get_slope(world_i, world_j)
-					var normalized_height = current_height / max_height if max_height > 0 else 0.0
-					avgheight += normalized_height
-					
-					# --- マテリアル割り当てロジック (優先度順) ---
-					# 1. 海
-					if current_height == 0.0:
-						watercount += 1
-						assignnum[world_i][world_j] = 1
-						continue
-					
-					# 2. 岩
-					var rock_slope_threshold = ROCK_SLOPE_MIN - (normalized_height * ROCK_HEIGHT_FACTOR)
-					if slope > rock_slope_threshold:
-						rockcount += 1
-						assignnum[world_i][world_j] = 2
-						continue
+			var current_height = map[i][j]
+			
+			var slope = get_slope(i,j,map)
+			var normalized_height = current_height / max_height if max_height > 0 else 0.0
+			
+			# --- マテリアル割り当てロジック (優先度順) ---
+			# 1. 海
+			if current_height == 0.0:
+				assignnum[i][j] = 1
+				continue
+			
+			# 2. 岩
+			var rock_slope_threshold = ROCK_SLOPE_MIN - (normalized_height * ROCK_HEIGHT_FACTOR)
+			if slope > rock_slope_threshold:
+				assignnum[i][j] = 2
+				continue
 
-					# 3. 雪
-					if normalized_height > SNOW_START_HEIGHT:
-						snowcount += 1
-						assignnum[world_i][world_j] = 3
-						continue
+			# 3. 雪
+			if normalized_height > SNOW_START_HEIGHT:
+				assignnum[i][j] = 3
+				continue
 
-					### 変更: 残りのエリアを草と土で1:1に分割
-					var n = (noise.get_noise_2d(float(world_i), float(world_j)) + 1.0) / 2.0
-					if n < 0.5:
-						grasscount += 1
-						assignnum[world_i][world_j] = 4
-					else:
-						dirtcount += 1
-						assignnum[world_i][world_j] = 5
-
-			var color : Color
-			avgheight /= 4
-			# 最も多い種類のブロックの色をピクセルに設定
-			if watercount >= max(snowcount, rockcount, grasscount, dirtcount):
-				color = Color8(0, 0, 200)
-			elif snowcount >= max(rockcount, grasscount, dirtcount):
-				color = Color8(240, 240, 240)
-			elif rockcount >= max(grasscount, dirtcount):
-				color = Color8(100, 100, 100)
-			elif grasscount >= dirtcount:
-				color = Color8(0, 160, 0)
+			### 変更: 残りのエリアを草と土で1:1に分割
+			var n = (noise.get_noise_2d(float(i), float(j)) + 1.0) / 2.0
+			if n < 0.5:
+				assignnum[i][j] = 4
 			else:
-				color = Color8(110, 80, 50)
-			
-			color.a *= avgheight
-			image.set_pixel(l, k, color)
+				assignnum[i][j] = 5
 
-	var tex = ImageTexture.create_from_image(image)
-	var texture_rect = get_parent().get_node("CanvasLayer/map/TextureRect") as TextureRect
-	texture_rect.texture = tex
-	texture_rect.scale *= 2
-	texture_rect.position = Vector2(300,100)
+	return assignnum
 
 func _process(delta):
 	var cur_pos = player.global_transform.origin
@@ -303,7 +643,28 @@ func update_visibility(center_pos: Vector3):
 				#multimeshmap[i][j][0].queue_free()
 				#collisionmap[i][j].pop_back()
 				#multimeshmap[i][j].pop_back()
-
+func assign_aroundheightmin(aroundheightmin:Array,map:Array)->Array:
+	for i in range(h):
+		for j in range(w):
+			if i - 1 >= 0 and j - 1 >= 0:
+				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i - 1][j - 1])
+			if i - 1 >= 0:
+				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i - 1][j])
+			if i - 1 >= 0 and j + 1 < w:
+				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i - 1][j + 1])
+			if j + 1 < w:
+				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i][j + 1])
+			if i + 1 < h and j + 1 < w:
+				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i + 1][j + 1])
+			if i + 1 < h:
+				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i + 1][j])
+			if i + 1 < h and j - 1 >= 0:
+				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i + 1][j - 1])
+			if j - 1 >= 0:
+				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i][j - 1])
+			aroundheightmin[i][j] = min(map[i][j], aroundheightmin[i][j])
+	return aroundheightmin
+	
 #コリジョンを生成する関数
 func create_collision_body(voxel_data: Array) -> StaticBody3D:
 	var static_body = StaticBody3D.new()
@@ -325,20 +686,20 @@ func create_collision_body(voxel_data: Array) -> StaticBody3D:
 		for i1 in range(collisiondata.size()):
 			for j1 in range(collisiondata[0].size()):
 				for i in range(rh):
-					if(i1*rh+i>=h):
+					if(i1*rh+i>=worldh):
 						continue
 					for j in range(rw):
-						if(j1*rw+j>=w):
+						if(j1*rw+j>=worldw):
 							continue
 						if not mask[k][i1*rh+i][j1*rw+j] and voxel_data[k][i1*rh+i][j1*rw+j] != -1:
 							var current_material = voxel_data[k][i1*rh+i][j1*rw+j]
 							var depth = 1
-							while j1*rw+j+depth<w and j+depth<rw and not mask[k][int(i1*rh+i)][int(j1*rw+j+depth)] and voxel_data[k][int(i1*rh+i)][int(j1*rw+j+depth)] == current_material:
+							while j1*rw+j+depth<worldw and j+depth<rw and not mask[k][int(i1*rh+i)][int(j1*rw+j+depth)] and voxel_data[k][int(i1*rh+i)][int(j1*rw+j+depth)] == current_material:
 								depth += 1
 						
 							var width = 1
 							var done = false
-							while i1*rh+i+width<h and i+width<rh and not done:
+							while i1*rh+i+width<worldh and i+width<rh and not done:
 								for l in range(depth):
 									if mask[k][i1*rh+i+width][j1*rw+j+l] or voxel_data[k][i1*rh+i+width][j1*rw+j+l] != current_material:
 										done = true
@@ -368,49 +729,150 @@ func create_collision_body(voxel_data: Array) -> StaticBody3D:
 									for ij in range(depth):
 										mask[k+ik][i1*rh+i+ii][j1*rw+j+ij] = true
 	return
-
 func create_multimesh_body(voxel_data: Array) -> StaticBody3D:
-	for i1 in range(multimeshdata.size()):
-		for j1 in range(multimeshdata[0].size()):
-			for i in range(rh):
-				if(i1*rh+i>=h):
-					continue
-				for j in range(rw):
-					if(j1*rw+j>=w):
+	for k in range(voxel_data.size()):
+		for i1 in range(multimeshdata.size()):
+			for j1 in range(multimeshdata[0].size()):
+				for i in range(rh):
+					if(i1*rh+i>=worldh):
 						continue
-					var k = int(floor(map[i1*rh+i][j1*rw+j]/0.1))
-					var curmap3d = map3d[k][i1*rh+i][j1*rw+j]
-					var curmap3dnum = map3dnum[k][i1*rh+i][j1*rw+j]
-					if curmap3d != -1 or curmap3dnum == -1:
-						continue
-					var que = Dequeue.new()
-					que.push_back([i1*rh+i,j1*rw+j,k])
-					multimeshdata[i1][j1].append([])
-					while not que.is_empty():
-						var cur = que.pop_front()
-						if(map3d[cur[2]][cur[0]][cur[1]]!=-1):
+					for j in range(rw):
+						if(j1*rw+j>=worldw):
 							continue
-						map3d[cur[2]][cur[0]][cur[1]] = len(multimeshdata[i1][j1])-1
-						multimeshdata[i1][j1][len(multimeshdata[i1][j1])-1].push_back(cur)
-						if(cur[0]-1>=0&&cur[0]-1>=i1*rh):
-							if(map3dnum[cur[2]][cur[0]-1][cur[1]]==curmap3dnum&&map3d[cur[2]][cur[0]-1][cur[1]]==-1):
-								que.push_back([cur[0]-1,cur[1],cur[2]])
-						if(cur[0]+1<h&&cur[0]+1<(i1+1)*rh):
-							if(map3dnum[cur[2]][cur[0]+1][cur[1]]==curmap3dnum&&map3d[cur[2]][cur[0]+1][cur[1]]==-1):
-								que.push_back([cur[0]+1,cur[1],cur[2]])
-						if(cur[1]-1>=0&&cur[1]-1>=j1*rw):
-							if(map3dnum[cur[2]][cur[0]][cur[1]-1]==curmap3dnum&&map3d[cur[2]][cur[0]][cur[1]-1]==-1):
-								que.push_back([cur[0],cur[1]-1,cur[2]])
-						if(cur[1]+1<w&&cur[1]+1<(j1+1)*rw):
-							if(map3dnum[cur[2]][cur[0]][cur[1]+1]==curmap3dnum&&map3d[cur[2]][cur[0]][cur[1]+1]==-1):
-								que.push_back([cur[0],cur[1]+1,cur[2]])
-						if(cur[2]-1>=0):
-							if(map3dnum[cur[2]-1][cur[0]][cur[1]]==curmap3dnum&&map3d[cur[2]-1][cur[0]][cur[1]]==-1):
-								que.push_back([cur[0],cur[1],cur[2]-1])
-						if(cur[2]+1<len(map3dnum)):
-							if(map3dnum[cur[2]+1][cur[0]][cur[1]]==curmap3dnum&&map3d[cur[2]+1][cur[0]][cur[1]]==-1):
-								que.push_back([cur[0],cur[1],cur[2]+1])
+						var curmap3d = map3d[k][i1*rh+i][j1*rw+j]
+						var curmap3dnum = map3dnum[k][i1*rh+i][j1*rw+j]
+						if curmap3d != -1 or curmap3dnum == -1:
+							continue
+						var que = Dequeue.new()
+						que.push_back([i1*rh+i,j1*rw+j,k])
+						multimeshdata[i1][j1].append([])
+						while not que.is_empty():
+							var cur = que.pop_front()
+							if(map3d[cur[2]][cur[0]][cur[1]]!=-1):
+								continue
+							map3d[cur[2]][cur[0]][cur[1]] = len(multimeshdata[i1][j1])-1
+							multimeshdata[i1][j1][len(multimeshdata[i1][j1])-1].push_back(cur)
+							if(cur[0]-1>=0&&cur[0]-1>=i1*rh):
+								if(map3dnum[cur[2]][cur[0]-1][cur[1]]==curmap3dnum&&map3d[cur[2]][cur[0]-1][cur[1]]==-1):
+									que.push_back([cur[0]-1,cur[1],cur[2]])
+							if(cur[0]+1<worldh&&cur[0]+1<(i1+1)*rh):
+								if(map3dnum[cur[2]][cur[0]+1][cur[1]]==curmap3dnum&&map3d[cur[2]][cur[0]+1][cur[1]]==-1):
+									que.push_back([cur[0]+1,cur[1],cur[2]])
+							if(cur[1]-1>=0&&cur[1]-1>=j1*rw):
+								if(map3dnum[cur[2]][cur[0]][cur[1]-1]==curmap3dnum&&map3d[cur[2]][cur[0]][cur[1]-1]==-1):
+									que.push_back([cur[0],cur[1]-1,cur[2]])
+							if(cur[1]+1<worldw&&cur[1]+1<(j1+1)*rw):
+								if(map3dnum[cur[2]][cur[0]][cur[1]+1]==curmap3dnum&&map3d[cur[2]][cur[0]][cur[1]+1]==-1):
+									que.push_back([cur[0],cur[1]+1,cur[2]])
+							if(cur[2]-1>=0):
+								if(map3dnum[cur[2]-1][cur[0]][cur[1]]==curmap3dnum&&map3d[cur[2]-1][cur[0]][cur[1]]==-1):
+									que.push_back([cur[0],cur[1],cur[2]-1])
+							if(cur[2]+1<len(map3dnum)):
+								if(map3dnum[cur[2]+1][cur[0]][cur[1]]==curmap3dnum&&map3d[cur[2]+1][cur[0]][cur[1]]==-1):
+									que.push_back([cur[0],cur[1],cur[2]+1])
 	return 
+func assign_maze_entrance(maze_start:Vector2i,floor:Array,floorheightmin:Array,caves:Array):
+	var mazeentrance_candidate = []
+	var height = int(floor(floor[maze_start.x][maze_start.y]/0.1))
+	var around = int(floor(floorheightmin[maze_start.x][maze_start.y]/0.1))
+	var diff = height-around
+	if caves[maze_start.x-1][maze_start.y] == 5 and caves[maze_start.x][maze_start.y-1] == 5:
+		mazeentrance_candidate.append([Vector3(maze_start.x-1,height-diff+10+entrance_height_radius,maze_start.y+entrance_width_radius),1,0])
+		mazeentrance_candidate.append([Vector3(maze_start.x+entrance_width_radius,height-diff+10+entrance_height_radius,maze_start.y-1),0,0])
+	if caves[maze_start.x+1][maze_start.y] == 5 and caves[maze_start.x][maze_start.y+1] == 5:
+		mazeentrance_candidate.append([Vector3(maze_start.x+1,height-diff+10+entrance_height_radius,maze_start.y-entrance_width_radius),1,1])
+		mazeentrance_candidate.append([Vector3(maze_start.x-entrance_width_radius,height-diff+10+entrance_height_radius,maze_start.y+1),0,1])
+	if caves[maze_start.x-1][maze_start.y] == 5 and caves[maze_start.x][maze_start.y+1] == 5:
+		mazeentrance_candidate.append([Vector3(maze_start.x-1,height-diff+10+entrance_height_radius,maze_start.y-entrance_width_radius),1,0])
+		mazeentrance_candidate.append([Vector3(maze_start.x+entrance_width_radius,height-diff+10+entrance_height_radius,maze_start.y+1),0,1])
+	if caves[maze_start.x+1][maze_start.y] == 5 and caves[maze_start.x][maze_start.y-1] == 5:
+		mazeentrance_candidate.append([Vector3(maze_start.x+1,height-diff+10+entrance_height_radius,maze_start.y+entrance_width_radius),1,1])
+		mazeentrance_candidate.append([Vector3(maze_start.x-entrance_width_radius,height-diff+10+entrance_height_radius,maze_start.y-1),0,0])
+	return mazeentrance_candidate.pick_random()
+func get_direction(ax:int,pol:int)->Vector3:
+	if ax == 0:
+		return Vector3(0,0,1) if pol == 0 else Vector3(0,0,-1)
+	else:
+		return Vector3(1,0,0) if pol == 0 else Vector3(-1,0,0)
+func bezie_curve(p0:Vector3,p1:Vector3,p2:Vector3,p3:Vector3,t:float)->Vector3:
+	var u = 1.0-t
+	var t2 = t*t
+	var u2 = u*u
+	var u3 = u2*u
+	var t3 = t2*t
+	var point = u3*p0
+	point += 3*u2*t*p1
+	point += 3*u*t2*p2
+	point += t3*p3
+	return point
+func carve_tunnel(p0:Vector3,p1:Vector3,p2:Vector3,p3:Vector3):
+	var steps = 150
+	var widthr = entrance_width_radius
+	var heightr = entrance_height_radius
+	var dirt_pad = 1
+	var lastpos = Vector3i.ONE*-1
+	for i in range(steps+1):
+		var t = float(i)/steps
+		var p_cur = bezie_curve(p0,p1,p2,p3,t)
+		var p_next = bezie_curve(p0,p1,p2,p3,t+0.01)
+		var tan = (p_next-p_cur).normalized()
+		var right = tan.cross(Vector3.UP).normalized()
+		var up = right.cross(tan).normalized()
+		var wholew = int(widthr+dirt_pad)
+		var wholeh = int(heightr+dirt_pad)
+		for j in range(-wholew,wholew+1):
+			for k in range(-wholeh,wholeh+1):
+				var worldpos_f = p_cur+(right*j)+(up*k)
+				var worldpos = Vector3i(round(worldpos_f.x),round(worldpos_f.y),round(worldpos_f.z))
+				if worldpos == lastpos:
+					continue
+				lastpos = worldpos
+				if worldpos.x < 0 or worldpos.x >= worldh or worldpos.y < 0 or worldpos.y >= d or worldpos.z < 0 or worldpos.z >= worldw:
+					continue
+				var isin = false
+				if (float(j/widthr))**2+(float(k/heightr))**2 < 1:
+					isin = true
+				if isin:
+					map3dnum[worldpos.y][worldpos.x][worldpos.z] = -1
+				else:
+					map3dnum[worldpos.y][worldpos.x][worldpos.z] = 5
+func make_tunnel(caveentrance:Array,mazeentrance:Array):
+	var p0 = Vector3(caveentrance[0])	
+	var p3 = Vector3(mazeentrance[0]+Vector3(cave_start_h,0,cave_start_w))
+	var p0dir = get_direction(caveentrance[1],caveentrance[2])
+	var p3dir = get_direction(mazeentrance[1],mazeentrance[2])
+	var horizontal_distance = (p0*Vector3(1,0,1)).distance_to(p3*Vector3(1,0,1))
+	var threshold = entrance_width_radius*4.0
+	var curve_depth = p0.distance_to(p3) / 3.0
+	p0 += p0dir*4
+	p3 += p3dir*3
+	var	p1 = (p0-p0dir*2*curve_depth)-Vector3(0,curve_depth*0.75,0)
+	var	p2 = (p3-p3dir*2*curve_depth)+Vector3(0,curve_depth*0.75,0)
+	
+	carve_tunnel(p0,p1,p2,p3)
+
+func sea(map:Array):
+	var sea_left: float = -1e9
+	var sea_right: float = 1e9
+	var seablocksum = 0
+	while (sea_right - sea_left > 0.01):
+		var sea_mid: float = (sea_left + sea_right) / 2
+		var count = 0
+		for i in range(h):
+			for j in range(w):
+				if map[i][j] <= sea_mid:
+					count += 1
+		if count >= h * w / 4:
+			sea_right = sea_mid
+		else:
+			sea_left = sea_mid
+	SEAHEIGHT = sea_right
+	for i in range(h):
+		for j in range(w):
+			if(map[i][j] <= SEAHEIGHT):
+				map[i][j] = SEAHEIGHT
+				
+	return [map,seablocksum]
 func _ready():
 	if not player:
 		push_error("Player is not defined. Check terrain right panel to set player.")
@@ -434,28 +896,28 @@ func _ready():
 		assignnum.append(row_map1)
 		aroundheightmin.append(row_around)
 	
-	for k in range(50): # 50は高さ
+	for k in range(d): 
 		var z_level_map = []
-		for i in range(h):
+		for i in range(worldh):
 			var row_for_z = []
-			for j in range(w):
+			for j in range(worldw):
 				row_for_z.append(-1) 
 			z_level_map.append(row_for_z)
 		map3dnum.append(z_level_map)
 	
-	for k in range(50):
+	for k in range(d):
 		var z_level_map = []
-		for i in range(h):
+		for i in range(worldh):
 			var row_for_z = []
-			for j in range(w):
+			for j in range(worldw):
 				row_for_z.append(-1) 
 			z_level_map.append(row_for_z)
 		map3d.append(z_level_map)
-	var chunkh = h/rh
-	var chunkw = w/rw
-	if(chunkw*rw<w):
+	var chunkh = worldh/rh
+	var chunkw = worldw/rw
+	if(chunkw*rw<worldw):
 		chunkw+=1
-	if(chunkh*rh<h):
+	if(chunkh*rh<worldh):
 		chunkh+=1
 	for i in range(chunkh):
 		var row_for_z = []
@@ -477,34 +939,25 @@ func _ready():
 		for j in range(chunkw):
 			row_for_z.append([])
 		multimeshmap.append(row_for_z)
-	diamondsquare()
-	smooth_terrain(10, 3.5)
-	var sea_left: float = -1e9
-	var sea_right: float = 1e9
-	var seablocksum = 0
-	while (sea_right - sea_left > 0.01):
-		var sea_mid: float = (sea_left + sea_right) / 2
-		var count = 0
-		for i in range(h):
-			for j in range(w):
-				if map[i][j] <= sea_mid:
-					count += 1
-		if count >= h * w / 4:
-			sea_right = sea_mid
-		else:
-			sea_left = sea_mid
-	SEAHEIGHT = sea_right
-	for i in range(h):
-		for j in range(w):
-			if(map[i][j] <= SEAHEIGHT):
-				map[i][j] = SEAHEIGHT
-				seablocksum += 1
-	
+	#草原の生成
+	map[0][0] = -1.5
+	map[0][w - 1] = -1.5
+	map[h - 1][0] = -1.5
+	map[h - 1][w - 1] = -1.5
+	map[0][w/2] = -1.5
+	map[h/2][w - 1] = -1.5
+	map[h - 1][w/2] = -1.5
+	map[h/2][h/2] = 2
+	map = diamondsquare(map)
+	smooth_terrain(10,3.5,map)
+	var resmap = sea(map)
+	var seablocksum =resmap[1]
+	map = resmap[0]
 	var minheight_val = 1e9
 	var maxheight_val = -1e9
 	for i in range(h):
 		for j in range(w):
-			if map[i][j] > SEAHEIGHT: # 海は計算に含めない
+			if map[i][j] > SEAHEIGHT:
 				minheight_val = min(minheight_val, map[i][j])
 			maxheight_val = max(maxheight_val, map[i][j])
 
@@ -512,8 +965,8 @@ func _ready():
 		for j in range(w):
 			if map[i][j] > SEAHEIGHT:
 				map[i][j] -= minheight_val
-			else: # 海は0にします
-				map[i][j] = 0.0
+			else:
+				map[i][j] = 0
 	
 	maxheight_val -= minheight_val
 
@@ -532,7 +985,7 @@ func _ready():
 		else:
 			heightright = heightmid
 	snow_threshold = heightleft
-	
+	#雪山の生成
 	var snowsegmentation = []
 	for i in range(h):
 		var arr = []
@@ -548,7 +1001,7 @@ func _ready():
 				queue.push_back([i,j])
 				snowsegmentation[i][j] = segmentnum # 先にマークして重複を防ぐ
 				
-				while(len(queue)>0): # <-- ifブロックの内側に移動
+				while(len(queue)>0):
 					var p = queue.front()
 					queue.pop_front()
 					
@@ -563,7 +1016,7 @@ func _ready():
 							snowsegmentation[nx][ny] = segmentnum
 							queue.push_back([nx, ny])
 							
-				segmentnum += 1 # <-- 連結成分を1つ見つけ終えたので、カウンターを増やす
+				segmentnum += 1
 	var segmentsize = []
 	for i in range(segmentnum):
 		segmentsize.append(0)
@@ -586,34 +1039,199 @@ func _ready():
 	max_height = maxheight_val + snowseparation
 	SNOWHEIGHT = snow_threshold / max_height
 	
+	aroundheightmin = assign_aroundheightmin(aroundheightmin,map)
+	assignnum = assign_map(SNOWHEIGHT,assignnum,map,max_height)
+	for i in range(h):
+		aroundheightmin[i][0] = 0
+		aroundheightmin[i][w-1] = 0
+	for i in range(w):
+		aroundheightmin[0][i] = 0
+		aroundheightmin[h-1][i] = 0			
+	for i in range(worldh):
+		for j in range(worldw):
+			if i >= h and i < 2*h and j >= 2*w and j < 3*w:
+				continue
+			map3dnum[30][i][j] = 1
 	for i in range(h):
 		for j in range(w):
-			if i - 1 >= 0 and j - 1 >= 0:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i - 1][j - 1])
-			if i - 1 >= 0:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i - 1][j])
-			if i - 1 >= 0 and j + 1 < w:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i - 1][j + 1])
-			if j + 1 < w:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i][j + 1])
-			if i + 1 < h and j + 1 < w:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i + 1][j + 1])
-			if i + 1 < h:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i + 1][j])
-			if i + 1 < h and j - 1 >= 0:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i + 1][j - 1])
-			if j - 1 >= 0:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i][j - 1])
-			aroundheightmin[i][j] = min(map[i][j], aroundheightmin[i][j])
-	assign_map(SNOWHEIGHT)
+			map[i][j] += 3.0
+			aroundheightmin[i][j] += 3.0
 	for i in range(h):
 		for j in range(w):
 			var height = int(floor(map[i][j]/0.1))
 			var around = int(floor(aroundheightmin[i][j]/0.1))
 			var diff = height-around
 			for k in range(diff+1):
-				map3dnum[height-k][i][j] = assignnum[i][j]
-	print(collisiondata.size())
+				map3dnum[height-k][i+plane_start_h][j+plane_start_w] = assignnum[i][j]
+	#洞窟生成
+	var floor = []#迷路の床
+	var floorheightmin = []
+	var ceiling = []#迷路の天井
+	var ceilingheightmin = []
+	for i in range(h):
+		var row_map = []
+		var row_around = []
+		for j in range(w):
+			row_map.append(0.0)
+			row_around.append(999999.0)
+		floor.append(row_map)
+		floorheightmin.append(row_around)
+	for i in range(h):
+		var row_map = []
+		var row_around = []
+		for j in range(w):
+			row_map.append(0.0)
+			row_around.append(999999.0)
+		ceiling.append(row_map)
+		ceilingheightmin.append(row_around)
+	floor = diamondsquare(floor,0.70)
+	ceiling = diamondsquare(ceiling,0.70)
+	smooth_terrain(10,3.5,floor)
+	smooth_terrain(10,3.5,ceiling)
+	floorheightmin = assign_aroundheightmin(floorheightmin,floor)
+	ceilingheightmin = assign_aroundheightmin(ceilingheightmin,ceiling)
+	var floorheightmax = 0
+	var floorheightmi = 1e9
+	var ceilingheightmax = 0
+	var ceilingheightmi = 1e9
+	var dist_ceil_groundmin = 1e9
+	
+	for i in range(h):
+		for j in range(w):
+			floorheightmi = min(floorheightmi,floor[i][j])
+			ceilingheightmi = min(ceilingheightmi,ceiling[i][j])
+	for i in range(h):
+		for j in range(w):
+			floor[i][j] -= floorheightmi
+			floorheightmin[i][j] -= floorheightmi
+			ceiling[i][j] -= ceilingheightmi
+			ceilingheightmin[i][j] -= ceilingheightmi
+	floorheightmi = 0
+	ceilingheightmi = 0
+	for i in range(h):
+		for j in range(w):
+			var height = floor[i][j]
+			floorheightmax = max(floorheightmax,height)
+			var height1 = ceiling[i][j]
+			ceilingheightmax = max(ceilingheightmax,height1)
+	for i in range(h):
+		for j in range(w):
+			var height = floor[i][j]
+			var height1 = ceiling[i][j]
+			dist_ceil_groundmin	 = min(dist_ceil_groundmin,height1-height)
+	for i in range(h):
+		for j in range(w):
+			ceiling[i][j] += 0.3-dist_ceil_groundmin
+			ceilingheightmin[i][j] += 0.3-dist_ceil_groundmin
+	ceilingheightmax += 0.3-dist_ceil_groundmin
+	ceilingheightmi += 0.3-dist_ceil_groundmin
+	for i in range(h):
+		for j in range(w):
+			var height = int(floor(floor[i][j]/0.1))
+			var around = int(floor(floorheightmin[i][j]/0.1))
+			var diff = height-around
+			var height1 = int(floor(ceiling[i][j]/0.1))
+			var around1 = int(floor(ceilingheightmin[i][j]/0.1))
+			var diff1 = height1-around1
+			for k in range(diff+1):
+				map3dnum[height-k+10][i+cave_start_h][j+cave_start_w] = 5
+			for k in range(diff1+1):
+				map3dnum[height1-k+10][i+cave_start_h][j+cave_start_w] = 5
+	floorheightmi *= 10
+	floorheightmi += 10
+	floorheightmax *= 10
+	floorheightmax += 10
+	ceilingheightmax *= 10
+	ceilingheightmax += 10
+	ceilingheightmi *= 10
+	ceilingheightmi += 10
+	var caves = generate_cave(w,h,floorheightmi)#迷路
+	for k in range(floorheightmi,30):
+		for i in range(h):
+			for j in range(w):
+				if caves[k-floorheightmi][i][j] == 5:
+					map3dnum[k][i+cave_start_h][j+cave_start_w] = 5
+	#砂漠生成
+	var desert = []
+	var desertheightmin = []
+	var desertassignnum = []
+	for i in range(h):
+		var row_map = []
+		var row_around = []
+		var row_assignnum = []
+		for j in range(w):
+			row_map.append(0.0)
+			row_around.append(999999.0)
+			row_assignnum.append(-1)
+		desert.append(row_map)
+		desertheightmin.append(row_around)
+		desertassignnum.append(row_assignnum)
+	desert[0][0] = -1.0
+	desert[0][w-1] = -1.0
+	desert[h-1][0] = -1.0
+	desert[h-1][w-1] = -1.0
+	desert = diamondsquare(desert,0.75)
+	smooth_terrain(10,0.5,desert)
+	var desert_plane_diff = -1e9
+	var desertheightmi = 1e9
+	var desertheightmax = -1e9
+	for i in range(h):
+		for j in range(w):
+			desertheightmi = min(desertheightmi,desert[i][j])
+			desertheightmax = max(desertheightmax,desert[i][j])
+	for i in range(h):
+		for j in range(w):
+			desert[i][j] -= desertheightmi
+	desertheightmax -= desertheightmi
+	var resdesert = sea(desert)
+	desert = resdesert[0]
+	desertheightmin = assign_aroundheightmin(desertheightmin,desert)
+	for i in range(h):
+		desert_plane_diff = max(desert_plane_diff,map[i][0]-desert[i][w-1])
+	for i in range(h):
+		for j in range(w):
+			if desert[i][j] != SEAHEIGHT:
+				desert[i][j] += desert_plane_diff
+			if desertheightmin[i][j] != SEAHEIGHT:
+				desertheightmin[i][j] += desert_plane_diff
+	for i in range(h):
+		desertheightmin[i][w-1] = min(desertheightmin[i][w-1],aroundheightmin[i][0])
+	desertassignnum = assign_map(SNOWHEIGHT,desertassignnum,desert,desertheightmax)
+	for i in range(h):
+		for j in range(w):
+			if desertassignnum[i][j] != 2 or desertassignnum[i][j] != 1:
+				desertassignnum[i][j] = 5
+	for i in range(h):
+		for j in range(w):
+			var height = int(floor(desert[i][j]/0.1))
+			var around = int(floor(desertheightmin[i][j]/0.1))
+			var diff = height-around
+			for k in range(diff+1):
+				map3dnum[height-k][i+desert_start_h][j+desert_start_w] = desertassignnum[i][j]
+	#洞窟の入口生成		
+	var caveentrance = find_cave_entrance(plane_start_h,plane_start_w,map)
+	get_parent().get_node("CharacterBody3D").position = caveentrance[0]+Vector3i(0,30,0)
+	var px
+	var py
+	
+	for i in range(caves[0].size()):
+		for j in range(caves[0][0].size()):
+			if caves[0][i][j] != 5:
+				px = i
+				py = j
+	var maze_start = find_longest_point(caves[0],Vector2i(px,py))
+	var maze_end = find_longest_point(caves[0],maze_start)
+	var dist_to_start = (Vector3(caveentrance[0]) - Vector3(maze_start.x + cave_start_h, 0, maze_start.y + cave_start_w)).length_squared()
+	var dist_to_end = (Vector3(caveentrance[0]) - Vector3(maze_end.x + cave_start_h, 0, maze_end.y + cave_start_w)).length_squared()
+	if dist_to_start > dist_to_end:
+		var m = maze_start
+		maze_start = maze_end
+		maze_end = m
+	var mazeentrance = assign_maze_entrance(maze_start,floor,floorheightmin,caves[0])
+	make_tunnel(caveentrance,mazeentrance)
+	var caveend = Vector3(h*3/2,int(floor(desert[h/2][w/4]/0.1)),w+w/4)
+	var mazeend = assign_maze_entrance(maze_end,floor,floorheightmin,caves[0])
+	make_tunnel([caveend,0,0],mazeend)
 	template_mesh = get_parent().get_node("StaticBody3D/MeshInstance3D").mesh
 	create_multimesh_body(map3dnum)
 	create_collision_body(map3dnum)
