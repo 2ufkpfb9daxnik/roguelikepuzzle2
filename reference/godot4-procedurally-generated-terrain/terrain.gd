@@ -14,14 +14,14 @@ extends Node3D
 var exp = 7
 var h = pow(2, exp) + 1
 var w = pow(2, exp) + 1
-var worldh = h*3
-var worldw = w*4
-var plane_start_h = h
-var plane_start_w = w*2
-var desert_start_h = h
-var desert_start_w = w
-var cave_start_h = h
-var cave_start_w = w*3/2
+var worldh = h*2
+var worldw = w*3
+var plane_start_h = h/2
+var plane_start_w = w*3/2
+var desert_start_h = h/2
+var desert_start_w = w/2
+var cave_start_h = h/2
+var cave_start_w = w
 var d = 80
 var entrance_width_radius: float = 3.0
 var entrance_height_radius: float = 3.0
@@ -448,55 +448,97 @@ func generate_cave(width:int,height:int,floorheightmi:int,min_size:int=10):
 	return caves
 func find_cave_entrance(sth:int,stw:int,map:Array):
 	var candidates = []
-	for y in range(1,d):
-		for x in range(sth,sth+h):
-			for z in range(stw,stw+w):
-				if map3dnum[y][x][z] != 2:
+	var rock_acc = []
+	for k in range(d):
+		var arrhw = []
+		for i in range(h):
+			var arrw = []
+			for j in range(w):
+				arrw.append(0)
+			arrhw.append(arrw)
+		rock_acc.append(arrhw)
+	for k in range(d):
+		for i in range(h):
+			for j in range(w):
+				if map3dnum[k][i+sth][j+stw] == 2:
+					rock_acc[k][i][j] += 1
+	for k in range(d):
+		for j in range(w):
+			for i in range(h-1):
+				rock_acc[k][i+1][j] += rock_acc[k][i][j]
+	for k in range(d):
+		for i in range(h):
+			for j in range(w-1):
+				rock_acc[k][i][j+1] += rock_acc[k][i][j]
+	for i in range(h):
+		for j in range(w):
+			for k in range(d-1):
+				rock_acc[k+1][i][j] += rock_acc[k][i][j]
+	for y in range(30,d):
+		for x in range(h):
+			for z in range(w):
+				if map3dnum[y][x+sth][z+stw] != 2:
 					continue
-				if map3dnum[y-1][x][z] != -1:
+				if map3dnum[y-1][x+sth][z+stw] != -1:
 					continue
-				if y+entrance_height_radius >= d or y-entrance_height_radius < 0:
-					continue
-				if x+entrance_width_radius < worldh and x-entrance_width_radius >= 0:
-					var ok = true
-					for dx in range(-entrance_width_radius,entrance_width_radius+1):
-						for dy in range(-entrance_height_radius,entrance_height_radius+1):
-							if (dx/entrance_width_radius)**2+(dy/entrance_height_radius)**2 > 1:
-								continue
-							var near = false
-							for dz in range(-1,2):
-								if z+dz >= worldw or z+dz < 0:
-									continue
-								if map3dnum[y+dy][x+dx][z+dz] == 2:
-									near = true
-							if !near:
-								ok = false
-					if ok:
-						if  map[x-sth][z-1-stw] < map[x-sth][z-stw] || map[x-sth][z-stw] < map[x-sth][z+1-stw]:
-							candidates.append([Vector3i(x,y,z),0,1])
+				if x+entrance_width_radius < h and x-entrance_width_radius >= 0 and y+entrance_height_radius < d and y-entrance_height_radius >= 0 and z+1 < w and z-1 >= 0:
+					if map3dnum[y-entrance_height_radius][x+sth][y+stw] != 2:
+						continue
+					var rock_sum = 0
+					var lx = int(x-entrance_width_radius)
+					var ly = int(y-entrance_height_radius)
+					var lz = z-1
+					var rx = int(x+entrance_width_radius)
+					var ry = int(y+entrance_height_radius)
+					var rz = z+1
+					rock_sum += rock_acc[ry][rx][rz]
+					if ly-1 >= 0:
+						rock_sum -= rock_acc[ly-1][rx][rz]
+					if lx-1 >= 0:
+						rock_sum -= rock_acc[ry][lx-1][rz]
+					if lz-1 >= 0:
+						rock_sum -= rock_acc[ry][rx][lz-1]
+					if lx-1 >= 0 and ly-1 >= 0:
+						rock_sum += rock_acc[ly-1][lx-1][rz]
+					if lx-1 >= 0 and lz-1 >= 0:
+						rock_sum += rock_acc[ry][lx-1][lz-1]
+					if ly-1 >= 0 and lz-1 >= 0:
+						rock_sum += rock_acc[ly-1][rx][lz-1]
+					if lx-1 >= 0 and ly-1 >= 0 and lz-1 >= 0:
+						rock_sum -= rock_acc[ly-1][lx-1][lz-1]
+					if 2 <= rock_sum:			
+						if  map[x][z-1] < map[x][z] || map[x][z] < map[x][z+1]:
+							candidates.append([Vector3i(x+sth,y,z+stw),0,1])
 						else:
-							candidates.append([Vector3i(x,y,z),0,0])
-					ok = true
-					for dz in range(-entrance_width_radius,entrance_width_radius+1):
-						for dy in range(entrance_height_radius+1):
-							if (dz/entrance_width_radius)**2+(dy/entrance_height_radius)**2 > 1:
-								continue
-							var near = false
-							if y+dy < 0 or y+dy >= d or z+dz < 0 or z+dz >= worldw:
-								ok = false
-								continue
-							for dx in range(-1,2):
-								if x+dx >= worldh or x+dx < 0:
-									continue
-								if map3dnum[y+dy][x+dx][z+dz] == 2:
-									near = true
-							if !near:
-								ok = false
-					if ok:
-						if  map[x-1-sth][z-stw] < map[x-sth][z-stw] or map[x-sth][z-stw] < map[x+1-sth][z-stw]:
-							candidates.append([Vector3i(x,y,z),1,1])
+							candidates.append([Vector3i(x+sth,y,z+stw),0,0])
+				if x+1 < h and x-1 >= 0 and y+entrance_height_radius < d and y-entrance_height_radius >= 0 and z+entrance_width_radius < w and z-entrance_width_radius >= 0:
+					var rock_sum = 0
+					var lx = x-1
+					var ly = int(y-entrance_height_radius)
+					var lz = int(z-entrance_width_radius)
+					var rx = x+1
+					var ry = int(y+entrance_height_radius)
+					var rz = int(z+entrance_width_radius)
+					rock_sum += rock_acc[ry][rx][rz]
+					if ly-1 >= 0:
+						rock_sum -= rock_acc[ly-1][rx][rz]
+					if lx-1 >= 0:
+						rock_sum -= rock_acc[ry][lx-1][rz]
+					if lz-1 >= 0:
+						rock_sum -= rock_acc[ry][rx][lz-1]
+					if lx-1 >= 0 and ly-1 >= 0:
+						rock_sum += rock_acc[ly-1][lx-1][rz]
+					if lx-1 >= 0 and lz-1 >= 0:
+						rock_sum += rock_acc[ry][lx-1][lz-1]
+					if ly-1 >= 0 and lz-1 >= 0:
+						rock_sum += rock_acc[ly-1][rx][lz-1]
+					if lx-1 >= 0 and ly-1 >= 0 and lz-1 >= 0:
+						rock_sum -= rock_acc[ly-1][lx-1][lz-1]
+					if 2 <= rock_sum:
+						if  map[x-1][z] < map[x][z] or map[x][z] < map[x+1][z]:
+							candidates.append([Vector3i(x+sth,y,z+stw),1,1])
 						else:
-							candidates.append([Vector3i(x,y,z),1,0])
+							candidates.append([Vector3i(x+sth,y,z+stw),1,0])
 						
 	if candidates.is_empty():
 		print("ERROR: No suitable and accessible cave entrance location found.")
@@ -548,7 +590,7 @@ func find_longest_point(cave:Array,st:Vector2i)->Vector2i:
 				py = j
 	return Vector2i(px,py)
 	
-func assign_map(snowheight:float,assignnum:Array,map:Array,max_height:float)->Array:
+func assign_num(snowheight:float,assignnum:Array,map:Array,max_height:float)->Array:
 	# --- パラメータ ---
 	var SNOW_START_HEIGHT = snowheight
 	var ROCK_SLOPE_MIN = 0.55
@@ -806,15 +848,14 @@ func bezie_curve(p0:Vector3,p1:Vector3,p2:Vector3,p3:Vector3,t:float)->Vector3:
 	point += t3*p3
 	return point
 func carve_tunnel(p0:Vector3,p1:Vector3,p2:Vector3,p3:Vector3):
-	var steps = 150
+	var steps = 15000
 	var widthr = entrance_width_radius
 	var heightr = entrance_height_radius
 	var dirt_pad = 1
-	var lastpos = Vector3i.ONE*-1
 	for i in range(steps+1):
 		var t = float(i)/steps
 		var p_cur = bezie_curve(p0,p1,p2,p3,t)
-		var p_next = bezie_curve(p0,p1,p2,p3,t+0.01)
+		var p_next = bezie_curve(p0,p1,p2,p3,t+0.001)
 		var tan = (p_next-p_cur).normalized()
 		var right = tan.cross(Vector3.UP).normalized()
 		var up = right.cross(tan).normalized()
@@ -824,9 +865,6 @@ func carve_tunnel(p0:Vector3,p1:Vector3,p2:Vector3,p3:Vector3):
 			for k in range(-wholeh,wholeh+1):
 				var worldpos_f = p_cur+(right*j)+(up*k)
 				var worldpos = Vector3i(round(worldpos_f.x),round(worldpos_f.y),round(worldpos_f.z))
-				if worldpos == lastpos:
-					continue
-				lastpos = worldpos
 				if worldpos.x < 0 or worldpos.x >= worldh or worldpos.y < 0 or worldpos.y >= d or worldpos.z < 0 or worldpos.z >= worldw:
 					continue
 				var isin = false
@@ -1040,7 +1078,7 @@ func _ready():
 	SNOWHEIGHT = snow_threshold / max_height
 	
 	aroundheightmin = assign_aroundheightmin(aroundheightmin,map)
-	assignnum = assign_map(SNOWHEIGHT,assignnum,map,max_height)
+	assignnum = assign_num(SNOWHEIGHT,assignnum,map,max_height)
 	for i in range(h):
 		aroundheightmin[i][0] = 0
 		aroundheightmin[i][w-1] = 0
@@ -1146,10 +1184,11 @@ func _ready():
 	ceilingheightmi *= 10
 	ceilingheightmi += 10
 	var caves = generate_cave(w,h,floorheightmi)#迷路
-	for k in range(floorheightmi,30):
-		for i in range(h):
-			for j in range(w):
-				if caves[k-floorheightmi][i][j] == 5:
+	for i in range(h):
+		for j in range(w):
+			var height = int(floor(floor[i][j]/0.1))+10
+			for k in range(height,30):
+				if caves[k-height][i][j] == 5:
 					map3dnum[k][i+cave_start_h][j+cave_start_w] = 5
 	#砂漠生成
 	var desert = []
@@ -1196,7 +1235,7 @@ func _ready():
 				desertheightmin[i][j] += desert_plane_diff
 	for i in range(h):
 		desertheightmin[i][w-1] = min(desertheightmin[i][w-1],aroundheightmin[i][0])
-	desertassignnum = assign_map(SNOWHEIGHT,desertassignnum,desert,desertheightmax)
+	desertassignnum = assign_num(SNOWHEIGHT,desertassignnum,desert,desertheightmax)
 	for i in range(h):
 		for j in range(w):
 			if desertassignnum[i][j] != 2 or desertassignnum[i][j] != 1:
@@ -1228,10 +1267,50 @@ func _ready():
 		maze_start = maze_end
 		maze_end = m
 	var mazeentrance = assign_maze_entrance(maze_start,floor,floorheightmin,caves[0])
+	mazeentrance[0].y += 1
 	make_tunnel(caveentrance,mazeentrance)
-	var caveend = Vector3(h*3/2,int(floor(desert[h/2][w/4]/0.1)),w+w/4)
+	var caveend = Vector3(h,int(floor(desert[h/2][w/4]/0.1)+entrance_height_radius)+1,w-2)
 	var mazeend = assign_maze_entrance(maze_end,floor,floorheightmin,caves[0])
+	mazeend[0].y += 1
 	make_tunnel([caveend,0,0],mazeend)
+	var dist_snow = []
+	for i in range(h):
+		var arrw = []
+		for j in range(w):
+			arrw.append(1e9)
+		dist_snow.append(arrw)
+	dist_snow[h/2][w/2] = 0
+	var snow_que = Dequeue.new()
+	snow_que.push_back(int(int(h/2)*w+int(w/2)))
+	while snow_que.size() > 0:
+		var q = snow_que.peek_front()
+		snow_que.pop_front()
+		var i = int(q/w)
+		var j = q%int(w)
+		if i-1 >= 0:
+			if map[i-1][j] >= SNOWHEIGHT and dist_snow[i-1][j] > dist_snow[i][j]+1:
+				dist_snow[i-1][j] = dist_snow[i][j]+1
+				snow_que.push_back((i-1)*int(w)+j)
+		if i+1 < h:
+			if map[i+1][j] >= SNOWHEIGHT and dist_snow[i+1][j] > dist_snow[i][j]+1:
+				dist_snow[i+1][j] = dist_snow[i][j]+1
+				snow_que.push_back((i+1)*int(w)+j)
+		if j-1 >= 0:
+			if map[i][j-1] >= SNOWHEIGHT and dist_snow[i][j-1] > dist_snow[i][j]+1:
+				dist_snow[i][j-1] = dist_snow[i][j]+1
+				snow_que.push_back(i*int(w)+j-1)
+		if j+1 < w:
+			if map[i][j+1] >= SNOWHEIGHT and dist_snow[i][j+1] > dist_snow[i][j]+1:
+				dist_snow[i][j+1] = dist_snow[i][j]+1
+				snow_que.push_back(i*int(w)+j+1)
+	var castle_point_candidate = []
+	for i in range(h):
+		for j in range(w):
+			castle_point_candidate.append([-dist_snow[i][j],i*int(w)+j])
+	castle_point_candidate.sort()
+	for i in range(castle_point_candidate.size()):
+		print(castle_point_candidate[i])
+	
 	template_mesh = get_parent().get_node("StaticBody3D/MeshInstance3D").mesh
 	create_multimesh_body(map3dnum)
 	create_collision_body(map3dnum)
