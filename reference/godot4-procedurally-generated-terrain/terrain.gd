@@ -11,20 +11,25 @@ extends Node3D
 @export var CAVE_HEIGHT = 5
 @export var CAVE_AUTOMATON_STEPS = 5
 @export_range(0.5, 1.0, 0.05) var CAVE_ENTRANCE_SOLIDITY_REQUIREMENT: float = 0.8
+@export var castle_path: String = "res://model/castle/castle.glb"
 var exp = 7
 var h = pow(2, exp) + 1
 var w = pow(2, exp) + 1
 var worldh = h*2
-var worldw = w*3
+var worldw = w*4
 var plane_start_h = h/2
 var plane_start_w = w*3/2
 var desert_start_h = h/2
 var desert_start_w = w/2
 var cave_start_h = h/2
 var cave_start_w = w
+var castle_start_h = h/2
+var castle_start_w = w*5/2
 var d = 80
 var entrance_width_radius: float = 3.0
 var entrance_height_radius: float = 3.0
+var castle_width_length = h/3*2
+var castle_height_length = w/3*2
 var rh = 32
 var rw = 32
 var collision
@@ -479,7 +484,7 @@ func find_cave_entrance(sth:int,stw:int,map:Array):
 			for z in range(w):
 				if map3dnum[y][x+sth][z+stw] != 2:
 					continue
-				if map3dnum[y-1][x+sth][z+stw] != -1:
+				if map3dnum[y-entrance_height_radius-1][x+sth][z+stw] != -1:
 					continue
 				if x+entrance_width_radius < h and x-entrance_width_radius >= 0 and y+entrance_height_radius < d and y-entrance_height_radius >= 0 and z+1 < w and z-1 >= 0:
 					if map3dnum[y-entrance_height_radius][x+sth][y+stw] != 2:
@@ -506,7 +511,7 @@ func find_cave_entrance(sth:int,stw:int,map:Array):
 						rock_sum += rock_acc[ly-1][rx][lz-1]
 					if lx-1 >= 0 and ly-1 >= 0 and lz-1 >= 0:
 						rock_sum -= rock_acc[ly-1][lx-1][lz-1]
-					if 2 <= rock_sum:			
+					if (entrance_width_radius*2-1)*(entrance_height_radius*2-1) <= rock_sum:			
 						if  map[x][z-1] < map[x][z] || map[x][z] < map[x][z+1]:
 							candidates.append([Vector3i(x+sth,y,z+stw),0,1])
 						else:
@@ -534,7 +539,7 @@ func find_cave_entrance(sth:int,stw:int,map:Array):
 						rock_sum += rock_acc[ly-1][rx][lz-1]
 					if lx-1 >= 0 and ly-1 >= 0 and lz-1 >= 0:
 						rock_sum -= rock_acc[ly-1][lx-1][lz-1]
-					if 2 <= rock_sum:
+					if (entrance_width_radius*2-1)*(entrance_height_radius*2-1) <= rock_sum:
 						if  map[x-1][z] < map[x][z] or map[x][z] < map[x+1][z]:
 							candidates.append([Vector3i(x+sth,y,z+stw),1,1])
 						else:
@@ -546,7 +551,7 @@ func find_cave_entrance(sth:int,stw:int,map:Array):
 		
 	return candidates.pick_random()
 								
-func find_longest_point(cave:Array,st:Vector2i)->Vector2i:
+func find_longest_point(cave:Array,st:Vector2i,num:int)->Vector2i:
 	var dist = cave.duplicate(true)
 	var caveh = cave.size()
 	var cavew = cave[0].size()
@@ -562,19 +567,19 @@ func find_longest_point(cave:Array,st:Vector2i)->Vector2i:
 		var i = q/cavew
 		var j = q%cavew
 		if i-1 >= 0:
-			if cave[i-1][j] != 5 and dist[i-1][j] > dist[i][j]+1:
+			if cave[i-1][j] != num and dist[i-1][j] > dist[i][j]+1:
 				dist[i-1][j] = dist[i][j]+1
 				que.push_back((i-1)*cavew+j)
 		if i+1 < caveh:
-			if cave[i+1][j] != 5 and dist[i+1][j] > dist[i][j]+1:
+			if cave[i+1][j] != num and dist[i+1][j] > dist[i][j]+1:
 				dist[i+1][j] = dist[i][j]+1
 				que.push_back((i+1)*cavew+j)
 		if j-1 >= 0:
-			if cave[i][j-1] != 5 and dist[i][j-1] > dist[i][j]+1:
+			if cave[i][j-1] != num and dist[i][j-1] > dist[i][j]+1:
 				dist[i][j-1] = dist[i][j]+1
 				que.push_back(i*cavew+j-1)
 		if j+1 < cavew:
-			if cave[i][j+1] != 5 and dist[i][j+1] > dist[i][j]+1:
+			if cave[i][j+1] != num and dist[i][j+1] > dist[i][j]+1:
 				dist[i][j+1] = dist[i][j]+1
 				que.push_back(i*cavew+j+1)
 	var px = -1
@@ -911,6 +916,313 @@ func sea(map:Array):
 				map[i][j] = SEAHEIGHT
 				
 	return [map,seablocksum]
+func snow_leveling(map:Array):
+	var dist_snow = []
+	for i in range(h):
+		var arrw = []
+		for j in range(w):
+			arrw.append(1e9)
+		dist_snow.append(arrw)
+	dist_snow[h/2][w/2] = 0
+	var snow_que = Dequeue.new()
+	snow_que.push_back(int(int(h/2)*w+int(w/2)))
+	while snow_que.size() > 0:
+		var q = snow_que.peek_front()
+		snow_que.pop_front()
+		var i = int(q/w)
+		var j = q%int(w)
+		if i-1 >= 0:
+			if map[i-1][j] >= SNOWHEIGHT and dist_snow[i-1][j] > dist_snow[i][j]+1:
+				dist_snow[i-1][j] = dist_snow[i][j]+1
+				snow_que.push_back((i-1)*int(w)+j)
+		if i+1 < h:
+			if map[i+1][j] >= SNOWHEIGHT and dist_snow[i+1][j] > dist_snow[i][j]+1:
+				dist_snow[i+1][j] = dist_snow[i][j]+1
+				snow_que.push_back((i+1)*int(w)+j)
+		if j-1 >= 0:
+			if map[i][j-1] >= SNOWHEIGHT and dist_snow[i][j-1] > dist_snow[i][j]+1:
+				dist_snow[i][j-1] = dist_snow[i][j]+1
+				snow_que.push_back(i*int(w)+j-1)
+		if j+1 < w:
+			if map[i][j+1] >= SNOWHEIGHT and dist_snow[i][j+1] > dist_snow[i][j]+1:
+				dist_snow[i][j+1] = dist_snow[i][j]+1
+				snow_que.push_back(i*int(w)+j+1)
+	var castle_point_candidate = []
+	for i in range(h):
+		for j in range(w):
+			castle_point_candidate.append([dist_snow[i][j],i*int(w)+j])
+	castle_point_candidate.sort()
+	var can_set_castle_point = []
+	var sum_snow_height = []
+	for i in range(h):
+		var arrw = []
+		for j in range(w):
+			arrw.append(0)
+		can_set_castle_point.append(arrw)
+	for i in range(h):
+		var arrw = []
+		for j in range(w):
+			arrw.append(0)
+		sum_snow_height.append(arrw)
+	for i in range(h):
+		for j in range(w):
+			sum_snow_height[i][j] = map[i][j]
+			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
+				continue
+			if map[i-1][j] <= SNOWHEIGHT:
+				continue
+			if map[i-2][j] <= SNOWHEIGHT:
+				continue
+			if map[i+1][j] <= SNOWHEIGHT:
+				continue
+			if map[i+2][j] <= SNOWHEIGHT:
+				continue
+			if map[i][j-1] <= SNOWHEIGHT:
+				continue
+			if map[i][j-2] <= SNOWHEIGHT:
+				continue
+			if map[i][j+1] <= SNOWHEIGHT:
+				continue
+			if map[i][j+2] <= SNOWHEIGHT:
+				continue
+			if map[i][j] <= SNOWHEIGHT:
+				continue
+			if map[i+1][j+1] <= SNOWHEIGHT:
+				continue
+			if map[i+1][j-1] <= SNOWHEIGHT:
+				continue
+			if map[i-1][j-1] <= SNOWHEIGHT:
+				continue
+			if map[i-1][j+1] <= SNOWHEIGHT:
+				continue
+			can_set_castle_point[i][j] = 1
+	for i in range(h):
+		for j in range(w-1):
+			can_set_castle_point[i][j+1] += can_set_castle_point[i][j]
+			sum_snow_height[i][j+1] += sum_snow_height[i][j]
+	for j in range(w):
+		for i in range(h-1):
+			can_set_castle_point[i+1][j] += can_set_castle_point[i][j]
+			sum_snow_height[i+1][j] += sum_snow_height[i][j]
+	for k in range(castle_point_candidate.size()):
+		var can_set = true
+		var curi = castle_point_candidate[k][1]/int(w)
+		var curj = castle_point_candidate[k][1]%(int(w))
+		print(map[curi][curj])
+		var cursum = 0;
+		var cur_height = 0;
+		if curi+castle_height_length >= h-1:
+			continue
+		if curj+castle_width_length >= w-1:
+			continue
+		cursum += can_set_castle_point[curi+castle_height_length][curj+castle_width_length]
+		cur_height += sum_snow_height[curi+castle_height_length][curj+castle_width_length]
+		if curi-1 >= 0:
+			cursum -= can_set_castle_point[curi-1][curj+castle_width_length]
+			cur_height -= sum_snow_height[curi-1][curj+castle_width_length]
+		if curj-1 >= 0:
+			cursum -= can_set_castle_point[curi+castle_height_length][curj-1]
+			cur_height -= sum_snow_height[curi+castle_height_length][curj-1]
+		if curi-1 >= 0 and curj-1 >= 0:
+			cursum += can_set_castle_point[curi-1][curj-1]
+			cur_height += sum_snow_height[curi-1][curj-1]
+		if cursum == (castle_height_length+1)*(castle_width_length+1):
+			for i in range(castle_height_length+1):
+				for j in range(castle_width_length+1):
+					map[curi+i][curj+j] = cur_height/(float((castle_height_length+1)*(castle_width_length+1)))
+			for i in range(h):
+				for j in range(w):
+					if map[i][j] > cur_height/(float((castle_height_length+1)*(castle_width_length+1))):
+						map[i][j] = cur_height/(float((castle_height_length+1)*(castle_width_length+1)))
+			
+			return [map,curi,curj]
+	return map
+func find_mesh_instance(node: Node) -> MeshInstance3D:
+	if node is MeshInstance3D:
+		return node
+	for child in node.get_children():
+		var found = find_mesh_instance(child)
+		if found != null:
+			return found
+	return null
+func make_castle(curi,curj):
+	var castle_scene = load(castle_path)
+	var castle_instance:Node3D = castle_scene.instantiate()
+	var base = []
+	var baseheightmin = []
+	for i in range(h):
+		var row_map = []
+		var row_around = []
+		for j in range(w):
+			row_map.append(0.0)
+			row_around.append(999999.0)
+		base.append(row_map)
+		baseheightmin.append(row_around)
+	base[0][0] = -1.5
+	base[h-1][0] = -1.5
+	base[0][w-1] = -1.5
+	base[h-1][w-1] = -1.5
+	base[h/2][w/2] = 2.0
+	base[h/2][0] = -1.5
+	base[0][w/2] = -1.5
+	base[h/2][w-1] = -1.5
+	base[h-1][w/2] = -1.5
+	base = diamondsquare(base)
+	var baseheightmi = 1e9
+	for i in range(h):
+		for j in range(w):
+			baseheightmi = min(baseheightmi,base[i][j])
+	for i in range(h):
+		for j in range(w):
+			base[i][j] -= baseheightmi
+	var resbase = sea(base)
+	base = resbase[0]
+	baseheightmi = 1e9
+	for i in range(h):
+		for j in range(w):
+			baseheightmi = min(baseheightmi,base[i][j])
+	for i in range(h):
+		for j in range(w):
+			base[i][j] -= baseheightmi
+	var baseheightma = 0
+	for i in range(h):
+		for j in range(w):
+			baseheightma = max(baseheightma,base[i][j])
+	for i in range(h):
+		for j in range(w):
+			base[i][j] = baseheightma-base[i][j]
+	for i in range(h):
+		for j in range(w):
+			base[i][j] += 3.0
+	baseheightma += 3.0
+	baseheightmin = assign_aroundheightmin(baseheightmin,base)
+	for i in range(h):
+		for j in range(w):
+			var height = int(floor(base[i][j]/0.1))
+			var around = int(floor(baseheightmin[i][j]/0.1))
+			var diff = height-around
+			for k in range(diff+1):
+				map3dnum[height-k][i+castle_start_h][j+castle_start_w] = 2
+	for i in range(h):
+		var height = int(floor(base[i][0]/0.1))
+		var around = int(floor(baseheightma/0.1))
+		var diff = around-height
+		for k in range(diff+1):
+			map3dnum[around-k][i+castle_start_h][castle_start_w] = 2
+	for i in range(h):
+		var height = int(floor(base[i][w-1]/0.1))
+		var around = int(floor(baseheightma/0.1))
+		var diff = around-height
+		for k in range(diff+1):
+			map3dnum[around-k][i+castle_start_h][w-1+castle_start_w] = 2
+	for i in range(w):
+		var height = int(floor(base[h-1][i]/0.1))
+		var around = int(floor(baseheightma/0.1))
+		var diff = around-height
+		for k in range(diff+1):
+			map3dnum[around-k][h-1+castle_start_h][i+castle_start_w] = 2
+	for i in range(w):
+		var height = int(floor(base[h-1][i]/0.1))
+		var around = int(floor(baseheightma/0.1))
+		var diff = around-height
+		for k in range(diff+1):
+			map3dnum[around-k][h-1+castle_start_h][i+castle_start_w] = 2
+	var land = []
+	var dist = []
+	for i in range(h):
+		var arrw = []
+		for j in range(w):
+			arrw.append(-1)
+		land.append(arrw)
+	for i in range(h):
+		var arrw = []
+		for j in range(w):
+			arrw.append(1e9)
+		dist.append(arrw)
+	var land_acc = []
+	for i in range(h):
+		var arrw = []
+		for j in range(w):
+			arrw.append(0)
+		land_acc.append(arrw)
+	for i in range(h):
+		for j in range(w):
+			if map3dnum[int(floor(baseheightma/0.1))][i+castle_start_h][j+castle_start_w] == 2:
+				map3dnum[int(floor(baseheightma/0.1))][i+castle_start_h][j+castle_start_w] = -1
+				map3dnum[30][i+castle_start_h][j+castle_start_w] = 1
+			else:
+				map3dnum[int(floor(baseheightma/0.1))][i+castle_start_h][j+castle_start_w] = 2
+				if i-1 >= 0 and i+1 < h and j-1 >= 0 and j+1 < w:
+					if base[i-1][j] != 0 and base[i+1][j] != 0 and base[i][j-1] != 0 and base[i][j+1] != 0:
+						land_acc[i][j] = 1
+				land[i][j] = 2
+	for i in range(h):
+		for j in range(w-1):
+			land_acc[i][j+1] += land_acc[i][j]
+	for j in range(w):
+		for i in range(h-1):
+			land_acc[i+1][j] += land_acc[i][j]
+	var land_start = find_longest_point(land,Vector2i(h/2,w/2),-1)
+	var land_end = find_longest_point(land,land_start,-1)
+	if land_start.y > land_end.y:
+		var m = land_start
+		land_start = land_end
+		land_end = m
+	var que = Dequeue.new()
+	que.push_back(land_start.x*w+land_end.y)
+	dist[land_start.x][land_start.y] = 0
+	var candidate = []
+	while que.size() > 0:
+		var q = que.peek_front()
+		que.pop_front()
+		var i = q/w
+		var j = q%w
+		candidate.append([dist[i][j],i*w+j])
+		if i-1 >= 0:
+			if land[i-1][j] != -1 and dist[i-1][j] > dist[i][j]+1:
+				dist[i-1][j] = dist[i][j]+1
+				que.push_back((i-1)*w+j)
+		if i+1 < h:
+			if land[i+1][j] != -1 and dist[i+1][j] > dist[i][j]+1:
+				dist[i+1][j] = dist[i][j]+1
+				que.push_back((i+1)*w+j)
+		if j-1 >= 0:
+			if land[i][j-1] != -1 and dist[i][j-1] > dist[i][j]+1:
+				dist[i][j-1] = dist[i][j]+1
+				que.push_back(i*w+j-1)
+		if j+1 < w:
+			if land[i][j+1] != -1 and dist[i][j+1] > dist[i][j]+1:
+				dist[i][j+1] = dist[i][j]+1
+				que.push_back(i*w+j+1)
+	candidate.sort()
+	for k in range(candidate.size()):
+		var curc = candidate[k]
+		if typeof(curc) != TYPE_ARRAY:
+			push_error("Invalid candidate element: " + str(curc))
+			continue
+		var i = curc[1]/w
+		var j = curc[1]%w
+		var cash = castle_height_length
+		var casw = castle_width_length
+		var sum = 0
+		if cash+i >= h or casw+j >= w:
+			continue
+		sum += land_acc[i+cash][j+casw]
+		if i-1 >= 0:
+			sum -= land_acc[i-1][j+casw]
+		if j-1 >= 0:
+			sum -= land_acc[i+cash][j-1]
+		if i-1 >= 0 and j-1 >= 0 :
+			sum += land_acc[i-1][j-1]
+		if sum == (castle_height_length+1)*(castle_width_length+1):
+			castle_instance.position = Vector3(i+castle_height_length/2+castle_start_h,int(floor((baseheightma)/0.1))+h/3,j+w/2+castle_width_length/2+castle_start_w)
+			castle_instance.scale = Vector3(castle_height_length,h/3*2,castle_width_length)
+			castle_instance.rotation_degrees = Vector3(0, 180, 0)
+			add_child(castle_instance)
+			var mesh_node: MeshInstance3D = castle_instance.get_node_or_null("tripo_node_7d6e79c8-b98/MeshInstance3D")
+			mesh_node = find_mesh_instance(castle_instance)
+			mesh_node.create_trimesh_collision()
+			break
 func _ready():
 	if not player:
 		push_error("Player is not defined. Check terrain right panel to set player.")
@@ -1076,6 +1388,10 @@ func _ready():
 				map[i][j] += snowseparation
 	max_height = maxheight_val + snowseparation
 	SNOWHEIGHT = snow_threshold / max_height
+	var res_leveling = snow_leveling(map)
+	map = res_leveling[0]
+	var res_castle_i = res_leveling[1]
+	var res_castle_j = res_leveling[2]
 	
 	aroundheightmin = assign_aroundheightmin(aroundheightmin,map)
 	assignnum = assign_num(SNOWHEIGHT,assignnum,map,max_height)
@@ -1094,6 +1410,7 @@ func _ready():
 		for j in range(w):
 			map[i][j] += 3.0
 			aroundheightmin[i][j] += 3.0
+		
 	for i in range(h):
 		for j in range(w):
 			var height = int(floor(map[i][j]/0.1))
@@ -1249,7 +1566,7 @@ func _ready():
 				map3dnum[height-k][i+desert_start_h][j+desert_start_w] = desertassignnum[i][j]
 	#洞窟の入口生成		
 	var caveentrance = find_cave_entrance(plane_start_h,plane_start_w,map)
-	get_parent().get_node("CharacterBody3D").position = caveentrance[0]+Vector3i(0,30,0)
+	get_parent().get_node("CharacterBody3D").position = caveentrance[0]+Vector3i(0,100,0)
 	var px
 	var py
 	
@@ -1258,8 +1575,8 @@ func _ready():
 			if caves[0][i][j] != 5:
 				px = i
 				py = j
-	var maze_start = find_longest_point(caves[0],Vector2i(px,py))
-	var maze_end = find_longest_point(caves[0],maze_start)
+	var maze_start = find_longest_point(caves[0],Vector2i(px,py),5)
+	var maze_end = find_longest_point(caves[0],maze_start,5)
 	var dist_to_start = (Vector3(caveentrance[0]) - Vector3(maze_start.x + cave_start_h, 0, maze_start.y + cave_start_w)).length_squared()
 	var dist_to_end = (Vector3(caveentrance[0]) - Vector3(maze_end.x + cave_start_h, 0, maze_end.y + cave_start_w)).length_squared()
 	if dist_to_start > dist_to_end:
@@ -1269,48 +1586,11 @@ func _ready():
 	var mazeentrance = assign_maze_entrance(maze_start,floor,floorheightmin,caves[0])
 	mazeentrance[0].y += 1
 	make_tunnel(caveentrance,mazeentrance)
-	var caveend = Vector3(h,int(floor(desert[h/2][w/4]/0.1)+entrance_height_radius)+1,w-2)
+	var caveend = Vector3(h,int(floor(desert[h/2][w/4]/0.1)+entrance_height_radius)+1,w)
 	var mazeend = assign_maze_entrance(maze_end,floor,floorheightmin,caves[0])
 	mazeend[0].y += 1
 	make_tunnel([caveend,0,0],mazeend)
-	var dist_snow = []
-	for i in range(h):
-		var arrw = []
-		for j in range(w):
-			arrw.append(1e9)
-		dist_snow.append(arrw)
-	dist_snow[h/2][w/2] = 0
-	var snow_que = Dequeue.new()
-	snow_que.push_back(int(int(h/2)*w+int(w/2)))
-	while snow_que.size() > 0:
-		var q = snow_que.peek_front()
-		snow_que.pop_front()
-		var i = int(q/w)
-		var j = q%int(w)
-		if i-1 >= 0:
-			if map[i-1][j] >= SNOWHEIGHT and dist_snow[i-1][j] > dist_snow[i][j]+1:
-				dist_snow[i-1][j] = dist_snow[i][j]+1
-				snow_que.push_back((i-1)*int(w)+j)
-		if i+1 < h:
-			if map[i+1][j] >= SNOWHEIGHT and dist_snow[i+1][j] > dist_snow[i][j]+1:
-				dist_snow[i+1][j] = dist_snow[i][j]+1
-				snow_que.push_back((i+1)*int(w)+j)
-		if j-1 >= 0:
-			if map[i][j-1] >= SNOWHEIGHT and dist_snow[i][j-1] > dist_snow[i][j]+1:
-				dist_snow[i][j-1] = dist_snow[i][j]+1
-				snow_que.push_back(i*int(w)+j-1)
-		if j+1 < w:
-			if map[i][j+1] >= SNOWHEIGHT and dist_snow[i][j+1] > dist_snow[i][j]+1:
-				dist_snow[i][j+1] = dist_snow[i][j]+1
-				snow_que.push_back(i*int(w)+j+1)
-	var castle_point_candidate = []
-	for i in range(h):
-		for j in range(w):
-			castle_point_candidate.append([-dist_snow[i][j],i*int(w)+j])
-	castle_point_candidate.sort()
-	for i in range(castle_point_candidate.size()):
-		print(castle_point_candidate[i])
-	
+	make_castle(res_castle_i,res_castle_j)
 	template_mesh = get_parent().get_node("StaticBody3D/MeshInstance3D").mesh
 	create_multimesh_body(map3dnum)
 	create_collision_body(map3dnum)
