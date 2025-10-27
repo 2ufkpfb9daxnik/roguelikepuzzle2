@@ -12,24 +12,24 @@ extends Node3D
 @export var CAVE_AUTOMATON_STEPS = 5
 @export_range(0.5, 1.0, 0.05) var CAVE_ENTRANCE_SOLIDITY_REQUIREMENT: float = 0.8
 @export var castle_path: String = "res://model/castle/castle.glb"
-var exp = 7
-var h = pow(2, exp) + 1
-var w = pow(2, exp) + 1
+var exp = 6
+var h:int = pow(2, exp) + 1
+var w:int = pow(2, exp) + 1
 var worldh = h*2
 var worldw = w*4
-var plane_start_h = h/2
-var plane_start_w = w*3/2
-var desert_start_h = h/2
-var desert_start_w = w/2
-var cave_start_h = h/2
-var cave_start_w = w
-var castle_start_h = h/2
-var castle_start_w = w*5/2
+var plane_start_h:int = h/2
+var plane_start_w:int = w*3/2
+var desert_start_h:int = h/2
+var desert_start_w:int = w/2
+var cave_start_h:int = h/2
+var cave_start_w:int = w
+var castle_start_h:int = h/2
+var castle_start_w:int = w*5/2
 var d = 80
 var entrance_width_radius: float = 3.0
 var entrance_height_radius: float = 3.0
-var castle_width_length = h/3*2
-var castle_height_length = w/3*2
+var castle_width_length = h/4*3
+var castle_height_length = w/4*3
 var rh = 32
 var rw = 32
 var collision
@@ -312,7 +312,7 @@ func make_corridor(map:Array,p1:Vector2,p2:Vector2):
 			if map[p2.y][x] != 1:
 				map[p2.y][x] = 0
 
-func cell_automaton(map:Array,steps:int=1):
+func cell_automaton(map:Array,num:int,steps:int=1):
 	for i in range(steps):
 		var nmap = map.duplicate(true)
 		for y in range(map.size()):
@@ -328,10 +328,10 @@ func cell_automaton(map:Array,steps:int=1):
 						var nx = x+dx
 						if ny < 0 or nx < 0 or ny >= map.size() or nx >= map[0].size():
 							wallcnt += 1
-						elif map[ny][nx] == 5:
+						elif map[ny][nx] == num:
 							wallcnt += 1
 				if wallcnt > 4:
-					nmap[y][x] = 5
+					nmap[y][x] = num
 				else:
 					nmap[y][x] = -1
 		map = nmap
@@ -414,10 +414,10 @@ func generate_cave(width:int,height:int,floorheightmi:int,min_size:int=10):
 			if y == 0 or x == 0 or y == height-1 or x == width-1:
 				cavemap[y][x] = 5
 	for i in range(5):
-		cavemap = cell_automaton(cavemap)
+		cavemap = cell_automaton(cavemap,5)
 	caves.append(cavemap)
 	for i in range(29-floorheightmi):
-		caves.append(cell_automaton(caves[i]))
+		caves.append(cell_automaton(caves[i],5))
 	for i in range(10):
 		for y in range(height):
 			for x in range(width):
@@ -1008,7 +1008,6 @@ func snow_leveling(map:Array):
 		var can_set = true
 		var curi = castle_point_candidate[k][1]/int(w)
 		var curj = castle_point_candidate[k][1]%(int(w))
-		print(map[curi][curj])
 		var cursum = 0;
 		var cur_height = 0;
 		if curi+castle_height_length >= h-1:
@@ -1026,7 +1025,7 @@ func snow_leveling(map:Array):
 		if curi-1 >= 0 and curj-1 >= 0:
 			cursum += can_set_castle_point[curi-1][curj-1]
 			cur_height += sum_snow_height[curi-1][curj-1]
-		if cursum == (castle_height_length+1)*(castle_width_length+1):
+		if cursum == 10*10:
 			for i in range(castle_height_length+1):
 				for j in range(castle_width_length+1):
 					map[curi+i][curj+j] = cur_height/(float((castle_height_length+1)*(castle_width_length+1)))
@@ -1036,7 +1035,7 @@ func snow_leveling(map:Array):
 						map[i][j] = cur_height/(float((castle_height_length+1)*(castle_width_length+1)))
 			
 			return [map,curi,curj]
-	return map
+	return [map,0,0]
 func find_mesh_instance(node: Node) -> MeshInstance3D:
 	if node is MeshInstance3D:
 		return node
@@ -1068,6 +1067,7 @@ func make_castle(curi,curj):
 	base[h/2][w-1] = -1.5
 	base[h-1][w/2] = -1.5
 	base = diamondsquare(base)
+	smooth_terrain(10,3.5,base)
 	var baseheightmi = 1e9
 	for i in range(h):
 		for j in range(w):
@@ -1147,14 +1147,14 @@ func make_castle(curi,curj):
 		land_acc.append(arrw)
 	for i in range(h):
 		for j in range(w):
+			map3dnum[30][i+castle_start_h][j+castle_start_w] = 1
+			if i-1 >= 0 and i+1 < h and j-1 >= 0 and j+1 < w:
+				if base[i-1][j] != 0.0 and base[i+1][j] != 0.0 and base[i][j-1] != 0.0 and base[i][j+1] != 0.0:
+					land_acc[i][j] = 1
 			if map3dnum[int(floor(baseheightma/0.1))][i+castle_start_h][j+castle_start_w] == 2:
 				map3dnum[int(floor(baseheightma/0.1))][i+castle_start_h][j+castle_start_w] = -1
-				map3dnum[30][i+castle_start_h][j+castle_start_w] = 1
 			else:
 				map3dnum[int(floor(baseheightma/0.1))][i+castle_start_h][j+castle_start_w] = 2
-				if i-1 >= 0 and i+1 < h and j-1 >= 0 and j+1 < w:
-					if base[i-1][j] != 0 and base[i+1][j] != 0 and base[i][j-1] != 0 and base[i][j+1] != 0:
-						land_acc[i][j] = 1
 				land[i][j] = 2
 	for i in range(h):
 		for j in range(w-1):
@@ -1168,8 +1168,10 @@ func make_castle(curi,curj):
 		var m = land_start
 		land_start = land_end
 		land_end = m
+	print(land_start)
+	print(land_end)
 	var que = Dequeue.new()
-	que.push_back(land_start.x*w+land_end.y)
+	que.push_back(land_start.x*w+land_start.y)
 	dist[land_start.x][land_start.y] = 0
 	var candidate = []
 	while que.size() > 0:
@@ -1195,6 +1197,8 @@ func make_castle(curi,curj):
 				dist[i][j+1] = dist[i][j]+1
 				que.push_back(i*w+j+1)
 	candidate.sort()
+	var sth:int = h/2
+	var stw:int = w/2*5
 	for k in range(candidate.size()):
 		var curc = candidate[k]
 		if typeof(curc) != TYPE_ARRAY:
@@ -1214,15 +1218,109 @@ func make_castle(curi,curj):
 			sum -= land_acc[i+cash][j-1]
 		if i-1 >= 0 and j-1 >= 0 :
 			sum += land_acc[i-1][j-1]
-		if sum == (castle_height_length+1)*(castle_width_length+1):
-			castle_instance.position = Vector3(i+castle_height_length/2+castle_start_h,int(floor((baseheightma)/0.1))+h/3,j+w/2+castle_width_length/2+castle_start_w)
-			castle_instance.scale = Vector3(castle_height_length,h/3*2,castle_width_length)
+		if sum >= (castle_height_length)*(castle_width_length):
+			castle_instance.position = Vector3(i+castle_height_length/2+castle_start_h,int(floor((baseheightma)/0.1))+int(int(h/4*3)/2)-2,j+int(castle_width_length/2)+castle_start_w)
+			castle_instance.scale = Vector3(castle_height_length,int(h/4*3),castle_width_length)
 			castle_instance.rotation_degrees = Vector3(0, 180, 0)
 			add_child(castle_instance)
 			var mesh_node: MeshInstance3D = castle_instance.get_node_or_null("tripo_node_7d6e79c8-b98/MeshInstance3D")
 			mesh_node = find_mesh_instance(castle_instance)
 			mesh_node.create_trimesh_collision()
+			sth = i+h/2
+			stw = j+w*5/2
 			break
+	for k in range(1,4):
+		for i in range(6,castle_height_length-5):
+			for j in range(6,castle_width_length-5):
+				map3dnum[int(floor((baseheightma)/0.1))+k][sth+i][stw+j] = 5
+	var castle = []
+	var height = castle_height_length-19
+	var width = castle_width_length-16
+	for k in range(3):
+		var castlemap = []
+		for y in range(height):
+			castlemap.append([])
+			for x in range(width):
+				castlemap[y].append(5)
+		var root = rectangle.new(0,0,width,height)
+		var cells = bsp(root,10)
+		var rooms = []
+		for i in range(cells.size()):
+			rooms.append(make_room(cells[i],castlemap))
+		for i in range(cells.size()):
+			for y in range(cells[i].y+cells[i].h/4,cells[i].y+cells[i].h*3/4):
+				for x in range(cells[i].x+cells[i].w/4,cells[i].x+cells[i].w*3/4):
+					if castlemap[y][x]==-1:
+						castlemap[y][x] = 0
+		var edges = []
+		for i in range(rooms.size()):
+			for j in range(i+1,rooms.size()):
+				var dx = rooms[i].x-rooms[j].x
+				var dy = rooms[i].y-rooms[j].y
+				var dist1 = int(sqrt(dx*dx+dy*dy))
+				edges.append(edge.new(i,j,dist1))
+		
+		var mst = kruskal(rooms.size(),edges)
+		for i in range(randi()%5+1):
+			mst.append(edges[randi()%edges.size()])
+		
+		for i in range(mst.size()):
+			var r1 = rooms[mst[i].u]
+			var r2 = rooms[mst[i].v]
+			var p1 = Vector2(r1.x+r1.w/2,r1.y+r1.h/2)
+			var p2 = Vector2(r2.x+r2.w/2,r2.y+r2.h/2)
+			make_corridor(castlemap,p1,p2)
+		
+		for y in range(1,height-1):
+			for x in range(1,width-1):
+				if (castlemap[y][x] == -1 or castlemap[y][x] == 1) and randf() < 0.1:
+					castlemap[y+randi_range(-1,1)][x+randi_range(-1,1)] = -1
+		
+		for y in range(height):
+			for x in range(width):
+				if y == 0 or x == 0 or y == height-1 or x == width-1:
+					castlemap[y][x] = 5
+		castle.append(castlemap)
+		for y in range(height):
+			for x in range(width):
+				if y == 0 or x == 0 or y == height-1 or x == width-1:
+					castle[k][y][x] = 5
+		for y in range(1,height-1):
+			for x in range(1,width-1):
+				if castle[k][y][x] == 0:
+					castle[k][y][x] = -1
+		var labels = bfs(castle[k])
+		var counts = {}
+		for y in range(height):
+			for x in range(width):
+				var id = labels[y][x]
+				if id != -1:
+					counts[id] = counts.get(id,0)+1
+		
+		var max_id = -1
+		var max_count = -1
+		for id in counts.keys():
+			if counts[id] > max_count:
+				max_count = counts[id]
+				max_id = id
+					
+		for y in range(height):
+			for x in range(width):
+				if labels[y][x] != max_id:
+					castle[k][y][x] = 5
+		for y in range(height):
+			for x in range(width):
+				if y == 0 or x == 0 or y == height-1 or x == width-1:
+					castle[k][y][x] = 5
+	for k in range(3):
+		for i in range(height):
+			for j in range(width):
+				for l in range(5):
+					if k == 0 and i >= int((height-4)/2) and j < 5 and i <= int((height-4)/2)+4:
+						map3dnum[int(floor((baseheightma)/0.1))+4+k*5+l+k][sth+i+11][stw+j+8] = -1
+					else:
+						map3dnum[int(floor((baseheightma)/0.1))+4+k*5+l+k][sth+i+11][stw+j+8] = castle[k][i][j]
+				map3dnum[int(floor((baseheightma)/0.1))+4+k*5+5+k][sth+i+11][stw+j+8] = 5
 func _ready():
 	if not player:
 		push_error("Player is not defined. Check terrain right panel to set player.")
