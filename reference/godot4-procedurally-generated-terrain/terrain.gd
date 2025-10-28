@@ -296,21 +296,29 @@ func make_room(cell:rectangle,map:Array,min_size:int=5)->rectangle:
 			map[i][j] = -1
 	return rectangle.new(x,y,width,height)
 
-func make_corridor(map:Array,p1:Vector2,p2:Vector2):
+func make_corridor(map:Array,p1:Vector2,p2:Vector2,wide:int):
 	if randf() < 0.5:
 		for x in range(min(p1.x,p2.x),max(p1.x,p2.x)+1):
-			if map[p1.y][x] != 1:
-				map[p1.y][x] = 0
+			for k in range(-wide,wide+1):
+				if p1.y+k >= 0 and p1.y+k < map[0].size():
+					if map[p1.y+k][x] != 1:
+						map[p1.y+k][x] = 0
 		for y in range(min(p1.y,p2.y),max(p1.y,p2.y)+1):
-			if map[y][p2.x] != 1:
-				map[y][p2.x] = 0
+			for k in range(-wide,wide+1):
+				if p2.x+k >= 0 and p2.x+k < map.size():
+					if map[y][p2.x+k] != 1:
+						map[y][p2.x+k] = 0
 	else:
 		for y in range(min(p1.y,p2.y),max(p1.y,p2.y)+1):
-			if map[y][p1.x] != 1:
-				map[y][p1.x] = 0
+			for k in range(-wide,wide+1):
+				if p1.x+k >= 0 and p1.x+k < map.size():
+					if map[y][p1.x+k] != 1:
+						map[y][p1.x+k] = 0
 		for x in range(min(p1.x,p2.x),max(p1.x,p2.x)+1):
-			if map[p2.y][x] != 1:
-				map[p2.y][x] = 0
+			for k in range(-wide,wide+1):
+				if p2.y+k >= 0 and p2.y+k < map[0].size():
+					if map[p2.y+k][x] != 1:
+						map[p2.y+k][x] = 0
 
 func cell_automaton(map:Array,num:int,steps:int=1):
 	for i in range(steps):
@@ -402,7 +410,7 @@ func generate_cave(width:int,height:int,floorheightmi:int,min_size:int=10):
 		var r2 = rooms[mst[i].v]
 		var p1 = Vector2(r1.x+r1.w/2,r1.y+r1.h/2)
 		var p2 = Vector2(r2.x+r2.w/2,r2.y+r2.h/2)
-		make_corridor(cavemap,p1,p2)
+		make_corridor(cavemap,p1,p2,0)
 	
 	for y in range(1,height-1):
 		for x in range(1,width-1):
@@ -1218,7 +1226,7 @@ func make_castle(curi,curj):
 			sum -= land_acc[i+cash][j-1]
 		if i-1 >= 0 and j-1 >= 0 :
 			sum += land_acc[i-1][j-1]
-		if sum >= (castle_height_length)*(castle_width_length):
+		if sum >= (castle_height_length+1)*(castle_width_length+1)-20:
 			castle_instance.position = Vector3(i+castle_height_length/2+castle_start_h,int(floor((baseheightma)/0.1))+int(int(h/4*3)/2)-2,j+int(castle_width_length/2)+castle_start_w)
 			castle_instance.scale = Vector3(castle_height_length,int(h/4*3),castle_width_length)
 			castle_instance.rotation_degrees = Vector3(0, 180, 0)
@@ -1235,7 +1243,7 @@ func make_castle(curi,curj):
 				map3dnum[int(floor((baseheightma)/0.1))+k][sth+i][stw+j] = 5
 	var castle = []
 	var height = castle_height_length-19
-	var width = castle_width_length-16
+	var width = castle_width_length-19
 	for k in range(3):
 		var castlemap = []
 		for y in range(height):
@@ -1248,8 +1256,8 @@ func make_castle(curi,curj):
 		for i in range(cells.size()):
 			rooms.append(make_room(cells[i],castlemap))
 		for i in range(cells.size()):
-			for y in range(cells[i].y+cells[i].h/4,cells[i].y+cells[i].h*3/4):
-				for x in range(cells[i].x+cells[i].w/4,cells[i].x+cells[i].w*3/4):
+			for y in range(cells[i].y+cells[i].h,cells[i].y+cells[i].h):
+				for x in range(cells[i].x+cells[i].w,cells[i].x+cells[i].w):
 					if castlemap[y][x]==-1:
 						castlemap[y][x] = 0
 		var edges = []
@@ -1269,12 +1277,7 @@ func make_castle(curi,curj):
 			var r2 = rooms[mst[i].v]
 			var p1 = Vector2(r1.x+r1.w/2,r1.y+r1.h/2)
 			var p2 = Vector2(r2.x+r2.w/2,r2.y+r2.h/2)
-			make_corridor(castlemap,p1,p2)
-		
-		for y in range(1,height-1):
-			for x in range(1,width-1):
-				if (castlemap[y][x] == -1 or castlemap[y][x] == 1) and randf() < 0.1:
-					castlemap[y+randi_range(-1,1)][x+randi_range(-1,1)] = -1
+			make_corridor(castlemap,p1,p2,1)
 		
 		for y in range(height):
 			for x in range(width):
@@ -1312,15 +1315,121 @@ func make_castle(curi,curj):
 			for x in range(width):
 				if y == 0 or x == 0 or y == height-1 or x == width-1:
 					castle[k][y][x] = 5
+	var stair = []
+	var castle_acc = []
+	for k in range(3):
+		var arrhw = []
+		for i in range(height):
+			var arrw = []
+			for j in range(width):
+				arrw.append(0)
+			arrhw.append(arrw)
+		castle_acc.append(arrhw)
+		for i in range(height):
+			for j in range(width):
+				if i-1 >= 0 and i+1 < height and j-1 >= 0 and j+1 < width:
+					if castle[k][i-1][j] == -1 and castle[k][i+1][j] == -1 and castle[k][i][j+1] == -1 and castle[k][i][j-1] == -1 and castle[k][i+1][j+1] == -1 and castle[k][i+1][j-1] == -1 and castle[k][i-1][j+1] == -1 and castle[k][i-1][j-1] == -1:
+						castle_acc[k][i][j] = 1
+	for k in range(2):
+		var stair_candidate = []
+		for i in range(height):
+			for j in range(width):
+				if i+2 >= height or j+2 >= width:
+					continue
+				var sum1 = 0
+				for i1 in range(3):
+					for j1 in range(3):
+						if castle_acc[k][i+i1][j+j1] == 1:
+							sum1 += 1
+				if i+6 < height:
+					var sum2 = 0
+					for i1 in range(3):
+						for j1 in range(3):
+							if castle_acc[k+1][i+i1+4][j+j1] == 1:
+								sum2 += 1
+					if sum1 == 9 and sum2 == 9:
+						stair_candidate.append([i,j,i+4,j])
+				if j+6 < width:
+					var sum2 = 0
+					for i1 in range(3):
+						for j1 in range(3):
+							if castle_acc[k+1][i+i1][j+j1+4] == 1:
+								sum2 += 1
+					if sum1 == 9 and sum2 == 9:
+						stair_candidate.append([i,j,i,j+4])
+				if i-4 >= 0:
+					var sum2 = 0
+					for i1 in range(3):
+						for j1 in range(3):
+							if castle_acc[k+1][i+i1-4][j+j1] == 1:
+								sum2 += 1
+					if sum1 == 9 and sum2 == 9:
+						stair_candidate.append([i,j,i-4,j])
+				if j-4 >= 0:
+					var sum2 = 0
+					for i1 in range(3):
+						for j1 in range(3):
+							if castle_acc[k+1][i+i1][j+j1-4] == 1:
+								sum2 += 1
+					if sum1 == 9 and sum2 == 9:
+						stair_candidate.append([i,j,i,j-4])
+		stair.append(stair_candidate.pick_random())
+		for i in range(stair.back()[2],stair.back()[2]+2):
+			for j in range(stair.back()[3],stair.back()[3]+2):
+				castle_acc[k+1][i][j] = 0
 	for k in range(3):
 		for i in range(height):
 			for j in range(width):
 				for l in range(5):
-					if k == 0 and i >= int((height-4)/2) and j < 5 and i <= int((height-4)/2)+4:
-						map3dnum[int(floor((baseheightma)/0.1))+4+k*5+l+k][sth+i+11][stw+j+8] = -1
+					if k == 0 and i >= int((height-4)/2)+1 and j < width-5 and i <= int((height-4)/2)+3:
+						map3dnum[int(floor((baseheightma)/0.1))+4+k*5+l+k][sth+i+10][stw+j+10] = -1
+						map3dnum[int(floor((baseheightma)/0.1))+4+k*5+l+k][sth+10+int((height-4)/2)][stw+8] = 5
+						map3dnum[int(floor((baseheightma)/0.1))+4+k*5+l+k][sth+10+int((height-4)/2)+4][stw+8] = 5
+						map3dnum[int(floor((baseheightma)/0.1))+4+k*5+l+k][sth+10+int((height-4)/2)][stw+9] = 5
+						map3dnum[int(floor((baseheightma)/0.1))+4+k*5+l+k][sth+10+int((height-4)/2)+4][stw+9] = 5
 					else:
-						map3dnum[int(floor((baseheightma)/0.1))+4+k*5+l+k][sth+i+11][stw+j+8] = castle[k][i][j]
-				map3dnum[int(floor((baseheightma)/0.1))+4+k*5+5+k][sth+i+11][stw+j+8] = 5
+						map3dnum[int(floor((baseheightma)/0.1))+4+k*5+l+k][sth+i+10][stw+j+10] = castle[k][i][j]
+				if k == 1 and i >= int((height-4)/2)+1 and j < 6 and i <= int((height-4)/2)+3:
+					map3dnum[int(floor((baseheightma)/0.1))+4+k*5][sth+10+int((height-4)/2)][stw+8] = 5
+					map3dnum[int(floor((baseheightma)/0.1))+4+k*5][sth+10+int((height-4)/2)+4][stw+9] = 5
+					map3dnum[int(floor((baseheightma)/0.1))+4+k*5][sth+10+int((height-4)/2)][stw+9] = 5
+					map3dnum[int(floor((baseheightma)/0.1))+4+k*5][sth+10+int((height-4)/2)+4][stw+8] = 5
+					map3dnum[int(floor((baseheightma)/0.1))+4+k*5+k][sth+i+10][stw+8] = 5
+					map3dnum[int(floor((baseheightma)/0.1))+4+k*5+k][sth+i+10][stw+9] = 5
+					
+				map3dnum[int(floor((baseheightma)/0.1))+4+k*5+5+k][sth+i+10][stw+j+10] = 5
+	print(stair.size())
+	for k in range(stair.size()):
+		var sti1 = stair[k][0]
+		var stj1 = stair[k][1]
+		var sti2 = stair[k][2]
+		var stj2 = stair[k][3]
+		if sti1 == sti2:
+			if stj2 >= stj1:
+				for j in range(stj2-stj1+1):
+					for i in range(3):
+						map3dnum[int(floor((baseheightma)/0.1))+4+k*5+k+j][sth+sti1+i+10][stw+j+stj1+2+10] = 5
+						for t in range(5):
+							map3dnum[int(floor((baseheightma)/0.1))+4+k*5+k+min(5,j+t+1)][sth+sti1+i+10][stw+j+stj1+2+10] = -1
+			else:
+				for j in range(stj1-stj2+1):
+					for i in range(3):
+						map3dnum[int(floor((baseheightma)/0.1))+4+k*5+k+5-j][sth+sti1+i+10][stw+j+stj2+1+10] = 5
+						for t in range(5):
+							map3dnum[int(floor((baseheightma)/0.1))+4+k*5+k+min(5,4-j+t+1)][sth+sti1+i+10][stw+j+stj2+10] = -1
+		else:
+			if sti2 >= sti1:
+				for i in range(sti2-sti1+1):
+					for j in range(3):
+						map3dnum[int(floor((baseheightma)/0.1))+4+k*5+k+i][sth+sti1+i+2+10][stw+j+stj1+10] = 5
+						for t in range(5):
+							map3dnum[int(floor((baseheightma)/0.1))+4+k*5+k+min(5,i+t+1)][sth+sti1+i+2+10][stw+j+stj1+10] = -1
+			else:
+				for i in range(sti1-sti2+1):
+					for j in range(3):
+						map3dnum[int(floor((baseheightma)/0.1))+4+k*5+k+5-i][sth+sti2+i+1+10][stw+j+stj1+10] = 5
+						for t in range(5):
+							map3dnum[int(floor((baseheightma)/0.1))+4+k*5+k+min(5,4-i+t+1)][sth+sti2+i+10][stw+j+stj1+10] = -1
 func _ready():
 	if not player:
 		push_error("Player is not defined. Check terrain right panel to set player.")
