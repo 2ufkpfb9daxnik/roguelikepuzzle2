@@ -38,6 +38,7 @@ var map3d = []
 var collisiondata = []
 var multimeshdata = []
 var map3dnum = []
+var nearest_ground = []
 var assignnum = []
 var aroundheightmin = []
 var collisionmap = []
@@ -1431,10 +1432,6 @@ func make_castle(curi,curj):
 						for t in range(5):
 							map3dnum[int(floor((baseheightma)/0.1))+4+k*5+k+min(5,4-i+t+1)][sth+sti2+i+10][stw+j+stj1+10] = -1
 func _ready():
-	if not player:
-		push_error("Player is not defined. Check terrain right panel to set player.")
-		queue_free()
-		return
 
 	for i in range(h):
 		var arrw = []
@@ -1461,7 +1458,15 @@ func _ready():
 				row_for_z.append(-1) 
 			z_level_map.append(row_for_z)
 		map3dnum.append(z_level_map)
-	
+	for k in range(d): 
+		var z_level_map = []
+		for i in range(worldh):
+			var row_for_z = []
+			for j in range(worldw):
+				row_for_z.append(-1) 
+			z_level_map.append(row_for_z)
+		nearest_ground.append(z_level_map)
+		
 	for k in range(d):
 		var z_level_map = []
 		for i in range(worldh):
@@ -1798,6 +1803,13 @@ func _ready():
 	mazeend[0].y += 1
 	make_tunnel([caveend,0,0],mazeend)
 	make_castle(res_castle_i,res_castle_j)
+	for k in range(d-1):
+		for i in range(worldh):
+			for j in range(worldw):
+				nearest_ground[k+1][i][j] = nearest_ground[k][i][j]
+				if map3dnum[k+1][i][j] != -1:
+					nearest_ground[k+1][i][j] = k+1
+					
 	template_mesh = get_parent().get_node("StaticBody3D/MeshInstance3D").mesh
 	create_multimesh_body(map3dnum)
 	create_collision_body(map3dnum)
