@@ -1,0 +1,38 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://bc742ygubfgf5"
+path.s3tc="res://.godot/imported/骸骨+3dモデル_tripo_image_510b48b1-e0a4-4faf-a703-b90c97f2d47c_0.jpg-6c83cef2518a6071be86daeba0d54fd0.s3tc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
+generator_parameters={
+"md5": "49b8f8dc14910d0fce778c46de649301"
+}
+
+[deps]
+
+source_file="res://model/enemy/no_animation/skeleton/骸骨+3dモデル_tripo_image_510b48b1-e0a4-4faf-a703-b90c97f2d47c_0.jpg"
+dest_files=["res://.godot/imported/骸骨+3dモデル_tripo_image_510b48b1-e0a4-4faf-a703-b90c97f2d47c_0.jpg-6c83cef2518a6071be86daeba0d54fd0.s3tc.ctex"]
+
+[params]
+
+compress/mode=2
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=0

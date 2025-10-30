@@ -1432,7 +1432,7 @@ func make_castle(curi,curj):
 						for t in range(5):
 							map3dnum[int(floor((baseheightma)/0.1))+4+k*5+k+min(5,4-i+t+1)][sth+sti2+i+10][stw+j+stj1+10] = -1
 func _ready():
-
+	player = get_parent().get_node("CharacterBody3D")
 	for i in range(h):
 		var arrw = []
 		for j in range(w):

@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://b5ruwhcx313r2"
-path="res://.godot/imported/6556a1fa-d84b-4e87-819e-e1a8346fda3f.glb-be0bc329e53694c61899a37395311c66.scn"
+uid="uid://bx6k23tcbsugf"
+path="res://.godot/imported/骸骨+3dモデル.glb-2f9baeaf964a44bd00cf1e517ef2f13a.scn"
 
 [deps]
 
-source_file="res://model/enemy/no_animation/mushroom_man/6556a1fa-d84b-4e87-819e-e1a8346fda3f.glb"
-dest_files=["res://.godot/imported/6556a1fa-d84b-4e87-819e-e1a8346fda3f.glb-be0bc329e53694c61899a37395311c66.scn"]
+source_file="res://model/enemy/no_animation/skeleton/骸骨+3dモデル.glb"
+dest_files=["res://.godot/imported/骸骨+3dモデル.glb-2f9baeaf964a44bd00cf1e517ef2f13a.scn"]
 
 [params]
 
