@@ -238,7 +238,7 @@ func _process(delta):
 			
 			if i*i + j*j <= spawn_range*spawn_range:
 				# スポーン頻度を調整する条件（例: 4マスごとに1体）
-				if check_x % 4 == 0 and check_z % 4 == 0: # Y座標のチェックは地形に依存するため、ここでは外す
+				if check_x % 10 == 0 and check_z % 10 == 0: # Y座標のチェックは地形に依存するため、ここでは外す
 					var ground_y = nearest_ground[check_y][check_x][check_z]
 					if ground_y < 0: continue
 					if isspawned[ground_y][check_x][check_z] == 0:

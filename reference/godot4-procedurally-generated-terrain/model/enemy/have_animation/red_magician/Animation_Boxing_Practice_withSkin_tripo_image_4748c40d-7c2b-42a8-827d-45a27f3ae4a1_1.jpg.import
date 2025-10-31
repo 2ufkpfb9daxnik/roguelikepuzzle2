@@ -1,0 +1,38 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://birhb0o06ytx5"
+path.s3tc="res://.godot/imported/Animation_Boxing_Practice_withSkin_tripo_image_4748c40d-7c2b-42a8-827d-45a27f3ae4a1_1.jpg-f23109076230e322d543376d8ff08f97.s3tc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
+generator_parameters={
+"md5": "750b1934faf8b7c0c1e3fa2d3d381c1d"
+}
+
+[deps]
+
+source_file="res://model/enemy/have_animation/red_magician/Animation_Boxing_Practice_withSkin_tripo_image_4748c40d-7c2b-42a8-827d-45a27f3ae4a1_1.jpg"
+dest_files=["res://.godot/imported/Animation_Boxing_Practice_withSkin_tripo_image_4748c40d-7c2b-42a8-827d-45a27f3ae4a1_1.jpg-f23109076230e322d543376d8ff08f97.s3tc.ctex"]
+
+[params]
+
+compress/mode=2
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=0
