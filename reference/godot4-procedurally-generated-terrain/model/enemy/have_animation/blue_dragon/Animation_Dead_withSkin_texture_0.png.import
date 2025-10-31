@@ -2,17 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bn6eoydfjjxcm"
-path.s3tc="res://.godot/imported/6556a1fa-d84b-4e87-819e-e1a8346fda3f_tripo_image_db74c0c1-9cf9-4e00-82c0-7f141ae2beb9_0.jpg-bad6376c604acfb3215eb362f09b0e9a.s3tc.ctex"
+uid="uid://cihbd5sgl7xp1"
+path.s3tc="res://.godot/imported/Animation_Dead_withSkin_texture_0.png-6009bb005a1d179ce937dd9cdb68f633.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
+generator_parameters={
+"md5": "211ce931c7033cb743789f6ea44fddb0"
+}
 
 [deps]
 
-source_file="res://model/enemy/no_animation/mushroom_man/6556a1fa-d84b-4e87-819e-e1a8346fda3f_tripo_image_db74c0c1-9cf9-4e00-82c0-7f141ae2beb9_0.jpg"
-dest_files=["res://.godot/imported/6556a1fa-d84b-4e87-819e-e1a8346fda3f_tripo_image_db74c0c1-9cf9-4e00-82c0-7f141ae2beb9_0.jpg-bad6376c604acfb3215eb362f09b0e9a.s3tc.ctex"]
+source_file="res://model/enemy/have_animation/blue_dragon/Animation_Dead_withSkin_texture_0.png"
+dest_files=["res://.godot/imported/Animation_Dead_withSkin_texture_0.png-6009bb005a1d179ce937dd9cdb68f633.s3tc.ctex"]
 
 [params]
 

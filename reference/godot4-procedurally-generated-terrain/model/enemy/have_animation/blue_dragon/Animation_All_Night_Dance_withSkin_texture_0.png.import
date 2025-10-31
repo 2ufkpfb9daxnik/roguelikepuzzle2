@@ -2,17 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bn6eoydfjjxcm"
-path.s3tc="res://.godot/imported/6556a1fa-d84b-4e87-819e-e1a8346fda3f_tripo_image_db74c0c1-9cf9-4e00-82c0-7f141ae2beb9_0.jpg-bad6376c604acfb3215eb362f09b0e9a.s3tc.ctex"
+uid="uid://234aukjj1ey2"
+path.s3tc="res://.godot/imported/Animation_All_Night_Dance_withSkin_texture_0.png-ebf830f0cc0f3f1efc22815188f615d8.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
+generator_parameters={
+"md5": "211ce931c7033cb743789f6ea44fddb0"
+}
 
 [deps]
 
-source_file="res://model/enemy/no_animation/mushroom_man/6556a1fa-d84b-4e87-819e-e1a8346fda3f_tripo_image_db74c0c1-9cf9-4e00-82c0-7f141ae2beb9_0.jpg"
-dest_files=["res://.godot/imported/6556a1fa-d84b-4e87-819e-e1a8346fda3f_tripo_image_db74c0c1-9cf9-4e00-82c0-7f141ae2beb9_0.jpg-bad6376c604acfb3215eb362f09b0e9a.s3tc.ctex"]
+source_file="res://model/enemy/have_animation/blue_dragon/Animation_All_Night_Dance_withSkin_texture_0.png"
+dest_files=["res://.godot/imported/Animation_All_Night_Dance_withSkin_texture_0.png-ebf830f0cc0f3f1efc22815188f615d8.s3tc.ctex"]
 
 [params]
 
