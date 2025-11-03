@@ -81,3 +81,5 @@ skeleton = NodePath("")
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="enemy"]
 root_node = NodePath("")
+
+[node name="BattleTransition" type="CanvasLayer" parent="."]

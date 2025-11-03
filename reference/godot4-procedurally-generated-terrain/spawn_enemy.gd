@@ -49,6 +49,7 @@ var spawn_range = 5
 
 func spawn_enemy(pos:Vector3): # Vector3iからVector3に変更
 	var enemy_key = ""
+	var biome_type
 	var spawn_pos_int = Vector3i(round(pos.x), round(pos.y), round(pos.z))
 
 	# バイオーム判定 (posのVector3i版を使用)
@@ -56,23 +57,27 @@ func spawn_enemy(pos:Vector3): # Vector3iからVector3に変更
 		if spawn_pos_int.y >= plane_range_dl and spawn_pos_int.y <= plane_range_dr:
 			if stage_enemy[0].is_empty(): return
 			enemy_key = stage_enemy[0].pick_random()
+			biome_type =0
 	elif spawn_pos_int.x >= cave_range_hl and spawn_pos_int.x <= cave_range_hr and spawn_pos_int.z >= cave_range_wl and spawn_pos_int.z <= cave_range_wr:
 		if spawn_pos_int.y >= cave_range_dl and spawn_pos_int.y <= cave_range_dr:
 			if stage_enemy[1].is_empty(): return
 			enemy_key = stage_enemy[1].pick_random()
+			biome_type = 1
 	elif spawn_pos_int.x >= desert_range_hl and spawn_pos_int.x <= desert_range_hr and spawn_pos_int.z >= desert_range_wl and spawn_pos_int.z <= desert_range_wr:
 		if spawn_pos_int.y >= desert_range_dl and spawn_pos_int.y <= desert_range_dr:
 			if stage_enemy[2].is_empty(): return
 			enemy_key = stage_enemy[2].pick_random()
+			biome_type = 2
 	elif spawn_pos_int.x >= snow_range_hl and spawn_pos_int.x <= snow_range_hr and spawn_pos_int.z >= snow_range_wl and spawn_pos_int.z <= snow_range_wr:
 		if spawn_pos_int.y >= snow_range_dl and spawn_pos_int.y <= snow_range_dr:
 			if stage_enemy[3].is_empty(): return
 			enemy_key = stage_enemy[3].pick_random()
+			biome_type = 3
 	elif spawn_pos_int.x >= castle_range_hl and spawn_pos_int.x <= castle_range_hr and spawn_pos_int.z >= castle_range_wl and spawn_pos_int.z <= castle_range_wr:
 		if spawn_pos_int.y >= castle_range_dl and spawn_pos_int.y <= castle_range_dr:
 			if stage_enemy[4].is_empty(): return
 			enemy_key = stage_enemy[4].pick_random()
-	
+			biome_type = 4
 	if enemy_key == "":
 		return
 
@@ -131,7 +136,7 @@ func spawn_enemy(pos:Vector3): # Vector3iからVector3に変更
 	enemy_instance.global_position = pos
 	enemy_instance.health = 100
 	enemy_instance.speed = 5.0
-	
+	enemy_instance.biome_type = biome_type
 	# 全てのアニメーションモデルのパスを enemy.gd に渡す
 	# enemy_instance が `enemy.gd` スクリプトを持つインスタンスであることを確認
 	if enemy_instance.has_method("set_animation_model_paths"):

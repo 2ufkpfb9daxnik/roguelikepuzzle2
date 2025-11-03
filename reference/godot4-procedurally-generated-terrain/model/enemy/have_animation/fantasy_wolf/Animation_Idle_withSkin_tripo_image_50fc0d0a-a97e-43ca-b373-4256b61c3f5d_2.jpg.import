@@ -1,0 +1,38 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://c14poys805sxw"
+path.s3tc="res://.godot/imported/Animation_Idle_withSkin_tripo_image_50fc0d0a-a97e-43ca-b373-4256b61c3f5d_2.jpg-e6351f2f536578837b7e7490c73b1bba.s3tc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
+generator_parameters={
+"md5": "dfcab57fdccc97c1c859fe0958464a70"
+}
+
+[deps]
+
+source_file="res://model/enemy/have_animation/fantasy_wolf/Animation_Idle_withSkin_tripo_image_50fc0d0a-a97e-43ca-b373-4256b61c3f5d_2.jpg"
+dest_files=["res://.godot/imported/Animation_Idle_withSkin_tripo_image_50fc0d0a-a97e-43ca-b373-4256b61c3f5d_2.jpg-e6351f2f536578837b7e7490c73b1bba.s3tc.ctex"]
+
+[params]
+
+compress/mode=2
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=1
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=1
+roughness/src_normal="res://model/enemy/have_animation/fantasy_wolf/Animation_Idle_withSkin_tripo_image_50fc0d0a-a97e-43ca-b373-4256b61c3f5d_2.jpg"
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=0

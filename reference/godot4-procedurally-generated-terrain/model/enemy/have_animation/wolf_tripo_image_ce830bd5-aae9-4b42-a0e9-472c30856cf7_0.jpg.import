@@ -1,0 +1,38 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://dp752s5r0u3ou"
+path.s3tc="res://.godot/imported/wolf_tripo_image_ce830bd5-aae9-4b42-a0e9-472c30856cf7_0.jpg-86d165fa4d33af4d11f56e9b1f1a6430.s3tc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
+generator_parameters={
+"md5": "0cab936149519d8a953ee659658ef3f5"
+}
+
+[deps]
+
+source_file="res://model/enemy/have_animation/wolf_tripo_image_ce830bd5-aae9-4b42-a0e9-472c30856cf7_0.jpg"
+dest_files=["res://.godot/imported/wolf_tripo_image_ce830bd5-aae9-4b42-a0e9-472c30856cf7_0.jpg-86d165fa4d33af4d11f56e9b1f1a6430.s3tc.ctex"]
+
+[params]
+
+compress/mode=2
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=0

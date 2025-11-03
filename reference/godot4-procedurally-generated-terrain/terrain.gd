@@ -12,7 +12,7 @@ extends Node3D
 @export var CAVE_AUTOMATON_STEPS = 5
 @export_range(0.5, 1.0, 0.05) var CAVE_ENTRANCE_SOLIDITY_REQUIREMENT: float = 0.8
 @export var castle_path: String = "res://model/castle/castle.glb"
-var exp = 6
+var exp = 7
 var h:int = pow(2, exp) + 1
 var w:int = pow(2, exp) + 1
 var worldh = h*2
@@ -25,11 +25,13 @@ var cave_start_h:int = h/2
 var cave_start_w:int = w
 var castle_start_h:int = h/2
 var castle_start_w:int = w*5/2
-var d = 80
+var d = 90
 var entrance_width_radius: float = 3.0
 var entrance_height_radius: float = 3.0
 var castle_width_length = h/4*3
 var castle_height_length = w/4*3
+var battle_height = 15
+var battle_width = 15
 var rh = 32
 var rw = 32
 var collision
@@ -59,7 +61,10 @@ var cube_node: Node3D
 var physics_parent: Node3D 
 var bsp_leaf_nodes: Array = []
 var dungeon_grid: Array = []
-
+var plane_battle_pos:Vector3
+var cave_battle_pos:Vector3
+var desert_battle_pos:Vector3
+var snow_battle_pos:Vector3
 #地形生成
 func diamondsquare(map:Array,amplitude=1.5)->Array:
 	var size = h - 1
@@ -271,7 +276,7 @@ func make_graph(cells:Array)->Dictionary:
 				graph[i].append(j)
 	return graph
 
-func make_room(cell:rectangle,map:Array,min_size:int=5)->rectangle:
+func make_room(cell:rectangle,map:Array,min_size:int=10)->rectangle:
 	var width
 	if cell.w > min_size:
 		width = randi()%(cell.w-min_size)+min_size
@@ -377,7 +382,7 @@ func bfs(map:Array) -> Array:
 							queue.append(Vector2(p.x,p.y+1))
 				id += 1
 	return labels
-func generate_cave(width:int,height:int,floorheightmi:int,min_size:int=10):
+func generate_cave(width:int,height:int,floorheightmi:int,min_size:int=15):
 	var cavemap = []
 	var caves = []
 	for y in range(height):
@@ -426,7 +431,10 @@ func generate_cave(width:int,height:int,floorheightmi:int,min_size:int=10):
 		cavemap = cell_automaton(cavemap,5)
 	caves.append(cavemap)
 	for i in range(29-floorheightmi):
-		caves.append(cell_automaton(caves[i],5))
+		if i%2 == 1:
+			caves.append(cell_automaton(caves[i],5))
+		else:
+			caves.append(caves[i])
 	for i in range(10):
 		for y in range(height):
 			for x in range(width):
@@ -903,7 +911,7 @@ func make_tunnel(caveentrance:Array,mazeentrance:Array):
 	
 	carve_tunnel(p0,p1,p2,p3)
 
-func sea(map:Array):
+func sea(map:Array,n:int = 4):
 	var sea_left: float = -1e9
 	var sea_right: float = 1e9
 	var seablocksum = 0
@@ -914,7 +922,7 @@ func sea(map:Array):
 			for j in range(w):
 				if map[i][j] <= sea_mid:
 					count += 1
-		if count >= h * w / 4:
+		if count >= h * w / n:
 			sea_right = sea_mid
 		else:
 			sea_left = sea_mid
@@ -926,56 +934,22 @@ func sea(map:Array):
 				
 	return [map,seablocksum]
 func snow_leveling(map:Array):
-	var dist_snow = []
-	for i in range(h):
-		var arrw = []
-		for j in range(w):
-			arrw.append(1e9)
-		dist_snow.append(arrw)
-	dist_snow[h/2][w/2] = 0
-	var snow_que = Dequeue.new()
-	snow_que.push_back(int(int(h/2)*w+int(w/2)))
-	while snow_que.size() > 0:
-		var q = snow_que.peek_front()
-		snow_que.pop_front()
-		var i = int(q/w)
-		var j = q%int(w)
-		if i-1 >= 0:
-			if map[i-1][j] >= SNOWHEIGHT and dist_snow[i-1][j] > dist_snow[i][j]+1:
-				dist_snow[i-1][j] = dist_snow[i][j]+1
-				snow_que.push_back((i-1)*int(w)+j)
-		if i+1 < h:
-			if map[i+1][j] >= SNOWHEIGHT and dist_snow[i+1][j] > dist_snow[i][j]+1:
-				dist_snow[i+1][j] = dist_snow[i][j]+1
-				snow_que.push_back((i+1)*int(w)+j)
-		if j-1 >= 0:
-			if map[i][j-1] >= SNOWHEIGHT and dist_snow[i][j-1] > dist_snow[i][j]+1:
-				dist_snow[i][j-1] = dist_snow[i][j]+1
-				snow_que.push_back(i*int(w)+j-1)
-		if j+1 < w:
-			if map[i][j+1] >= SNOWHEIGHT and dist_snow[i][j+1] > dist_snow[i][j]+1:
-				dist_snow[i][j+1] = dist_snow[i][j]+1
-				snow_que.push_back(i*int(w)+j+1)
-	var castle_point_candidate = []
-	for i in range(h):
-		for j in range(w):
-			castle_point_candidate.append([dist_snow[i][j],i*int(w)+j])
-	castle_point_candidate.sort()
-	var can_set_castle_point = []
-	var sum_snow_height = []
+	var sum = []
+	var sum_height = []
+	var battle_point_candidate = []
 	for i in range(h):
 		var arrw = []
 		for j in range(w):
 			arrw.append(0)
-		can_set_castle_point.append(arrw)
+		sum.append(arrw)
 	for i in range(h):
 		var arrw = []
 		for j in range(w):
 			arrw.append(0)
-		sum_snow_height.append(arrw)
+		sum_height.append(arrw)
 	for i in range(h):
 		for j in range(w):
-			sum_snow_height[i][j] = map[i][j]
+			sum_height[i][j] = map[i][j]
 			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
 				continue
 			if map[i-1][j] <= SNOWHEIGHT:
@@ -1004,47 +978,366 @@ func snow_leveling(map:Array):
 				continue
 			if map[i-1][j+1] <= SNOWHEIGHT:
 				continue
-			can_set_castle_point[i][j] = 1
+			sum[i][j] = 1
 	for i in range(h):
 		for j in range(w-1):
-			can_set_castle_point[i][j+1] += can_set_castle_point[i][j]
-			sum_snow_height[i][j+1] += sum_snow_height[i][j]
+			sum[i][j+1] += sum[i][j]
+			sum_height[i][j+1] += sum_height[i][j]
 	for j in range(w):
 		for i in range(h-1):
-			can_set_castle_point[i+1][j] += can_set_castle_point[i][j]
-			sum_snow_height[i+1][j] += sum_snow_height[i][j]
-	for k in range(castle_point_candidate.size()):
-		var can_set = true
-		var curi = castle_point_candidate[k][1]/int(w)
-		var curj = castle_point_candidate[k][1]%(int(w))
-		var cursum = 0;
-		var cur_height = 0;
-		if curi+castle_height_length >= h-1:
-			continue
-		if curj+castle_width_length >= w-1:
-			continue
-		cursum += can_set_castle_point[curi+castle_height_length][curj+castle_width_length]
-		cur_height += sum_snow_height[curi+castle_height_length][curj+castle_width_length]
-		if curi-1 >= 0:
-			cursum -= can_set_castle_point[curi-1][curj+castle_width_length]
-			cur_height -= sum_snow_height[curi-1][curj+castle_width_length]
-		if curj-1 >= 0:
-			cursum -= can_set_castle_point[curi+castle_height_length][curj-1]
-			cur_height -= sum_snow_height[curi+castle_height_length][curj-1]
-		if curi-1 >= 0 and curj-1 >= 0:
-			cursum += can_set_castle_point[curi-1][curj-1]
-			cur_height += sum_snow_height[curi-1][curj-1]
-		if cursum == 10*10:
-			for i in range(castle_height_length+1):
-				for j in range(castle_width_length+1):
-					map[curi+i][curj+j] = cur_height/(float((castle_height_length+1)*(castle_width_length+1)))
-			for i in range(h):
-				for j in range(w):
-					if map[i][j] > cur_height/(float((castle_height_length+1)*(castle_width_length+1))):
-						map[i][j] = cur_height/(float((castle_height_length+1)*(castle_width_length+1)))
-			
-			return [map,curi,curj]
-	return [map,0,0]
+			sum[i+1][j] += sum[i][j]
+			sum_height[i+1][j] += sum_height[i][j]
+	for i in range(h):
+		for j in range(w):
+			var can_set = true
+			var cursum = 0;
+			var cur_height = 0;
+			if i+battle_height-1 >= h:
+				continue
+			if j+battle_width-1 >= w:
+				continue
+			cursum += sum[i+battle_height-1][j+battle_width-1]
+			cur_height += sum_height[i+battle_height-1][j+battle_width-1]
+			if i-1 >= 0:
+				cursum -= sum[i-1][j+battle_width-1]
+				cur_height -= sum_height[i-1][j+battle_width-1]
+			if j-1 >= 0:
+				cursum -= sum[i+battle_height-1][j-1]
+				cur_height -= sum_height[i+battle_height-1][j-1]
+			if i-1 >= 0 and j-1 >= 0:
+				cursum += sum[i-1][j-1]
+				cur_height += sum_height[i-1][j-1]
+			if cursum == battle_height*battle_width:
+				battle_point_candidate.append([i,j,cur_height])
+	var res = battle_point_candidate.pick_random()
+	for i in range(battle_height):
+		for j in range(battle_width):
+			map[res[0]+i][res[1]+j] = float(res[2]/(battle_height*battle_width))
+	return [map,res[0],res[1]]
+func plane_leveling(map:Array):
+	var sum = []
+	var sum_height = []
+	var battle_point_candidate = []
+	for i in range(h):
+		var arrw = []
+		for j in range(w):
+			arrw.append(0)
+		sum.append(arrw)
+	for i in range(h):
+		var arrw = []
+		for j in range(w):
+			arrw.append(0)
+		sum_height.append(arrw)
+	for i in range(h):
+		for j in range(w):
+			sum_height[i][j] = map[i][j]
+			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
+				continue
+			if map[i-1][j] > SNOWHEIGHT:
+				continue
+			if map[i-2][j] > SNOWHEIGHT:
+				continue
+			if map[i+1][j] > SNOWHEIGHT:
+				continue
+			if map[i+2][j] > SNOWHEIGHT:
+				continue
+			if map[i][j-1] > SNOWHEIGHT:
+				continue
+			if map[i][j-2] > SNOWHEIGHT:
+				continue
+			if map[i][j+1] > SNOWHEIGHT:
+				continue
+			if map[i][j+2] > SNOWHEIGHT:
+				continue
+			if map[i][j] > SNOWHEIGHT:
+				continue
+			if map[i+1][j+1] > SNOWHEIGHT:
+				continue
+			if map[i+1][j-1] > SNOWHEIGHT:
+				continue
+			if map[i-1][j-1] > SNOWHEIGHT:
+				continue
+			if map[i-1][j+1] > SNOWHEIGHT:
+				continue
+			sum[i][j] = 1
+	for i in range(h):
+		for j in range(w-1):
+			sum[i][j+1] += sum[i][j]
+			sum_height[i][j+1] += sum_height[i][j]
+	for j in range(w):
+		for i in range(h-1):
+			sum[i+1][j] += sum[i][j]
+			sum_height[i+1][j] += sum_height[i][j]
+	for i in range(h):
+		for j in range(w):
+			var can_set = true
+			var cursum = 0;
+			var cur_height = 0;
+			if i+battle_height-1 >= h:
+				continue
+			if j+battle_width-1 >= w:
+				continue
+			cursum += sum[i+battle_height-1][j+battle_width-1]
+			cur_height += sum_height[i+battle_height-1][j+battle_width-1]
+			if i-1 >= 0:
+				cursum -= sum[i-1][j+battle_width-1]
+				cur_height -= sum_height[i-1][j+battle_width-1]
+			if j-1 >= 0:
+				cursum -= sum[i+battle_height-1][j-1]
+				cur_height -= sum_height[i+battle_height-1][j-1]
+			if i-1 >= 0 and j-1 >= 0:
+				cursum += sum[i-1][j-1]
+				cur_height += sum_height[i-1][j-1]
+			if cursum == battle_height*battle_width:
+				battle_point_candidate.append([i,j,cur_height])
+	var res = battle_point_candidate.pick_random()
+	for i in range(battle_height):
+		for j in range(battle_width):
+			map[res[0]+i][res[1]+j] = float(res[2]/(battle_height*battle_width))
+	return [map,res[0],res[1]]
+func desert_leveling(map:Array):
+	var sum = []
+	var sum_height = []
+	var battle_point_candidate = []
+	for i in range(h):
+		var arrw = []
+		for j in range(w):
+			arrw.append(0)
+		sum.append(arrw)
+	for i in range(h):
+		var arrw = []
+		for j in range(w):
+			arrw.append(0)
+		sum_height.append(arrw)
+	for i in range(h):
+		for j in range(w):
+			sum_height[i][j] = map[i][j]
+			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
+				continue
+			if map[i-1][j] == 0:
+				continue
+			if map[i-2][j] == 0:
+				continue
+			if map[i+1][j] == 0:
+				continue
+			if map[i+2][j] == 0:
+				continue
+			if map[i][j-1] == 0:
+				continue
+			if map[i][j-2] == 0:
+				continue
+			if map[i][j+1] == 0:
+				continue
+			if map[i][j+2] == 0:
+				continue
+			if map[i][j] == 0:
+				continue
+			if map[i+1][j+1] == 0:
+				continue
+			if map[i+1][j-1] == 0:
+				continue
+			if map[i-1][j-1] == 0:
+				continue
+			if map[i-1][j+1] == 0:
+				continue
+			sum[i][j] = 1
+	for i in range(h):
+		for j in range(w-1):
+			sum[i][j+1] += sum[i][j]
+			sum_height[i][j+1] += sum_height[i][j]
+	for j in range(w):
+		for i in range(h-1):
+			sum[i+1][j] += sum[i][j]
+			sum_height[i+1][j] += sum_height[i][j]
+	for i in range(h):
+		for j in range(w):
+			var can_set = true
+			var cursum = 0;
+			var cur_height = 0;
+			if i+battle_height-1 >= h:
+				continue
+			if j+battle_width-1 >= w:
+				continue
+			cursum += sum[i+battle_height-1][j+battle_width-1]
+			cur_height += sum_height[i+battle_height-1][j+battle_width-1]
+			if i-1 >= 0:
+				cursum -= sum[i-1][j+battle_width-1]
+				cur_height -= sum_height[i-1][j+battle_width-1]
+			if j-1 >= 0:
+				cursum -= sum[i+battle_height-1][j-1]
+				cur_height -= sum_height[i+battle_height-1][j-1]
+			if i-1 >= 0 and j-1 >= 0:
+				cursum += sum[i-1][j-1]
+				cur_height += sum_height[i-1][j-1]
+			if cursum == battle_height*battle_width:
+				battle_point_candidate.append([i,j,cur_height])
+	var res = battle_point_candidate.pick_random()
+	for i in range(battle_height):
+		for j in range(battle_width):
+			map[res[0]+i][res[1]+j] = float(res[2]/(battle_height*battle_width))
+	return [map,res[0],res[1]]
+func cave_leveling(map:Array,floor:Array):
+	var sum = []
+	var sum_height = []
+	var battle_point_candidate = []
+	for i in range(h):
+		var arrw = []
+		for j in range(w):
+			arrw.append(0)
+		sum.append(arrw)
+	for i in range(h):
+		var arrw = []
+		for j in range(w):
+			arrw.append(0)
+		sum_height.append(arrw)
+	for i in range(h):
+		for j in range(w):
+			sum_height[i][j] = floor[i][j]
+			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
+				continue
+			if map[i-1][j] == 5:
+				continue
+			if map[i-2][j] == 5:
+				continue
+			if map[i+1][j] == 5:
+				continue
+			if map[i+2][j] == 5:
+				continue
+			if map[i][j-1] == 5:
+				continue
+			if map[i][j-2] == 5:
+				continue
+			if map[i][j+1] == 5:
+				continue
+			if map[i][j+2] == 5:
+				continue
+			if map[i][j] == 5:
+				continue
+			if map[i+1][j+1] == 5:
+				continue
+			if map[i+1][j-1] == 5:
+				continue
+			if map[i-1][j-1] == 5:
+				continue
+			if map[i-1][j+1] == 5:
+				continue
+			sum[i][j] = 1
+	for i in range(h):
+		for j in range(w-1):
+			sum[i][j+1] += sum[i][j]
+			sum_height[i][j+1] += sum_height[i][j]
+	for j in range(w):
+		for i in range(h-1):
+			sum[i+1][j] += sum[i][j]
+			sum_height[i+1][j] += sum_height[i][j]
+	for i in range(h):
+		for j in range(w):
+			var can_set = true
+			var cursum = 0;
+			var cur_height = 0;
+			if i+battle_height-1 >= h:
+				continue
+			if j+battle_width-1 >= w:
+				continue
+			cursum += sum[i+battle_height-1][j+battle_width-1]
+			cur_height += sum_height[i+battle_height-1][j+battle_width-1]
+			if i-1 >= 0:
+				cursum -= sum[i-1][j+battle_width-1]
+				cur_height -= sum_height[i-1][j+battle_width-1]
+			if j-1 >= 0:
+				cursum -= sum[i+battle_height-1][j-1]
+				cur_height -= sum_height[i+battle_height-1][j-1]
+			if i-1 >= 0 and j-1 >= 0:
+				cursum += sum[i-1][j-1]
+				cur_height += sum_height[i-1][j-1]
+			if cursum == battle_height*battle_width:
+				battle_point_candidate.append([i,j,cur_height])
+	var res = battle_point_candidate.pick_random()
+	for i in range(battle_height):
+		for j in range(battle_width):
+			floor[res[0]+i][res[1]+j] = float(res[2]/(battle_height*battle_width))
+	return [floor,res[0],res[1]]
+func castle_leveling(map:Array):
+	var sum = []
+	var sum_height = []
+	var battle_point_candidate = []
+	for i in range(h):
+		var arrw = []
+		for j in range(w):
+			arrw.append(0)
+		sum.append(arrw)
+	for i in range(h):
+		var arrw = []
+		for j in range(w):
+			arrw.append(0)
+		sum_height.append(arrw)
+	for i in range(h):
+		for j in range(w):
+			sum_height[i][j] = map[i][j]
+			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
+				continue
+			if map[i-1][j] <= SNOWHEIGHT:
+				continue
+			if map[i-2][j] <= SNOWHEIGHT:
+				continue
+			if map[i+1][j] <= SNOWHEIGHT:
+				continue
+			if map[i+2][j] <= SNOWHEIGHT:
+				continue
+			if map[i][j-1] <= SNOWHEIGHT:
+				continue
+			if map[i][j-2] <= SNOWHEIGHT:
+				continue
+			if map[i][j+1] <= SNOWHEIGHT:
+				continue
+			if map[i][j+2] <= SNOWHEIGHT:
+				continue
+			if map[i][j] <= SNOWHEIGHT:
+				continue
+			if map[i+1][j+1] <= SNOWHEIGHT:
+				continue
+			if map[i+1][j-1] <= SNOWHEIGHT:
+				continue
+			if map[i-1][j-1] <= SNOWHEIGHT:
+				continue
+			if map[i-1][j+1] <= SNOWHEIGHT:
+				continue
+			sum[i][j] = 1
+	for i in range(h):
+		for j in range(w-1):
+			sum[i][j+1] += sum[i][j]
+			sum_height[i][j+1] += sum_height[i][j]
+	for j in range(w):
+		for i in range(h-1):
+			sum[i+1][j] += sum[i][j]
+			sum_height[i+1][j] += sum_height[i][j]
+	for i in range(h):
+		for j in range(w):
+			var can_set = true
+			var cursum = 0;
+			var cur_height = 0;
+			if i+battle_height-1 >= h:
+				continue
+			if j+battle_width-1 >= w:
+				continue
+			cursum += sum[i+battle_height-1][j+battle_width-1]
+			cur_height += sum_height[i+battle_height-1][j+battle_width-1]
+			if i-1 >= 0:
+				cursum -= sum[i-1][j+battle_width-1]
+				cur_height -= sum_height[i-1][j+battle_width-1]
+			if j-1 >= 0:
+				cursum -= sum[i+battle_height-1][j-1]
+				cur_height -= sum_height[i+battle_height-1][j-1]
+			if i-1 >= 0 and j-1 >= 0:
+				cursum += sum[i-1][j-1]
+				cur_height += sum_height[i-1][j-1]
+			if cursum == battle_height*battle_width:
+				battle_point_candidate.append([i,j,cur_height])
+	var res = battle_point_candidate.pick_random()
+	for i in range(battle_height):
+		for j in range(battle_width):
+			map[res[0]+i][res[1]+j] = float(res[2]/(battle_height*battle_width))
+	return [map,res[0],res[1]]
 func find_mesh_instance(node: Node) -> MeshInstance3D:
 	if node is MeshInstance3D:
 		return node
@@ -1053,7 +1346,7 @@ func find_mesh_instance(node: Node) -> MeshInstance3D:
 		if found != null:
 			return found
 	return null
-func make_castle(curi,curj):
+func make_castle():
 	var castle_scene = load(castle_path)
 	var castle_instance:Node3D = castle_scene.instantiate()
 	var base = []
@@ -1076,7 +1369,7 @@ func make_castle(curi,curj):
 	base[h/2][w-1] = -1.5
 	base[h-1][w/2] = -1.5
 	base = diamondsquare(base)
-	smooth_terrain(10,3.5,base)
+	smooth_terrain(10,0.5,base)
 	var baseheightmi = 1e9
 	for i in range(h):
 		for j in range(w):
@@ -1502,16 +1795,15 @@ func _ready():
 			row_for_z.append([])
 		multimeshmap.append(row_for_z)
 	#草原の生成
-	map[0][0] = -1.5
-	map[0][w - 1] = -1.5
-	map[h - 1][0] = -1.5
-	map[h - 1][w - 1] = -1.5
-	map[0][w/2] = -1.5
-	map[h/2][w - 1] = -1.5
-	map[h - 1][w/2] = -1.5
-	map[h/2][h/2] = 2
-	map = diamondsquare(map)
-	smooth_terrain(10,3.5,map)
+	for i in range(h):
+		map[i][0] = -1.0
+		map[i][w-1] = -1.0
+	for j in range(w):
+		map[0][j] = -1.0
+		map[h-1][j] = -1.0
+	map[h/2][w/2] = 0.5
+	map = diamondsquare(map,0.75)
+	smooth_terrain(10,0.5,map)
 	var resmap = sea(map)
 	var seablocksum =resmap[1]
 	map = resmap[0]
@@ -1542,7 +1834,7 @@ func _ready():
 			for j in range(w):
 				if map[i][j] > heightmid:
 					boxsum += 1
-		if (boxsum >= (h * w - seablocksum) / 2):
+		if (boxsum >= (h * w - seablocksum) / 5 * 2):
 			heightleft = heightmid
 		else:
 			heightright = heightmid
@@ -1602,9 +1894,8 @@ func _ready():
 	SNOWHEIGHT = snow_threshold / max_height
 	var res_leveling = snow_leveling(map)
 	map = res_leveling[0]
-	var res_castle_i = res_leveling[1]
-	var res_castle_j = res_leveling[2]
-	
+	var res_leveling1 = snow_leveling(map)
+	map = res_leveling1[0]
 	aroundheightmin = assign_aroundheightmin(aroundheightmin,map)
 	assignnum = assign_num(SNOWHEIGHT,assignnum,map,max_height)
 	for i in range(h):
@@ -1622,7 +1913,8 @@ func _ready():
 		for j in range(w):
 			map[i][j] += 3.0
 			aroundheightmin[i][j] += 3.0
-		
+	snow_battle_pos = Vector3(res_leveling[1],int(floor(map[res_leveling[1]][res_leveling[2]]/0.1)),res_leveling[2])
+	plane_battle_pos = Vector3(res_leveling1[1],int(floor(map[res_leveling1[1]][res_leveling1[2]]/0.1)),res_leveling1[2])
 	for i in range(h):
 		for j in range(w):
 			var height = int(floor(map[i][j]/0.1))
@@ -1713,6 +2005,8 @@ func _ready():
 	ceilingheightmi *= 10
 	ceilingheightmi += 10
 	var caves = generate_cave(w,h,floorheightmi)#迷路
+	res_leveling = cave_leveling(caves[0],floor)
+	cave_battle_pos = Vector3(res_leveling[1],int(floor(floor[res_leveling[1]][res_leveling[1]]/0.1))+10,res_leveling[2])
 	for i in range(h):
 		for j in range(w):
 			var height = int(floor(floor[i][j]/0.1))+10
@@ -1734,10 +2028,13 @@ func _ready():
 		desert.append(row_map)
 		desertheightmin.append(row_around)
 		desertassignnum.append(row_assignnum)
-	desert[0][0] = -1.0
-	desert[0][w-1] = -1.0
-	desert[h-1][0] = -1.0
-	desert[h-1][w-1] = -1.0
+	for i in range(h):
+		desert[i][0] = -1.0
+		desert[i][w-1] = -1.0
+	for j in range(w):
+		desert[0][j] = -1.0
+		desert[h-1][j] = -1.0
+	desert[h/2][w/2] = 0.2
 	desert = diamondsquare(desert,0.75)
 	smooth_terrain(10,0.5,desert)
 	var desert_plane_diff = -1e9
@@ -1751,23 +2048,34 @@ func _ready():
 		for j in range(w):
 			desert[i][j] -= desertheightmi
 	desertheightmax -= desertheightmi
-	var resdesert = sea(desert)
+	var resdesert = sea(desert,3)
 	desert = resdesert[0]
-	desertheightmin = assign_aroundheightmin(desertheightmin,desert)
-	for i in range(h):
-		desert_plane_diff = max(desert_plane_diff,map[i][0]-desert[i][w-1])
 	for i in range(h):
 		for j in range(w):
-			if desert[i][j] != SEAHEIGHT:
-				desert[i][j] += desert_plane_diff
-			if desertheightmin[i][j] != SEAHEIGHT:
-				desertheightmin[i][j] += desert_plane_diff
-	for i in range(h):
-		desertheightmin[i][w-1] = min(desertheightmin[i][w-1],aroundheightmin[i][0])
+			if desert[i][j] > SEAHEIGHT:
+				desert[i][j] -= SEAHEIGHT
+				desert[i][j] += 1.0
+			else:
+				desert[i][j] = 0
+	desertheightmax += 1.0
+	res_leveling = desert_leveling(desert)
+	desert = res_leveling[0]
 	desertassignnum = assign_num(SNOWHEIGHT,desertassignnum,desert,desertheightmax)
 	for i in range(h):
 		for j in range(w):
-			if desertassignnum[i][j] != 2 or desertassignnum[i][j] != 1:
+			desert[i][j] += 3.0
+	desertheightmi = 3.0
+	desert_battle_pos = Vector3(res_leveling[1],int(floor(desert[res_leveling[1]][res_leveling[2]])),res_leveling[2])
+	desertheightmin = assign_aroundheightmin(desertheightmin,desert)
+	for i in range(h):
+		desertheightmin[i][0] = min(desertheightmin[i][0],3.0)
+		desertheightmin[i][w-1] = min(desertheightmin[i][w-1],3.0)
+	for j in range(w):
+		desertheightmin[0][j] = min(desertheightmin[0][j],3.0)
+		desertheightmin[h-1][j] = min(desertheightmin[h-1][j],3.0)
+	for i in range(h):
+		for j in range(w):
+			if desertassignnum[i][j] != 2 and desertassignnum[i][j] != 1:
 				desertassignnum[i][j] = 5
 	for i in range(h):
 		for j in range(w):
@@ -1802,7 +2110,7 @@ func _ready():
 	var mazeend = assign_maze_entrance(maze_end,floor,floorheightmin,caves[0])
 	mazeend[0].y += 1
 	make_tunnel([caveend,0,0],mazeend)
-	make_castle(res_castle_i,res_castle_j)
+	make_castle()
 	for k in range(d-1):
 		for i in range(worldh):
 			for j in range(worldw):

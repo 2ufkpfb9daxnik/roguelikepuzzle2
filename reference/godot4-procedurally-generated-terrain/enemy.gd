@@ -1,24 +1,35 @@
 extends CharacterBody3D
 
+# ===== 状態管理 =====
+enum State {
+	IDLE,
+	MOVE,
+	DETECT,
+	CHASE,
+	BATTLE_IDLE,
+	ATTACK_PREPARE,
+	ATTACK_ALL,
+	ATTACK_SINGLE,
+	DOWN,
+	DEAD
+}
+
 @export var health: int = 100
 @export var speed: float = 2.5
 @export var gravity: float = 9.8
-@export var detection_range: float = 12.0 # プレイヤーを検知する距離
-@export var chase_speed_multiplier: float = 2.0 # 追跡時の速度倍率
+@export var detection_range: float = 12.0
+@export var chase_speed_multiplier: float = 2.0
+@export var biome_type: int = 0
 
 var player: Node3D = null
-
-# ===== 状態管理 =====
-enum State { IDLE, MOVE, DETECTED, CHASE }
 var state: State = State.IDLE
 var state_timer: float = 0.0
 var target_time: float = 0.0
 var random_direction: Vector3 = Vector3.ZERO
 
-# ===== アニメーション管理 =====
+# ===== アニメーション関連 =====
 var animation_player: AnimationPlayer
 var current_animation_name: String = ""
-var animation_model_paths: Dictionary = {}
 var current_visual_model_root: Node3D = null
 
 # ===== ビックリマーク管理 =====
@@ -33,69 +44,46 @@ var exclamation_state: String = "hidden" # "fade_in" / "stay" / "fade_out"
 #       初期化
 # ===============================
 func _ready():
-	if not get_node_or_null("CollisionShape3D"):
-		var new_collision = CollisionShape3D.new()
-		var shape = CapsuleShape3D.new()
-		shape.radius = 0.5
-		shape.height = 1.5
-		new_collision.shape = shape
-		new_collision.name = "CollisionShape3D"
-		add_child(new_collision)
-
-	current_visual_model_root = get_node_or_null("VisualModelRoot")
-	if current_visual_model_root:
-		current_visual_model_root.position.y = -1.2
-	else:
-		push_warning("No 'VisualModelRoot' found in enemy instance.")
-		return
-
-	animation_player = current_visual_model_root.get_node_or_null("AnimationPlayer")
-	if animation_player:
-		play_animation("Animation_Idle_withSkin")
-
-	# ビックリマークをセット
+	connect("body_entered", _on_body_entered)
+	_create_collision_shape()
+	_setup_visual_model()
 	_create_exclamation_icon()
 
-	state = State.IDLE
-	_set_random_idle_duration()
-
-	# プレイヤー探索
 	var parent = get_parent()
 	if parent:
 		player = parent.get_node_or_null("CharacterBody3D")
 
-# ===============================
-#       毎フレーム処理
-# ===============================
+	_set_random_idle_duration()
+	state = State.IDLE
+
 func _physics_process(delta):
-	# 重力適用
+	# 重力
 	if not is_on_floor():
 		velocity.y -= gravity * delta
 	else:
-		velocity.y = 0.0
+		velocity.y = 0
 
-	if player:
-		var dist_to_player = global_position.distance_to(player.global_position)
-		match state:
-			State.IDLE, State.MOVE:
-				if dist_to_player <= detection_range:
-					state = State.DETECTED
-					_play_detection()
-			State.DETECTED:
-				_process_detected(delta)
-			State.CHASE:
-				if dist_to_player > detection_range * 1.5:
-					# 見失ったらIDLEへ戻る
-					state = State.IDLE
-					play_animation("Animation_Idle_withSkin")
-				else:
-					_process_chase(delta)
-	else:
-		match state:
-			State.IDLE:
-				_process_idle(delta)
-			State.MOVE:
-				_process_move(delta)
+	match state:
+		State.IDLE:
+			_process_idle(delta)
+		State.MOVE:
+			_process_move(delta)
+		State.DETECT:
+			_process_detect(delta)
+		State.CHASE:
+			_process_chase(delta)
+		State.BATTLE_IDLE:
+			_process_battle_idle(delta)
+		State.ATTACK_PREPARE:
+			_process_attack_prepare(delta)
+		State.ATTACK_ALL:
+			_process_attack_all(delta)
+		State.ATTACK_SINGLE:
+			_process_attack_single(delta)
+		State.DOWN:
+			pass
+		State.DEAD:
+			pass
 
 	move_and_slide()
 
@@ -103,21 +91,48 @@ func _physics_process(delta):
 		_update_exclamation(delta)
 
 # ===============================
-#        状態ごとの処理
+#   初期化関数
 # ===============================
+func _create_collision_shape():
+	if get_node_or_null("CollisionShape3D"): return
+	var new_collision = CollisionShape3D.new()
+	var shape = CapsuleShape3D.new()
+	shape.radius = 1.0
+	shape.height = 1.5
+	new_collision.shape = shape
+	add_child(new_collision)
 
-func _process_idle(delta: float) -> void:
+func _setup_visual_model():
+	current_visual_model_root = get_node_or_null("VisualModelRoot")
+	if current_visual_model_root:
+		current_visual_model_root.position.y = -0.2
+		animation_player = current_visual_model_root.get_node_or_null("AnimationPlayer")
+		if animation_player:
+			_play_animation("Animation_Idle_withSkin")
+
+	# 探索時初期アニメーションを再生
+	_play_animation("Animation_Idle_withSkin")
+func _set_random_idle_duration():
+	target_time = randf_range(2.0, 4.5)
+
+# ===============================
+#   探索モード
+# ===============================
+func _process_idle(delta):
 	state_timer += delta
 	if state_timer >= target_time:
 		state = State.MOVE
-		play_animation("Animation_Walking_withSkin")
-		state_timer = 0.0
+		_play_animation("Animation_Walking_withSkin")
+		state_timer = 0
 		target_time = randf_range(1.5, 3.0)
-		random_direction = Vector3(randf_range(-1.0, 1.0), 0, randf_range(-1.0, 1.0)).normalized()
-		var target_rotation = atan2(random_direction.x, random_direction.z)
-		rotation.y = lerp_angle(rotation.y, target_rotation, 1.0)
+		random_direction = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized()
+		rotation.y = atan2(random_direction.x, random_direction.z)
+	else:
+		if player and global_position.distance_to(player.global_position) <= detection_range:
+			state = State.DETECT
+			_play_detection()
 
-func _process_move(delta: float) -> void:
+func _process_move(delta):
 	state_timer += delta
 	var forward = Vector3(sin(rotation.y), 0, cos(rotation.y))
 	velocity.x = forward.x * speed
@@ -125,84 +140,101 @@ func _process_move(delta: float) -> void:
 
 	if state_timer >= target_time:
 		state = State.IDLE
-		play_animation("Animation_Idle_withSkin")
-		velocity.x = 0.0
-		velocity.z = 0.0
-		state_timer = 0.0
+		_play_animation("Animation_Idle_withSkin")
+		velocity = Vector3.ZERO
+		state_timer = 0
 		_set_random_idle_duration()
+	elif player and global_position.distance_to(player.global_position) <= detection_range:
+		state = State.DETECT
+		_play_detection()
 
-func _process_detected(delta: float) -> void:
+func _process_detect(delta):
 	exclamation_time += delta
 	if exclamation_time >= exclamation_duration:
 		state = State.CHASE
-		play_animation("Animation_Running_withSkin")
+		_play_animation("Animation_Running_withSkin")
 
-func _process_chase(delta: float) -> void:
+func _process_chase(delta):
 	if not player: return
-	var direction = (player.global_position - global_position).normalized()
-	var target_rot = atan2(direction.x, direction.z)
-	rotation.y = lerp_angle(rotation.y, target_rot, delta * 5.0)
+	var dir = (player.global_position - global_position).normalized()
+	rotation.y = lerp_angle(rotation.y, atan2(dir.x, dir.z), delta * 5.0)
 	var forward = Vector3(sin(rotation.y), 0, cos(rotation.y))
 	velocity.x = forward.x * speed * chase_speed_multiplier
 	velocity.z = forward.z * speed * chase_speed_multiplier
 
-# ===============================
-#     アニメーション管理
-# ===============================
+	if global_position.distance_to(player.global_position) > detection_range * 1.5:
+		state = State.IDLE
+		_play_animation("Animation_Idle_withSkin")
 
-func set_animation_model_paths(paths_array: Array):
-	animation_model_paths.clear()
-	for path in paths_array:
-		var file_name_with_ext = path.get_file()
-		var animation_name = file_name_with_ext.get_basename()
-		animation_model_paths[animation_name] = path
+# ===============================
+#   バトルモード
+# ===============================
+func _process_battle_idle(delta):
+	if animation_player and not animation_player.is_playing():
+		var idle_anims = ["Animation_Alert_withSkin", "Animation_All_Night_Dance_withSkin", "Animation_Boom_Dance_withSkin"]
+		_play_animation(idle_anims[randi() % idle_anims.size()])
 
-func play_animation(anim_name: String):
+func start_attack():
+	state = State.ATTACK_PREPARE
+	_play_animation("Animation_Boxing_Practice_withSkin")
+	animation_player.seek(40/60.0, true)
+	animation_player.play()
+
+func _process_attack_prepare(delta):
+	if animation_player and not animation_player.is_playing():
+		if randi() % 2 == 0:
+			state = State.ATTACK_ALL
+			_play_animation("Animation_Skill_01_withSkin")
+		else:
+			state = State.ATTACK_SINGLE
+			_play_animation("Animation_Skill_03_withSkin")
+
+func _process_attack_all(delta):
+	if animation_player and not animation_player.is_playing():
+		state = State.BATTLE_IDLE
+
+func _process_attack_single(delta):
+	if animation_player and not animation_player.is_playing():
+		state = State.BATTLE_IDLE
+
+func receive_damage(amount: int):
+	health -= amount
+	if health <= 0:
+		_transition_to_dead()
+	else:
+		_transition_to_down()
+
+func _transition_to_dead():
+	state = State.DEAD
+	_play_animation("Animation_Dead_withSkin")
+	await get_tree().create_timer(2.0).timeout
+	queue_free()
+
+func _transition_to_down():
+	state = State.DOWN
+	_play_animation("Animation_BeHit_FlyUp_withSkin")
+	await animation_player.animation_finished
+	_play_animation("Animation_Arise_withSkin")
+	await animation_player.animation_finished
+	state = State.BATTLE_IDLE
+
+# ===============================
+#   汎用アニメーション再生
+# ===============================
+func _play_animation(anim_name: String):
+	if not animation_player:
+		push_warning("No AnimationPlayer found")
+		return
 	if current_animation_name == anim_name:
 		return
-	if not animation_model_paths.has(anim_name):
-		push_warning("Animation '" + anim_name + "' not found for this enemy.")
+	if not animation_player.has_animation(anim_name):
+		push_warning("Animation not found: " + anim_name)
 		return
-
-	var new_model_path = animation_model_paths[anim_name]
-	if is_instance_valid(current_visual_model_root):
-		current_visual_model_root.queue_free()
-		current_visual_model_root = null
-
-	var loaded_model = load(new_model_path)
-	var new_visual_root: Node3D = null
-	if loaded_model is PackedScene:
-		new_visual_root = loaded_model.instantiate()
-	elif loaded_model is Mesh:
-		var mesh_inst = MeshInstance3D.new()
-		mesh_inst.mesh = loaded_model
-		new_visual_root = mesh_inst
-	else:
-		push_warning("Unsupported resource type: " + new_model_path)
-		return
-
-	if new_visual_root:
-		new_visual_root.name = "VisualModelRoot"
-		add_child(new_visual_root)
-		current_visual_model_root = new_visual_root
-		animation_player = current_visual_model_root.get_node_or_null("AnimationPlayer")
-		if animation_player:
-			var animations = animation_player.get_animation_list()
-			if not animations.is_empty():
-				var real_anim = animations[0]
-				var anim = animation_player.get_animation(real_anim)
-				anim.set_loop_mode(Animation.LOOP_LINEAR)
-				animation_player.play(real_anim)
-				current_animation_name = anim_name
+	current_animation_name = anim_name
+	animation_player.play(anim_name)
 
 # ===============================
-#     IDLE時間設定
-# ===============================
-func _set_random_idle_duration():
-	target_time = randf_range(2.0, 4.5)
-
-# ===============================
-#     ビックリマーク管理
+#   ビックリマーク管理
 # ===============================
 func _create_exclamation_icon():
 	exclamation_ui = Sprite3D.new()
@@ -213,7 +245,6 @@ func _create_exclamation_icon():
 	exclamation_ui.position = Vector3(0, 1.5, 0)
 	add_child(exclamation_ui)
 	exclamation_state = "hidden"
-	exclamation_alpha = 0.0
 
 func _play_detection():
 	exclamation_state = "fade_in"
@@ -221,10 +252,10 @@ func _play_detection():
 	exclamation_ui.position = Vector3(0, 0.5, 0)
 	exclamation_time = 0.0
 	if animation_player:
-		animation_player.stop() # アニメーションを静止
+		animation_player.stop()
 	velocity = Vector3.ZERO
 
-func _update_exclamation(delta: float):
+func _update_exclamation(delta):
 	match exclamation_state:
 		"fade_in":
 			exclamation_alpha += delta * 2.0
@@ -242,3 +273,21 @@ func _update_exclamation(delta: float):
 			exclamation_ui.modulate.a = clamp(exclamation_alpha, 0, 1)
 			if exclamation_alpha <= 0:
 				exclamation_state = "hidden"
+
+# ===============================
+#   プレイヤー接触
+# ===============================
+func _on_body_entered(body):
+	if body.name == "Player":
+		print("Player touched enemy in biome:", biome_type)
+		_transition_to_battle(biome_type,name)
+
+# ===============================
+#   戦闘シーン遷移
+# ===============================
+func _transition_to_battle(biome: int, encountered_enemy: String):
+	# PackedScene 自体を渡す
+	var battle_scene = preload("res://battle_scene.tscn").instantiate()
+	battle_scene.biome_type = biome_type
+	battle_scene.encountered_enemy_name = name
+	get_tree().change_scene_to_packed(battle_scene)
