@@ -12,7 +12,7 @@ extends Node3D
 @export var CAVE_AUTOMATON_STEPS = 5
 @export_range(0.5, 1.0, 0.05) var CAVE_ENTRANCE_SOLIDITY_REQUIREMENT: float = 0.8
 @export var castle_path: String = "res://model/castle/castle.glb"
-var exp = 7
+var exp = 6
 var h:int = pow(2, exp) + 1
 var w:int = pow(2, exp) + 1
 var worldh = h*2
@@ -30,10 +30,10 @@ var entrance_width_radius: float = 3.0
 var entrance_height_radius: float = 3.0
 var castle_width_length = h/4*3
 var castle_height_length = w/4*3
-var battle_height = 15
-var battle_width = 15
-var rh = 32
-var rw = 32
+var battle_height = 10
+var battle_width = 10
+var rh = 8
+var rw = 8
 var collision
 var map = []
 var map3d = []
@@ -1033,31 +1033,31 @@ func plane_leveling(map:Array):
 			sum_height[i][j] = map[i][j]
 			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
 				continue
-			if map[i-1][j] > SNOWHEIGHT:
+			if map[i-1][j] >= SNOWHEIGHT:
 				continue
-			if map[i-2][j] > SNOWHEIGHT:
+			if map[i-2][j] >= SNOWHEIGHT:
 				continue
-			if map[i+1][j] > SNOWHEIGHT:
+			if map[i+1][j] >= SNOWHEIGHT:
 				continue
-			if map[i+2][j] > SNOWHEIGHT:
+			if map[i+2][j] >= SNOWHEIGHT:
 				continue
-			if map[i][j-1] > SNOWHEIGHT:
+			if map[i][j-1] >= SNOWHEIGHT:
 				continue
-			if map[i][j-2] > SNOWHEIGHT:
+			if map[i][j-2] >= SNOWHEIGHT:
 				continue
-			if map[i][j+1] > SNOWHEIGHT:
+			if map[i][j+1] >= SNOWHEIGHT:
 				continue
-			if map[i][j+2] > SNOWHEIGHT:
+			if map[i][j+2] >= SNOWHEIGHT:
 				continue
-			if map[i][j] > SNOWHEIGHT:
+			if map[i][j] >= SNOWHEIGHT:
 				continue
-			if map[i+1][j+1] > SNOWHEIGHT:
+			if map[i+1][j+1] >= SNOWHEIGHT:
 				continue
-			if map[i+1][j-1] > SNOWHEIGHT:
+			if map[i+1][j-1] >= SNOWHEIGHT:
 				continue
-			if map[i-1][j-1] > SNOWHEIGHT:
+			if map[i-1][j-1] >= SNOWHEIGHT:
 				continue
-			if map[i-1][j+1] > SNOWHEIGHT:
+			if map[i-1][j+1] >= SNOWHEIGHT:
 				continue
 			sum[i][j] = 1
 	for i in range(h):
@@ -1894,7 +1894,7 @@ func _ready():
 	SNOWHEIGHT = snow_threshold / max_height
 	var res_leveling = snow_leveling(map)
 	map = res_leveling[0]
-	var res_leveling1 = snow_leveling(map)
+	var res_leveling1 = plane_leveling(map)
 	map = res_leveling1[0]
 	aroundheightmin = assign_aroundheightmin(aroundheightmin,map)
 	assignnum = assign_num(SNOWHEIGHT,assignnum,map,max_height)
@@ -1913,8 +1913,8 @@ func _ready():
 		for j in range(w):
 			map[i][j] += 3.0
 			aroundheightmin[i][j] += 3.0
-	snow_battle_pos = Vector3(res_leveling[1],int(floor(map[res_leveling[1]][res_leveling[2]]/0.1)),res_leveling[2])
-	plane_battle_pos = Vector3(res_leveling1[1],int(floor(map[res_leveling1[1]][res_leveling1[2]]/0.1)),res_leveling1[2])
+	snow_battle_pos = Vector3(res_leveling[1]+plane_start_h,int(floor(map[res_leveling[1]][res_leveling[2]]/0.1)),res_leveling[2]+plane_start_w)
+	plane_battle_pos = Vector3(res_leveling1[1]+plane_start_h,int(floor(map[res_leveling1[1]][res_leveling1[2]]/0.1)),res_leveling1[2]+plane_start_w)
 	for i in range(h):
 		for j in range(w):
 			var height = int(floor(map[i][j]/0.1))
@@ -2006,7 +2006,7 @@ func _ready():
 	ceilingheightmi += 10
 	var caves = generate_cave(w,h,floorheightmi)#迷路
 	res_leveling = cave_leveling(caves[0],floor)
-	cave_battle_pos = Vector3(res_leveling[1],int(floor(floor[res_leveling[1]][res_leveling[1]]/0.1))+10,res_leveling[2])
+	cave_battle_pos = Vector3(res_leveling[1]+cave_start_h,int(floor(floor[res_leveling[1]][res_leveling[1]]/0.1))+10,res_leveling[2]+cave_start_w)
 	for i in range(h):
 		for j in range(w):
 			var height = int(floor(floor[i][j]/0.1))+10
@@ -2065,7 +2065,7 @@ func _ready():
 		for j in range(w):
 			desert[i][j] += 3.0
 	desertheightmi = 3.0
-	desert_battle_pos = Vector3(res_leveling[1],int(floor(desert[res_leveling[1]][res_leveling[2]])),res_leveling[2])
+	desert_battle_pos = Vector3(res_leveling[1]+desert_start_h,int(floor(desert[res_leveling[1]][res_leveling[2]])),res_leveling[2]+desert_start_w)
 	desertheightmin = assign_aroundheightmin(desertheightmin,desert)
 	for i in range(h):
 		desertheightmin[i][0] = min(desertheightmin[i][0],3.0)

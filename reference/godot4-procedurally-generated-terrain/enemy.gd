@@ -13,7 +13,7 @@ enum State {
 	DOWN,
 	DEAD
 }
-
+@onready var detection_area = $DetectionArea
 @export var health: int = 100
 @export var speed: float = 2.5
 @export var gravity: float = 9.8
@@ -26,7 +26,6 @@ var state: State = State.IDLE
 var state_timer: float = 0.0
 var target_time: float = 0.0
 var random_direction: Vector3 = Vector3.ZERO
-
 # ===== アニメーション関連 =====
 var animation_player: AnimationPlayer
 var current_animation_name: String = ""
@@ -44,7 +43,7 @@ var exclamation_state: String = "hidden" # "fade_in" / "stay" / "fade_out"
 #       初期化
 # ===============================
 func _ready():
-	connect("body_entered", _on_body_entered)
+	detection_area.body_entered.connect(_on_body_entered)
 	_create_collision_shape()
 	_setup_visual_model()
 	_create_exclamation_icon()
@@ -54,7 +53,6 @@ func _ready():
 		player = parent.get_node_or_null("CharacterBody3D")
 
 	_set_random_idle_duration()
-	state = State.IDLE
 
 func _physics_process(delta):
 	# 重力
@@ -123,10 +121,6 @@ func _process_idle(delta):
 	if state_timer >= target_time:
 		state = State.MOVE
 		_play_animation("Animation_Walking_withSkin")
-		state_timer = 0
-		target_time = randf_range(1.5, 3.0)
-		random_direction = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized()
-		rotation.y = atan2(random_direction.x, random_direction.z)
 	else:
 		if player and global_position.distance_to(player.global_position) <= detection_range:
 			state = State.DETECT
@@ -278,16 +272,28 @@ func _update_exclamation(delta):
 #   プレイヤー接触
 # ===============================
 func _on_body_entered(body):
-	if body.name == "Player":
+	if body.name == "CharacterBody3D":
 		print("Player touched enemy in biome:", biome_type)
-		_transition_to_battle(biome_type,name)
-
+		await _transition_to_battle(biome_type,name)
 # ===============================
 #   戦闘シーン遷移
 # ===============================
 func _transition_to_battle(biome: int, encountered_enemy: String):
 	# PackedScene 自体を渡す
 	var battle_scene = preload("res://battle_scene.tscn").instantiate()
-	battle_scene.biome_type = biome_type
-	battle_scene.encountered_enemy_name = name
-	get_tree().change_scene_to_packed(battle_scene)
+	battle_scene.set_battle_info(biome,encountered_enemy)
+	battle_scene.plane_battle_pos = get_parent().get_node("terrain").plane_battle_pos
+	battle_scene.cave_battle_pos = get_parent().get_node("terrain").cave_battle_pos
+	battle_scene.desert_battle_pos = get_parent().get_node("terrain").desert_battle_pos
+	battle_scene.snow_battle_pos = get_parent().get_node("terrain").snow_battle_pos
+	var main_env = get_parent().get_node("WorldEnvironment")
+	battle_scene.set_world_environment(main_env)
+	get_parent().add_child(battle_scene)
+	await get_tree().process_frame
+	var player_node = get_parent().get_node("CharacterBody3D")
+	var spawner_node = get_parent().get_node_or_null("spawn_enemy")
+	var existing_enemies: Array = []
+	if spawner_node:
+		existing_enemies = spawner_node.spawned_enemies
+	battle_scene.prepare_battle(player_node, self, existing_enemies)
+	battle_scene.start_battle()

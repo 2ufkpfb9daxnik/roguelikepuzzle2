@@ -46,7 +46,20 @@ var nearest_ground
 var isspawned
 var player:Node3D
 var spawn_range = 5
-
+var can_spawn = true
+var spawned_enemies = []
+enum State {
+	IDLE,
+	MOVE,
+	DETECT,
+	CHASE,
+	BATTLE_IDLE,
+	ATTACK_PREPARE,
+	ATTACK_ALL,
+	ATTACK_SINGLE,
+	DOWN,
+	DEAD
+}
 func spawn_enemy(pos:Vector3): # Vector3iからVector3に変更
 	var enemy_key = ""
 	var biome_type
@@ -131,12 +144,24 @@ func spawn_enemy(pos:Vector3): # Vector3iからVector3に変更
 	collision.shape = shape
 	collision.name = "CollisionShape3D" # enemy.gdから参照できるように名前を付ける
 	enemy_instance.add_child(collision)
-	
+	var area_radius := 2.5
+	var detection_area = Area3D.new()
+	detection_area.name = "DetectionArea"
+	detection_area.monitoring = true
+	detection_area.monitorable = true
+	var area_shape = CollisionShape3D.new()
+	var sphere = SphereShape3D.new()
+	sphere.radius = area_radius
+	area_shape.shape = sphere
+	detection_area.add_child(area_shape)
+	enemy_instance.add_child(detection_area)
+	# 安全に取得できない場合はデフォルト 2.5 を使う
 	# ======= enemy.gdに必要な情報を渡す =======
 	enemy_instance.global_position = pos
 	enemy_instance.health = 100
 	enemy_instance.speed = 5.0
 	enemy_instance.biome_type = biome_type
+	enemy_instance.state = State.IDLE
 	# 全てのアニメーションモデルのパスを enemy.gd に渡す
 	# enemy_instance が `enemy.gd` スクリプトを持つインスタンスであることを確認
 	if enemy_instance.has_method("set_animation_model_paths"):
@@ -146,6 +171,7 @@ func spawn_enemy(pos:Vector3): # Vector3iからVector3に変更
 
 	# ======= シーンに追加 =======
 	get_tree().current_scene.add_child(enemy_instance)
+	spawned_enemies.append(enemy_instance)
 	if visual_model_root_instance:
 		visual_model_root_instance.name = "VisualModelRoot"
 		enemy_instance.add_child(visual_model_root_instance)
@@ -229,7 +255,8 @@ func list_enemy_in_folder(path: String):
 func _process(delta):
 	if not is_instance_valid(player) or nearest_ground == null or nearest_ground.is_empty():
 		return
-
+	if not can_spawn:
+		return
 	var cur_pos = player.global_transform.origin
 	for i in range(-spawn_range,spawn_range+1):
 		for j in range(-spawn_range,spawn_range+1):
