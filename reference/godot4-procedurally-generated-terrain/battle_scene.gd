@@ -17,13 +17,25 @@ var spawned_enemies: Array = []  # 既に生成された敵を管理
 # ===============================
 var biome_type: int
 var encountered_enemy_name: String
-var stage_enemy: Dictionary = {} # 例: {0: ["Goblin","Orc"], 1: ["Bat","Slime"]}
+var stage_enemy = [[],[],[],[],[]] 
+enum State {
+	IDLE,
+	MOVE,
+	DETECT,
+	CHASE,
+	BATTLE_IDLE,
+	ATTACK_PREPARE,
+	ATTACK_ALL,
+	ATTACK_SINGLE,
+	DOWN,
+	DEAD
+}
 
 var plane_battle_pos: Vector3
 var cave_battle_pos: Vector3
 var desert_battle_pos: Vector3
 var snow_battle_pos: Vector3
-
+var enemy_data
 # ===============================
 #      初期化
 # ===============================
@@ -53,59 +65,84 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 	# 既存の敵を全削除
 	for e in existing_enemies:
 		if e and e.is_inside_tree():
-			print(e)
 			e.queue_free()
 	existing_enemies.clear()
 	spawned_enemies.clear()
 
 	# プレイヤーをバトル位置に移動
-	battle_camera.rotation = Vector3(deg_to_rad(-10),deg_to_rad(270),deg_to_rad(0))
-	battle_camera.position = Vector3(0,3,5)
-	player.global_position = Vector3(0,0,5)
+	battle_camera.rotation = Vector3(deg_to_rad(-20),deg_to_rad(270),deg_to_rad(0))
+	battle_camera.position = Vector3(0,2,5)
+	player.isbattle = true
+	player.position.y += 1000
 	if biome_type == 0:
-		player.global_position += plane_battle_pos
 		battle_camera.position += plane_battle_pos
 	elif biome_type == 1:
-		player.global_position += cave_battle_pos
 		battle_camera.position += cave_battle_pos
 	elif biome_type == 2:
-		player.global_position += desert_battle_pos
 		battle_camera.position += desert_battle_pos
 	elif biome_type == 3:
-		player.global_position += snow_battle_pos
 		battle_camera.position += snow_battle_pos
 	
 	# 接触した敵＋ランダム0～2体を生成
-	var enemies_to_spawn = [touched_enemy.name]
-	var available_enemies = stage_enemy.get(biome_type, [])
+	var enemies_to_spawn = [touched_enemy.enemy_name]
+	var available_enemies = stage_enemy[biome_type]
 	available_enemies.shuffle()
 	for e_name in available_enemies:
-		if e_name != touched_enemy.name and enemies_to_spawn.size() < 3:
+		print(e_name)
+		if e_name != touched_enemy.enemy_name and enemies_to_spawn.size() < 3:
 			if randi() % 2 == 0:
 				enemies_to_spawn.append(e_name)
 
 	# 敵を生成して BattleIdle に設定
-	var spacing = 3.0
+	var spacing = 10/(enemies_to_spawn.size()+1)
 	for i in range(enemies_to_spawn.size()):
 		var name = enemies_to_spawn[i]
 		var path = "res://model/enemy/have_animation/%s/Animation_Alert_withSkin.glb" % name
 		var scene = load(path)
-		var inst: Node3D = Node3D.new()
-		if scene is PackedScene:
-			inst = scene.instantiate()
+		var enemy_instance = CharacterBody3D.new()
+		enemy_instance.name = name
+		var enemy_script_resource = load("res://enemy.gd")
+		if enemy_script_resource is GDScript:
+			enemy_instance.set_script(enemy_script_resource)
+		else:
+			push_error("Failed to load enemy.gd script at res://enemy.gd")
+			enemy_instance.queue_free()
+			continue
+		var enemy_info = enemy_data.get(name)
+		var loaded_default_model_scene = load(enemy_info[0])
+		var visual_model_root_instance: Node3D = null
+
+		if loaded_default_model_scene is PackedScene:
+			visual_model_root_instance = loaded_default_model_scene.instantiate()
+		elif loaded_default_model_scene is Mesh:
+			var mesh_inst = MeshInstance3D.new()
+			mesh_inst.mesh = loaded_default_model_scene
+			visual_model_root_instance = mesh_inst
+		else:
+			push_warning("Unsupported model resource type for default model: " + enemy_info[0])
+			enemy_instance.queue_free()
+			return
+		if visual_model_root_instance:
+			visual_model_root_instance.name = "VisualModelRoot" # 後で enemy.gd から参照しやすいように名前を付ける
+			enemy_instance.add_child(visual_model_root_instance)
 		if biome_type == 0:
-			inst.position = Vector3(plane_battle_pos.x+5,plane_battle_pos.y+1,plane_battle_pos.z+i*spacing+2)
+			enemy_instance.position = Vector3(plane_battle_pos.x+8,plane_battle_pos.y+0.6,plane_battle_pos.z+(i+1)*spacing)
 		elif biome_type == 1:
-			inst.position = Vector3(cave_battle_pos.x+5,cave_battle_pos.y+1,cave_battle_pos.z+i*spacing+2)
+			enemy_instance.position = Vector3(cave_battle_pos.x+8,cave_battle_pos.y+0.6,cave_battle_pos.z+(i+1)*spacing)
 		elif biome_type == 2:
-			inst.position = Vector3(desert_battle_pos.x+5,desert_battle_pos.y+1,desert_battle_pos.z+i*spacing+2)
+			enemy_instance.position = Vector3(desert_battle_pos.x+8,desert_battle_pos.y+0.6,desert_battle_pos.z+(i+1)*spacing)
 		elif biome_type == 3:
-			inst.position = Vector3(snow_battle_pos.x+5,snow_battle_pos.y+1,snow_battle_pos.z+i*spacing+2)
-		enemies_root.add_child(inst)
-		spawned_enemies.append(inst)
+			enemy_instance.position = Vector3(snow_battle_pos.x+8,snow_battle_pos.y+0.6,snow_battle_pos.z+(i+1)*spacing)
+		enemy_instance.rotation = Vector3(deg_to_rad(0),deg_to_rad(-90),deg_to_rad(0))
+		enemy_instance.set_animation_model_paths(enemy_info[1])
+		enemy_instance.assign_battle_idle_anim()
+		enemy_instance.state = State.BATTLE_IDLE
+		if enemy_instance.has_method("adjust_model_to_ground"):
+			enemy_instance.adjust_model_to_ground()
+		print(name)
+		enemies_root.add_child(enemy_instance)
+		spawned_enemies.append(enemy_instance)
 		# State を BattleIdle にする
-		if inst.has_method("set_state"):
-			inst.set_state("BATTLE_IDLE")
 
 # ===============================
 #      UI 設定

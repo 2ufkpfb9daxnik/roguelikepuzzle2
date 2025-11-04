@@ -162,6 +162,7 @@ func spawn_enemy(pos:Vector3): # Vector3iからVector3に変更
 	enemy_instance.speed = 5.0
 	enemy_instance.biome_type = biome_type
 	enemy_instance.state = State.IDLE
+	enemy_instance.enemy_name = enemy_key
 	# 全てのアニメーションモデルのパスを enemy.gd に渡す
 	# enemy_instance が `enemy.gd` スクリプトを持つインスタンスであることを確認
 	if enemy_instance.has_method("set_animation_model_paths"):
@@ -180,6 +181,10 @@ func spawn_enemy(pos:Vector3): # Vector3iからVector3に変更
 	# 追加: 足元補正
 	if enemy_instance.has_method("adjust_model_to_ground"):
 		enemy_instance.adjust_model_to_ground()
+func delete_enemy():
+	while spawned_enemies.size() > 0:
+		spawned_enemies.back().queue_free()
+		spawned_enemies.pop_back()
 func list_enemy_in_folder(path: String):
 	var dir = DirAccess.open(path)
 	if dir == null:

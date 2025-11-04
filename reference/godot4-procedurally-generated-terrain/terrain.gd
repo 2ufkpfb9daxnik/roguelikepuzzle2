@@ -32,8 +32,8 @@ var castle_width_length = h/4*3
 var castle_height_length = w/4*3
 var battle_height = 10
 var battle_width = 10
-var rh = 8
-var rw = 8
+var rh = 32
+var rw = 32
 var collision
 var map = []
 var map3d = []
@@ -1033,31 +1033,31 @@ func plane_leveling(map:Array):
 			sum_height[i][j] = map[i][j]
 			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
 				continue
-			if map[i-1][j] >= SNOWHEIGHT:
+			if map[i-1][j] > SNOWHEIGHT:
 				continue
-			if map[i-2][j] >= SNOWHEIGHT:
+			if map[i-2][j] > SNOWHEIGHT:
 				continue
-			if map[i+1][j] >= SNOWHEIGHT:
+			if map[i+1][j] > SNOWHEIGHT:
 				continue
-			if map[i+2][j] >= SNOWHEIGHT:
+			if map[i+2][j] > SNOWHEIGHT:
 				continue
-			if map[i][j-1] >= SNOWHEIGHT:
+			if map[i][j-1] > SNOWHEIGHT:
 				continue
-			if map[i][j-2] >= SNOWHEIGHT:
+			if map[i][j-2] > SNOWHEIGHT:
 				continue
-			if map[i][j+1] >= SNOWHEIGHT:
+			if map[i][j+1] > SNOWHEIGHT:
 				continue
-			if map[i][j+2] >= SNOWHEIGHT:
+			if map[i][j+2] > SNOWHEIGHT:
 				continue
-			if map[i][j] >= SNOWHEIGHT:
+			if map[i][j] > SNOWHEIGHT:
 				continue
-			if map[i+1][j+1] >= SNOWHEIGHT:
+			if map[i+1][j+1] > SNOWHEIGHT:
 				continue
-			if map[i+1][j-1] >= SNOWHEIGHT:
+			if map[i+1][j-1] > SNOWHEIGHT:
 				continue
-			if map[i-1][j-1] >= SNOWHEIGHT:
+			if map[i-1][j-1] > SNOWHEIGHT:
 				continue
-			if map[i-1][j+1] >= SNOWHEIGHT:
+			if map[i-1][j+1] > SNOWHEIGHT:
 				continue
 			sum[i][j] = 1
 	for i in range(h):
@@ -1804,7 +1804,7 @@ func _ready():
 	map[h/2][w/2] = 0.5
 	map = diamondsquare(map,0.75)
 	smooth_terrain(10,0.5,map)
-	var resmap = sea(map)
+	var resmap = sea(map,8)
 	var seablocksum =resmap[1]
 	map = resmap[0]
 	var minheight_val = 1e9

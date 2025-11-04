@@ -5,6 +5,7 @@ extends CharacterBody3D
 @export var jump_speed = 25
 @export var mouse_sensitivity = 2
 var torch_light: OmniLight3D
+var isbattle = false
 #==> OTHER <==#
 var gravity = 9.8
 var time_passed = 0.0
@@ -20,6 +21,8 @@ func _ready():
 	
 	torch_light.position = Vector3(1.5, 1.5, 1.5)
 func _physics_process(delta):
+	if isbattle:
+		return
 	velocity.y += -gravity * delta
 	var input = Input.get_vector("a", "d", "w", "s")
 	var movement_dir = transform.basis * Vector3(input.x, 0, input.y)
