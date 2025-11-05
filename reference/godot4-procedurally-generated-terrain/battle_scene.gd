@@ -1,13 +1,13 @@
-extends Node3D
+extends Control
 
 # ===============================
 #      ノード参照
 # ===============================
-@onready var battlefield = $BattleField
-@onready var enemies_root = $BattleField/EnemiesRoot
+@onready var battlefield = $Battle3DViewport
+@onready var enemies_root = $Battle3DViewport/SubViewport/Enemies
 @onready var ui_root = $UI
 @onready var fade_manager = $FadeManager
-@onready var battle_camera = $Camera3D
+@onready var battle_camera = $Battle3DViewport/SubViewport/Camera3D
 
 var main_world_env: WorldEnvironment
 var spawned_enemies: Array = []  # 既に生成された敵を管理
@@ -36,6 +36,7 @@ var cave_battle_pos: Vector3
 var desert_battle_pos: Vector3
 var snow_battle_pos: Vector3
 var enemy_data
+var charactercamera: Camera3D
 # ===============================
 #      初期化
 # ===============================
@@ -71,7 +72,9 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 
 	# プレイヤーをバトル位置に移動
 	battle_camera.rotation = Vector3(deg_to_rad(-20),deg_to_rad(270),deg_to_rad(0))
-	battle_camera.position = Vector3(0,2,5)
+	battle_camera.position = Vector3(4,2,5)
+	battle_camera.current = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	player.isbattle = true
 	player.position.y += 1000
 	if biome_type == 0:
@@ -142,6 +145,7 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 		print(name)
 		enemies_root.add_child(enemy_instance)
 		spawned_enemies.append(enemy_instance)
+		charactercamera.current = false
 		# State を BattleIdle にする
 
 # ===============================

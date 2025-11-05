@@ -402,6 +402,7 @@ func _transition_to_battle(biome: int, encountered_enemy: String):
 	battle_scene.cave_battle_pos = parent.get_node("terrain").cave_battle_pos if parent else Vector3.ZERO
 	battle_scene.desert_battle_pos = parent.get_node("terrain").desert_battle_pos if parent else Vector3.ZERO
 	battle_scene.snow_battle_pos = parent.get_node("terrain").snow_battle_pos if parent else Vector3.ZERO
+	battle_scene.charactercamera = parent.get_node("CharacterBody3D/Camera3D")
 	var main_env = parent.get_node_or_null("WorldEnvironment") if parent else null
 	if main_env:
 		battle_scene.set_world_environment(main_env)
