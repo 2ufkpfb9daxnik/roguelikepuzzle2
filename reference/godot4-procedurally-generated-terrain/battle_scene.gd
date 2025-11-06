@@ -8,10 +8,12 @@ extends Control
 @onready var ui_root = $UI
 @onready var fade_manager = $FadeManager
 @onready var battle_camera = $Battle3DViewport/SubViewport/Camera3D
-
+@onready var puzzle_board = $UI/PuzzleBoard
+@onready var battle_start_label = $UI/BattleStartLabel
+@onready var your_turn_label = $UI/YourTurnLabel
+@onready var enemy_turn_label = $UI/EnemyTurnLabel
 var main_world_env: WorldEnvironment
 var spawned_enemies: Array = []  # 既に生成された敵を管理
-
 # ===============================
 #      データ
 # ===============================
@@ -30,7 +32,17 @@ enum State {
 	DOWN,
 	DEAD
 }
-
+enum BattleState {
+	INTRO,			 
+	PLAYER_TURN_START, 
+	PLAYER_TURN,	   
+	PLAYER_ATTACK,	
+	ENEMY_TURN_START,  
+	ENEMY_TURN,		
+	VICTORY,		   
+	DEFEAT			 
+}
+var battle_state = BattleState.INTRO
 var plane_battle_pos: Vector3
 var cave_battle_pos: Vector3
 var desert_battle_pos: Vector3
@@ -48,7 +60,9 @@ func _ready():
 		battle_camera.environment.background_color = Color(0, 0, 0)
 	else:
 		battle_camera.environment = main_world_env
-
+	if puzzle_board:
+		puzzle_board.connect("puzzle_complete",_on_puzzle_complete)
+	
 # ===============================
 #      設定
 # ===============================
@@ -72,7 +86,7 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 
 	# プレイヤーをバトル位置に移動
 	battle_camera.rotation = Vector3(deg_to_rad(-20),deg_to_rad(270),deg_to_rad(0))
-	battle_camera.position = Vector3(4,2,5)
+	battle_camera.position = Vector3(0,2,5)
 	battle_camera.current = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	player.isbattle = true
@@ -91,7 +105,6 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 	var available_enemies = stage_enemy[biome_type]
 	available_enemies.shuffle()
 	for e_name in available_enemies:
-		print(e_name)
 		if e_name != touched_enemy.enemy_name and enemies_to_spawn.size() < 3:
 			if randi() % 2 == 0:
 				enemies_to_spawn.append(e_name)
@@ -142,7 +155,6 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 		enemy_instance.state = State.BATTLE_IDLE
 		if enemy_instance.has_method("adjust_model_to_ground"):
 			enemy_instance.adjust_model_to_ground()
-		print(name)
 		enemies_root.add_child(enemy_instance)
 		spawned_enemies.append(enemy_instance)
 		charactercamera.current = false
@@ -162,6 +174,8 @@ func _setup_ui():
 func start_battle():
 	_setup_ui()
 	print("Battle started with", enemies_root.get_child_count(), "enemies")
+	battle_state = BattleState.INTRO
+	_process_battle_state()
 
 # ===============================
 #      バトル終了
@@ -169,3 +183,169 @@ func start_battle():
 func end_battle():
 	await fade_manager.fade_out(1.0)
 	queue_free()
+# --- バトルステートマシン本体 ---
+func _process_battle_state():
+	match battle_state:
+		BattleState.INTRO:
+			# "battle_start" UI表示
+			battle_start_label.visible = true
+			await get_tree().create_timer(1.5).timeout # 1.5秒表示
+			battle_start_label.visible = false
+			
+			# 次のステートへ
+			battle_state = BattleState.PLAYER_TURN_START
+			_process_battle_state()
+
+		BattleState.PLAYER_TURN_START:
+			# "Your Turn" UI表示
+			your_turn_label.visible = true
+			await get_tree().create_timer(1.0).timeout # 1秒表示
+			your_turn_label.visible = false
+			
+			# 次のステートへ
+			battle_state = BattleState.PLAYER_TURN
+			_process_battle_state()
+
+		BattleState.PLAYER_TURN:
+			# パズルボードの操作を許可
+			
+			puzzle_board.canmove = true
+			# ここでステートは待機。_on_puzzle_complete シグナルで次に進む
+
+		BattleState.PLAYER_ATTACK:
+			# _on_puzzle_complete から呼び出される
+			# 攻撃処理はシグナルハンドラで行う
+			pass
+
+		BattleState.ENEMY_TURN_START:
+			# "Enemy Turn" UI表示
+			enemy_turn_label.visible = true
+			await get_tree().create_timer(1.0).timeout # 1秒表示
+			enemy_turn_label.visible = false
+
+			# 次のステートへ
+			battle_state = BattleState.ENEMY_TURN
+			_process_battle_state()
+
+		BattleState.ENEMY_TURN:
+			# 敵が順番に攻撃
+			for enemy in spawned_enemies:
+				print(enemy)
+				# 生きている敵だけが攻撃
+				if enemy and enemy.is_inside_tree() and enemy.state != enemy.State.DEAD:
+					
+					# enemy.gd の start_attack() を呼び出す
+					if enemy.has_method("start_attack"):
+						enemy.start_attack()
+						
+						# 敵の攻撃アニメーションを待つ (時間は enemy.gd の実装に合わせる)
+						# ここでは仮に2.5秒待つ
+						await get_tree().create_timer(2.5).timeout 
+			
+			# TODO: 味方が全滅したかのチェック
+			
+			# 全員の攻撃が終わったらプレイヤーのターンに戻る
+			battle_state = BattleState.PLAYER_TURN_START
+			_process_battle_state()
+
+		BattleState.VICTORY:
+			print("バトル勝利！")
+			end_battle()
+
+
+func _on_puzzle_complete(score: Array):
+	if battle_state != BattleState.PLAYER_TURN:
+		return
+
+	battle_state = BattleState.PLAYER_ATTACK
+
+	# score配列 ( [bread, coin, potion, shield, sword] のスコア) に基づいて攻撃
+	# 仮に score[i] * 10 のダメージとする
+	var base_damage_per_point = 10 
+	
+	for i in range(score.size()):
+		var damage_amount = score[i] * base_damage_per_point
+		# ダメージがあれば攻撃
+		if damage_amount > 0:
+			# "ランダムに敵を決め"
+			var target_enemy = _get_random_living_enemy()
+			if not target_enemy:
+				continue 
+			# "ジャンプして移動" -> 
+			# (プレイヤーモデルが非表示のため、ここではダメージ処理のみ)
+
+			# 敵の少し上にダメージ量を表示
+			_show_damage_number(damage_amount, target_enemy.global_position + Vector3(0, 1.5, 0))
+
+			# "enemyのHPなどを減らす"
+			if target_enemy.has_method("receive_damage"):
+				target_enemy.receive_damage(damage_amount)
+			
+			# 攻撃ごと少し待つ
+			await get_tree().create_timer(0.4).timeout
+
+	# 全ての攻撃が終わったかチェック
+	if _are_all_enemies_dead():
+		battle_state = BattleState.VICTORY
+		_process_battle_state()
+	else:
+		# 敵のターンへ
+		battle_state = BattleState.ENEMY_TURN_START
+		_process_battle_state()
+
+
+# --- ヘルパー関数 (ダメージ表示) ---
+func _show_damage_number(amount: int, world_pos: Vector3):
+	# Node を RichTextLabel で作成
+	var rich_label = RichTextLabel.new()
+	rich_label.bb_code_enabled = true
+	rich_label.fit_content = true # テキストに合わせてサイズを自動調整
+	rich_label.scroll_active = false # スクロールバーを非表示
+
+	# BBCode でスタイルを指定
+	# (影はRichTextLabelの機能では少し面倒なので、font_size と color だけ指定)
+	# (影もこだわる場合は、Label + theme_override の方が簡単な場合もあります)
+	rich_label.text = "[center][font_size=32][color=yellow]" + str(amount) + "[/color][/font_size][/center]"
+
+	# 3D座標を2Dスクリーン座標に変換
+	var screen_pos = battle_camera.unproject_position(world_pos)
+	
+	# UIルートに追加
+	ui_root.add_child(rich_label)
+	
+	# RichTextLabel は size プロパティが即時反映されないため、
+	# センタリングのために少し待つか、固定サイズにする必要があります。
+	# ここでは fit_content を使っているので、position設定を工夫します。
+	
+	# unproject_position はビューポート左上基準なので、
+	# RichTextLabel の Pivot Offset を中心にして配置します
+	rich_label.global_position = screen_pos
+	
+	# ※ RichTextLabel の中央揃えは少しクセがあります。
+	# 期待通りに中央表示されない場合は、
+	# Label を使った元の実装（modulate + theme_override）の方が
+	# アニメーション制御は簡単な可能性があります。
+
+	# 1秒かけて上に移動しながらフェードアウトするアニメーション
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(rich_label, "global_position", rich_label.global_position - Vector2(0, 60), 1.0).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(rich_label, "modulate:a", 0.0, 1.0).set_delay(0.3)
+	
+	# アニメーションが終わったらラベルを削除
+	tween.chain().tween_callback(rich_label.queue_free)
+	
+# --- ヘルパー関数 (敵の生存確認) ---
+func _get_random_living_enemy() -> CharacterBody3D:
+	var living_enemies = []
+	for enemy in spawned_enemies:
+		if enemy and enemy.is_inside_tree() and enemy.state != enemy.State.DEAD:
+			living_enemies.append(enemy)
+	
+	if living_enemies.is_empty():
+		return null
+	else:
+		return living_enemies.pick_random()
+
+func _are_all_enemies_dead() -> bool:
+	return _get_random_living_enemy() == null

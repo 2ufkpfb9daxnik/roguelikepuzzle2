@@ -15,6 +15,8 @@ var dragging_piece: TextureRect = null
 var same_cells = [[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]]
 var canmove = true
 var matching = false
+var falling = false
+var score = [0,0,0,0,0]
 func _ready():
 	parse_int_to_png[0] = load("res://texture/cell/bread.png")
 	same_cells[0].append(0)
@@ -27,125 +29,35 @@ func _ready():
 	parse_int_to_png[4] = load("res://texture/cell/sword.png")
 	same_cells[4].append(4)
 	parse_int_to_png[5] = load("res://texture/cell/bread_coin.png")
-	same_cells[0].append(5)
-	same_cells[1].append(5)
 	same_cells[5].append(0)
 	same_cells[5].append(1)
-	same_cells[5].append(5)
-	same_cells[5].append(6)
-	same_cells[5].append(7)
-	same_cells[5].append(8)
-	same_cells[5].append(9)
-	same_cells[5].append(10)
-	same_cells[5].append(11)
 	parse_int_to_png[6] = load("res://texture/cell/bread_potion.png")
-	same_cells[0].append(6)
-	same_cells[2].append(6)
 	same_cells[6].append(0)
 	same_cells[6].append(2)
-	same_cells[6].append(5)
-	same_cells[6].append(6)
-	same_cells[6].append(7)
-	same_cells[6].append(8)
-	same_cells[6].append(9)
-	same_cells[6].append(12)
-	same_cells[6].append(13)
 	parse_int_to_png[7] = load("res://texture/cell/bread_shield.png")
-	same_cells[0].append(7)
-	same_cells[3].append(7)
 	same_cells[7].append(0)
 	same_cells[7].append(3)
-	same_cells[7].append(5)
-	same_cells[7].append(6)
-	same_cells[7].append(7)
-	same_cells[7].append(8)
-	same_cells[7].append(10)
-	same_cells[7].append(12)
-	same_cells[7].append(14)
 	parse_int_to_png[8] = load("res://texture/cell/bread_sword.png")
-	same_cells[0].append(8)
-	same_cells[4].append(8)
 	same_cells[8].append(0)
 	same_cells[8].append(4)
-	same_cells[8].append(5)
-	same_cells[8].append(6)
-	same_cells[8].append(7)
-	same_cells[8].append(8)
-	same_cells[8].append(11)
-	same_cells[8].append(13)
-	same_cells[8].append(14)
 	parse_int_to_png[9] = load("res://texture/cell/coin_potion.png")
-	same_cells[1].append(9)
-	same_cells[2].append(9)
 	same_cells[9].append(1)
 	same_cells[9].append(2)
-	same_cells[9].append(5)
-	same_cells[9].append(6)
-	same_cells[9].append(9)
-	same_cells[9].append(10)
-	same_cells[9].append(11)
-	same_cells[9].append(12)
-	same_cells[9].append(13)
 	parse_int_to_png[10] = load("res://texture/cell/coin_shield.png")
-	same_cells[1].append(10)
-	same_cells[3].append(10)
 	same_cells[10].append(1)
 	same_cells[10].append(3)
-	same_cells[10].append(5)
-	same_cells[10].append(7)
-	same_cells[10].append(9)
-	same_cells[10].append(10)
-	same_cells[10].append(11)
-	same_cells[10].append(12)
-	same_cells[10].append(14)
 	parse_int_to_png[11] = load("res://texture/cell/coin_sword.png")
-	same_cells[1].append(11)
-	same_cells[4].append(11)
 	same_cells[11].append(1)
 	same_cells[11].append(4)
-	same_cells[11].append(5)
-	same_cells[11].append(8)
-	same_cells[11].append(9)
-	same_cells[11].append(10)
-	same_cells[11].append(11)
-	same_cells[11].append(13)
-	same_cells[11].append(14)
 	parse_int_to_png[12] = load("res://texture/cell/potion_shield.png")
-	same_cells[2].append(12)
-	same_cells[3].append(12)
 	same_cells[12].append(2)
 	same_cells[12].append(3)
-	same_cells[12].append(6)
-	same_cells[12].append(7)
-	same_cells[12].append(9)
-	same_cells[12].append(10)
-	same_cells[12].append(12)
-	same_cells[12].append(13)
-	same_cells[12].append(14)
 	parse_int_to_png[13] = load("res://texture/cell/potion_sword.png")
-	same_cells[2].append(13)
-	same_cells[4].append(13)
 	same_cells[13].append(2)
 	same_cells[13].append(4)
-	same_cells[13].append(6)
-	same_cells[13].append(8)
-	same_cells[13].append(9)
-	same_cells[13].append(11)
-	same_cells[13].append(12)
-	same_cells[13].append(13)
-	same_cells[13].append(14)
 	parse_int_to_png[14] = load("res://texture/cell/shield_sword.png")
-	same_cells[3].append(14)
-	same_cells[4].append(14)
 	same_cells[14].append(3)
 	same_cells[14].append(4)
-	same_cells[14].append(7)
-	same_cells[14].append(8)
-	same_cells[14].append(10)
-	same_cells[14].append(11)
-	same_cells[14].append(12)
-	same_cells[14].append(13)
-	same_cells[14].append(14)
 	for i in range(board_height*frame_count):
 		var arrw = []
 		for j in range(board_width):
@@ -166,33 +78,37 @@ func _generate_board():
 			var candidates = []
 			for k in range(15):
 				var ok = true
-				# --- 縦方向の3連防止 ---
-				if i - 2 * frame_count >= 0:
-					var a = board[i - frame_count][j]
-					var b = board[i - 2 * frame_count][j]
-					var ok1 = true
-					var ok2 = true
-					for l in range(same_cells[k].size()):
-						if a == same_cells[k][l]:
-							ok1 = false
-						if b == same_cells[k][l]:
-							ok2 = false
-					if !ok1 and !ok2:
-						ok = false
+				for l in range(same_cells[k].size()):
+					var cur = same_cells[k][l]
+					# --- 縦方向の3連防止 ---
+					if i - 2 * frame_count >= 0:
+						var a = board[i - frame_count][j]
+						var b = board[i - 2 * frame_count][j]
+						var ok1 = true
+						var ok2 = true
+						for m in range(same_cells[a].size()):
+							if cur == same_cells[a][m]:
+								ok1 = false
+						for m in range(same_cells[b].size()):
+							if cur == same_cells[b][m]:
+								ok2 = false
+						if !ok1 and !ok2:
+							ok = false
 
-				# --- 横方向の3連防止 ---
-				if j - 2 >= 0:
-					var a = board[i][j-1]
-					var b = board[i][j-2]
-					var ok1 = true
-					var ok2 = true
-					for l in range(same_cells[k].size()):
-						if a == same_cells[k][l]:
-							ok1 = false
-						if b == same_cells[k][l]:
-							ok2 = false
-					if !ok1 and !ok2:
-						ok = false
+					# --- 横方向の3連防止 ---
+					if j - 2 >= 0:
+						var a = board[i][j - 1]
+						var b = board[i][j - 2]
+						var ok1 = true
+						var ok2 = true
+						for m in range(same_cells[a].size()):
+							if cur == same_cells[a][m]:
+								ok1 = false
+						for m in range(same_cells[b].size()):
+							if cur == same_cells[b][m]:
+								ok2 = false
+						if !ok1 and !ok2:
+							ok = false
 				if ok:
 					candidates.append(k)
 
@@ -221,7 +137,7 @@ func _draw_board():
 
 			# === スペーシング + オフセットを考慮した配置 ===
 			var x = board_offset.x + j * (cell_size + spacing)
-			var y = board_offset.y + int(i/30) * (cell_size + spacing)
+			var y = board_offset.y + int(float(i/30) * (cell_size + spacing))
 			tex_rect.position = Vector2(x, y)
 			# ============================================
 
@@ -301,6 +217,7 @@ func _on_mouse_released(mouse_pos: Vector2):
 	var tmp = board[curpos.y][curpos.x]
 	board[curpos.y][curpos.x] = board[target_i][target_j]
 	board[target_i][target_j] = tmp
+	print("moved:",curpos,"to",Vector2(target_j,target_i))
 	canmove = false
 	matching = true
 	_draw_board()
@@ -313,40 +230,90 @@ func _reset_drag():
 	dragging_piece = null
 func cell_matching() -> Array:
 	var pop_cells: Array = []
-
 	for i in range(board_height):
 		for j in range(board_width):
 			var cell = board[i * frame_count][j]
 			if cell == -1:
 				continue
-			if j + 2 < board_width:
-				var right1 = board[i * frame_count][j + 1]
-				var right2 = board[i * frame_count][j + 2]
-				var ok1 = false
-				var ok2 = false
-				for l in range(same_cells[board[i * frame_count][j]].size()):
-					if right1 == same_cells[board[i * frame_count][j]][l]:
-						ok1 = true
-				for l in range(same_cells[board[i * frame_count][j]].size()):
-					if right2 == same_cells[board[i * frame_count][j]][l]:
-						ok2 = true
-				if ok1 and ok2:
-					pop_cells.append([Vector2i(j, i),0])
-			if i + 2 < board_height:
-				var down1 = board[(i + 1) * frame_count][j]
-				var down2 = board[(i + 2) * frame_count][j]
-				var ok1 = false
-				var ok2 = false
-				for l in range(same_cells[board[i * frame_count][j]].size()):
-					if down1 == same_cells[board[i * frame_count][j]][l]:
-						ok1 = true
-				for l in range(same_cells[board[i * frame_count][j]].size()):
-					if down2 == same_cells[board[i * frame_count][j]][l]:
-						ok2 = true
-				if ok1 and ok2:
-					pop_cells.append([Vector2i(j, i),1])
+			
+			# --- 縦方向のチェック ---
+			var ok_v = true # 縦チェック用の変数
+			if i + 2 < board_height: # 縦に3マスあるか
+				var a = board[(i + 1) * frame_count][j]
+				var b = board[(i + 2) * frame_count][j]
+				
+				# -1 (空マス) があればマッチしない
+				if a != -1 and b != -1:
+					for l in range(same_cells[cell].size()):
+						var cur = same_cells[cell][l]
+						var ok1 = true
+						var ok2 = true
+						for m in range(same_cells[a].size()):
+							if cur == same_cells[a][m]:
+								ok1 = false
+						for m in range(same_cells[b].size()):
+							if cur == same_cells[b][m]:
+								ok2 = false
+						if !ok1 and !ok2:
+							ok_v = false # マッチ！
+							break # 1つでもマッチタイプが見つかればループを抜ける
+			
+			if !ok_v:
+				pop_cells.append([Vector2i(j, i), 1]) # 縦フラグ 1
+			
+			# --- 横方向のチェック ---
+			var ok_h = true # 横チェック用の変数
+			if j + 2 < board_width: # 横に3マスあるか
+				var a = board[i * frame_count][j + 1]
+				var b = board[i * frame_count][j + 2]
+				
+				if a != -1 and b != -1:
+					for l in range(same_cells[cell].size()):
+						var cur = same_cells[cell][l]
+						var ok1 = true
+						var ok2 = true
+						for m in range(same_cells[a].size()):
+							if cur == same_cells[a][m]:
+								ok1 = false
+						for m in range(same_cells[b].size()):
+							if cur == same_cells[b][m]:
+								ok2 = false
+						if !ok1 and !ok2:
+							ok_h = false
+							break
+			
+			if !ok_h:
+				pop_cells.append([Vector2i(j, i), 0])
+				
 	return pop_cells
-
+func fall_cell() -> bool:
+	var did_fall = false
+	for j in range(board[0].size()):
+		for i in range(board.size()-1,-1,-1):
+			var f = true
+			for k in range(1,frame_count+1):
+				if i+k >= board_height*frame_count:
+					f = false
+					break
+				if board[i+k][j] != -1:
+					f = false
+					break
+			if f:
+				board[i+1][j] = board[i][j]
+				board[i][j] = -1
+				cells[i+1][j] = cells[i][j]
+				cells[i][j] = null
+				did_fall = true
+	for j in range(board_width):
+		var f = true
+		for k in range(0,frame_count):
+			if board[k][j] != -1:
+				f = false
+				break
+		if f:
+			board[0][j] = randi() % 15
+			did_fall = true
+	return did_fall
 func _process(delta):
 	if canmove:
 		var mouse_pos = get_local_mouse_position()
@@ -358,9 +325,18 @@ func _process(delta):
 			_on_mouse_released(mouse_pos)
 	if matching:
 		var pop_cell = cell_matching()
+		if pop_cell.size() == 0:
+			print(score)
+			for i in range(5):
+				score[i] = 0
+			matching = false
+			
+			return
 		for k in range(pop_cell.size()):
 			if pop_cell[k][1] == 0:
 				for j in range(3):
+					for l in range (same_cells[board[pop_cell[k][0].y*frame_count][pop_cell[k][0].x+j]].size()):
+						score[same_cells[board[pop_cell[k][0].y*frame_count][pop_cell[k][0].x+j]][l]] += 1
 					board[pop_cell[k][0].y*frame_count][pop_cell[k][0].x+j] = -1
 					if cells[pop_cell[k][0].y*frame_count][pop_cell[k][0].x+j] != null:
 						cells[pop_cell[k][0].y*frame_count][pop_cell[k][0].x+j].queue_free()
@@ -371,6 +347,11 @@ func _process(delta):
 					if cells[(pop_cell[k][0].y+i)*frame_count][pop_cell[k][0].x] != null:
 						cells[(pop_cell[k][0].y+i)*frame_count][pop_cell[k][0].x].queue_free()
 						cells[(pop_cell[k][0].y+i)*frame_count][pop_cell[k][0].x] = null
-		pass
-	
+		matching = false
+		falling = true
+	if falling:
+		falling = fall_cell()
+		if !falling:
+			matching = true
+		_draw_board()
 	

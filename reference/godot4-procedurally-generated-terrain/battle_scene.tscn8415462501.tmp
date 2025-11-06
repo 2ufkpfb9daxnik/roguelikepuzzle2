@@ -60,28 +60,4 @@ offset_right = 506.0
 offset_bottom = 220.0
 mouse_filter = 2
 
-[node name="BattleStartLabel" type="RichTextLabel" parent="UI"]
-z_index = 1
-offset_right = 1925.0
-offset_bottom = 1094.0
-mouse_filter = 2
-text = "Battle Start!"
-horizontal_alignment = 1
-
-[node name="YourTurnLabel" type="RichTextLabel" parent="UI"]
-z_index = 1
-offset_right = 1925.0
-offset_bottom = 1094.0
-mouse_filter = 2
-text = "Your Turn"
-horizontal_alignment = 1
-
-[node name="EnemyTurnLabel" type="RichTextLabel" parent="UI"]
-z_index = 1
-offset_right = 1925.0
-offset_bottom = 1094.0
-mouse_filter = 2
-text = "Enemy Turn"
-horizontal_alignment = 1
-
 [node name="FadeManager" parent="." instance=ExtResource("2_5g7vw")]
