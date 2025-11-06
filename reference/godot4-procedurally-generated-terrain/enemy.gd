@@ -413,10 +413,6 @@ func _transition_to_battle(biome: int, encountered_enemy: String):
 
 	# プレイヤーノードと既存敵を渡して準備開始
 	var player_node = parent.get_node_or_null("CharacterBody3D") if parent else null
-	var existing_enemies: Array = []
-	if parent:
-		var spawner_node = parent.get_node_or_null("spawn_enemy")
-		if spawner_node and spawner_node.has_method("spawned_enemies"):
-			existing_enemies = spawner_node.spawned_enemies
+	var existing_enemies: Array = get_parent().get_node("spawn_enemy").spawned_enemies
 	battle_scene.prepare_battle(player_node, self, existing_enemies)
 	battle_scene.start_battle()
