@@ -7,6 +7,7 @@
 [node name="BattleScene" type="Control"]
 layout_mode = 3
 anchors_preset = 0
+mouse_filter = 2
 script = ExtResource("1_r5l0u")
 
 [node name="Battle3DViewport" type="SubViewportContainer" parent="."]
@@ -16,6 +17,7 @@ offset_top = -99.0
 offset_right = 886.0
 offset_bottom = 413.0
 scale = Vector2(2.3, 2.3)
+mouse_filter = 2
 
 [node name="SubViewport" type="SubViewport" parent="Battle3DViewport"]
 handle_input_locally = false
@@ -40,18 +42,22 @@ offset_right = 40.0
 offset_bottom = 40.0
 
 [node name="PuzzleBoard" type="Control" parent="UI"]
+z_index = 1
 layout_mode = 3
 anchors_preset = 0
-offset_left = 495.0
+offset_left = 459.0
 offset_top = 491.0
 offset_right = 965.0
-offset_bottom = 741.0
+offset_bottom = 711.0
 scale = Vector2(2, 2)
+mouse_filter = 2
 script = ExtResource("2_5joda")
 
 [node name="Background" type="ColorRect" parent="UI/PuzzleBoard"]
+z_index = -1
 layout_mode = 0
-offset_right = 470.0
-offset_bottom = 250.0
+offset_right = 506.0
+offset_bottom = 220.0
+mouse_filter = 2
 
 [node name="FadeManager" parent="." instance=ExtResource("2_5g7vw")]
