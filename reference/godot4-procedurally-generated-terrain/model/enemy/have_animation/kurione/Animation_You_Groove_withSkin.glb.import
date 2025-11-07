@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
+uid="uid://dij6qm6rjdmfa"
+=======
 uid="uid://h1pmpwq4ncwq"
+>>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
 path="res://.godot/imported/Animation_You_Groove_withSkin.glb-5ba8874313b738d956cd3847d4d1b684.scn"
 
 [deps]

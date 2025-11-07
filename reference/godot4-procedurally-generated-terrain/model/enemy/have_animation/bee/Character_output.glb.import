@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
+uid="uid://btj6lwct7joab"
+=======
 uid="uid://b5gjhwsxeh7l7"
+>>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
 path="res://.godot/imported/Character_output.glb-4beb53befa8e97f197d6a4950d73700b.scn"
 
 [deps]

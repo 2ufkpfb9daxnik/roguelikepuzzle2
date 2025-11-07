@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
+uid="uid://c6orniieyq5bu"
+=======
 uid="uid://xf0pdakcxbwq"
+>>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
 path="res://.godot/imported/spider.glb-9668e39ab5c457a50d3c2f42366147d8.scn"
 
 [deps]

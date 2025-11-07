@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
+uid="uid://c2yy4rrw8ggdo"
+=======
 uid="uid://di4wky1p8nnwj"
+>>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
 path.s3tc="res://.godot/imported/rainbow_snake_dragon_0.jpg-dd30bf91bec7c29f0bde6f8d4d813b73.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

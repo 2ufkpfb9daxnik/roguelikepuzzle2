@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
+uid="uid://oxk7biccfkrg"
+=======
 uid="uid://dt0var2uxq146"
+>>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
 path.s3tc="res://.godot/imported/kurione_1.jpg-1c5dbe7f4c4cb8e35f08dd4893af1d04.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

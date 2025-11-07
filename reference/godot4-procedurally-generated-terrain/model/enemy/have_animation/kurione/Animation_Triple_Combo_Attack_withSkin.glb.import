@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
+uid="uid://bgap4tudrf6j"
+=======
 uid="uid://dxelctac5l0io"
+>>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
 path="res://.godot/imported/Animation_Triple_Combo_Attack_withSkin.glb-3fa9cd696fe2621cef28d7a421c642a7.scn"
 
 [deps]
