@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://dy0i30f8fvqxe"
+=======
+uid="uid://dh7o4hrtgaxy5"
+>>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
 path.s3tc="res://.godot/imported/bee_Image_0.jpg-5d9c9cdc33e1c8519191707308093d62.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://lgbu6oetsqaf"
+=======
+uid="uid://by7an3tootqr0"
+>>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
 path="res://.godot/imported/kurione.glb-a28f6ed5fce45df93e1c9a64927d4e07.scn"
 
 [deps]

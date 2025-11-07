@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://bcobxb1coh515"
+=======
+uid="uid://hagcw6cm1rye"
+>>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
 path.s3tc="res://.godot/imported/spider_Image_0.jpg-5e711a1cd99c4ee536e54703a11b8c53.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
