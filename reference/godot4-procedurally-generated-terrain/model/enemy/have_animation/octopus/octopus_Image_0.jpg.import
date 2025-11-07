@@ -2,10 +2,18 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://c800us0flx5cf"
 path="res://.godot/imported/octopus_Image_0.jpg-09b16059b9238ed78b5ccf755eeb2fab.ctex"
 metadata={
 "vram_texture": false
+=======
+uid="uid://mw6lbrlxni7b"
+path.s3tc="res://.godot/imported/octopus_Image_0.jpg-09b16059b9238ed78b5ccf755eeb2fab.s3tc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+>>>>>>> ed7842724b3b2486169b3c2a594203292349075d
 }
 generator_parameters={
 "md5": "e3d80d7036f039bb819e93a6ad9c24f9"
@@ -14,11 +22,19 @@ generator_parameters={
 [deps]
 
 source_file="res://model/enemy/have_animation/octopus/octopus_Image_0.jpg"
+<<<<<<< HEAD
 dest_files=["res://.godot/imported/octopus_Image_0.jpg-09b16059b9238ed78b5ccf755eeb2fab.ctex"]
 
 [params]
 
 compress/mode=0
+=======
+dest_files=["res://.godot/imported/octopus_Image_0.jpg-09b16059b9238ed78b5ccf755eeb2fab.s3tc.ctex"]
+
+[params]
+
+compress/mode=2
+>>>>>>> ed7842724b3b2486169b3c2a594203292349075d
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/hdr_compression=1
@@ -34,4 +50,8 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
+<<<<<<< HEAD
 detect_3d/compress_to=1
+=======
+detect_3d/compress_to=0
+>>>>>>> ed7842724b3b2486169b3c2a594203292349075d

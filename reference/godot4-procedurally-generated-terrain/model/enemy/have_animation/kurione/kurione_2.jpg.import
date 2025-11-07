@@ -2,10 +2,18 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://qtmi1qmuq1a0"
 path="res://.godot/imported/kurione_2.jpg-c11b6f6cc8cc4bf3031dbc280c8a8c29.ctex"
 metadata={
 "vram_texture": false
+=======
+uid="uid://275c3b2yogc2"
+path.s3tc="res://.godot/imported/kurione_2.jpg-c11b6f6cc8cc4bf3031dbc280c8a8c29.s3tc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+>>>>>>> ed7842724b3b2486169b3c2a594203292349075d
 }
 
 [deps]

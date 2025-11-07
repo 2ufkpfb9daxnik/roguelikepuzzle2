@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://ck0o1a434iyov"
+=======
+uid="uid://dbt5k27b7jruk"
+>>>>>>> ed7842724b3b2486169b3c2a594203292349075d
 path="res://.godot/imported/Animation_Unsteady_Walk_withSkin.glb-9d6f6f2a61168d60db69acc23875ba6b.scn"
 
 [deps]

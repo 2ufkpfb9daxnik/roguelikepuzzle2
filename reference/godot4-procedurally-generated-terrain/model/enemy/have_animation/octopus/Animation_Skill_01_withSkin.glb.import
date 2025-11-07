@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://df2wfxrai05uv"
+=======
+uid="uid://c4k0qgfeihduj"
+>>>>>>> ed7842724b3b2486169b3c2a594203292349075d
 path="res://.godot/imported/Animation_Skill_01_withSkin.glb-d4d091eb369052e27722beb3f9e5bf33.scn"
 
 [deps]

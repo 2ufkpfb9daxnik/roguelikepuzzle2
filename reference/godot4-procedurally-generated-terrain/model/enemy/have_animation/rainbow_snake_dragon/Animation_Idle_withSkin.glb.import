@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://dli1let8iabn2"
+=======
+uid="uid://cp5byagomglbv"
+>>>>>>> ed7842724b3b2486169b3c2a594203292349075d
 path="res://.godot/imported/Animation_Idle_withSkin.glb-b4cf3468c3828e194d4e55d51942345a.scn"
 
 [deps]

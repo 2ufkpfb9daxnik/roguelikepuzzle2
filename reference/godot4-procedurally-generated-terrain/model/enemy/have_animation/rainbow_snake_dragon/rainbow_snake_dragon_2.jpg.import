@@ -2,10 +2,18 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://bcdgsx5twjxet"
 path="res://.godot/imported/rainbow_snake_dragon_2.jpg-b27b154490b7af277f15e5091f616b94.ctex"
 metadata={
 "vram_texture": false
+=======
+uid="uid://cfmgnokf8vopn"
+path.s3tc="res://.godot/imported/rainbow_snake_dragon_2.jpg-b27b154490b7af277f15e5091f616b94.s3tc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+>>>>>>> ed7842724b3b2486169b3c2a594203292349075d
 }
 
 [deps]

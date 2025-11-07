@@ -2,10 +2,18 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
 uid="uid://c2sfdwxh1qiwo"
 path="res://.godot/imported/bee_Image_2.jpg-6922b96131a2550c4e6a4f1f8d2156ec.ctex"
 metadata={
 "vram_texture": false
+=======
+uid="uid://cnvlhmg20f4kr"
+path.s3tc="res://.godot/imported/bee_Image_2.jpg-6922b96131a2550c4e6a4f1f8d2156ec.s3tc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+>>>>>>> ed7842724b3b2486169b3c2a594203292349075d
 }
 
 [deps]
