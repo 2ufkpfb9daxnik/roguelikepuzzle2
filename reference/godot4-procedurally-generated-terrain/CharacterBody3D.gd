@@ -2,7 +2,7 @@ extends CharacterBody3D
 
 #==> EXPORT <==#
 @export var speed = 10
-@export var jump_speed = 5
+@export var jump_speed = 10
 @export var mouse_sensitivity = 2
 var torch_light: OmniLight3D
 var isbattle = false

@@ -2121,4 +2121,10 @@ func _ready():
 	template_mesh = get_parent().get_node("StaticBody3D/MeshInstance3D").mesh
 	create_multimesh_body(map3dnum)
 	create_collision_body(map3dnum)
-	
+	var plane_candidate = []
+	for i in range(h):
+		for j in range(w):
+			if map[i][j] > 3.1 and map[i][j] < 4.0:
+				plane_candidate.append([i,j])
+	var plane_res_ij = plane_candidate.pick_random()
+	get_parent().get_node("CharacterBody3D").position = Vector3(plane_res_ij[0]+plane_start_h,int(floor(map[plane_res_ij[0]][plane_res_ij[1]]/0.1))+1,plane_res_ij[1]+plane_start_w)

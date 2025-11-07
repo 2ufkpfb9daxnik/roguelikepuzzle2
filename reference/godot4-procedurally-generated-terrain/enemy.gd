@@ -442,7 +442,7 @@ func _create_hp_bar():
 	hp_progress.min_value = 0
 	hp_progress.max_value = health
 	hp_progress.value = health
-	hp_progress.show_percentage = false  # 👈 パーセントを消す
+	hp_progress.show_percentage = false
 	hp_progress.anchor_left = 0.05
 	hp_progress.anchor_right = 0.95
 	hp_progress.anchor_top = 0.25

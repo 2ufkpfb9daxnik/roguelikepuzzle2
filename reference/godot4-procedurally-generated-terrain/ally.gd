@@ -329,6 +329,7 @@ func _create_hp_billboard():
 		hp_sprite.pixel_size = 0.005
 	# ビルボードの定数を使わない：代わりに _process() で毎フレーム look_at する
 	hp_sprite.position = Vector3(0, 3, 0) # 必要に応じて調整
+	hp_sprite.scale.x = -1
 	add_child(hp_sprite)
 
 # HPバー更新

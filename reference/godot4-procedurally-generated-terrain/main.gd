@@ -19,7 +19,7 @@ func generate_allies_to_spawn() -> Array:
 			"type": allies_type[i],
 			"attack": calculate_status(allies_base_attack[i], level),
 			"max_health": calculate_status(allies_base_health[i], level),
-			"health": calculate_status(allies_cur_health[i], level),
+			"health": allies_cur_health[i],
 			"defense": calculate_status(allies_base_defense[i], level)
 		}
 		allies_to_spawn.append(info)

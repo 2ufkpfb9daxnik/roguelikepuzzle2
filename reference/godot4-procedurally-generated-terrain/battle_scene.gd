@@ -252,6 +252,7 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 		enemy_instance.rotation = Vector3(deg_to_rad(0),deg_to_rad(-90),deg_to_rad(0))
 		enemy_instance.set_animation_model_paths(enemy_info[1])
 		enemy_instance.assign_battle_idle_anim()
+		enemy_instance.health *= pow(10,biome_type)
 		enemy_instance.state = State.BATTLE_IDLE
 		if enemy_instance.has_method("adjust_model_to_ground"):
 			enemy_instance.adjust_model_to_ground()
@@ -282,6 +283,8 @@ func start_battle():
 #      バトル終了
 # ===============================
 func end_battle():
+	for i in range(spawned_allies.size()):
+		get_parent().allies_cur_health[i] = spawned_allies[i].hp
 	await fade_manager.fade_in(1.0)
 	if player_ref:
 		player_ref.global_position = player_original_position
@@ -326,7 +329,11 @@ func _process_battle_state():
 			print("PLAYER_ATTACK")
 			if score[0] > 0:
 				for ally in spawned_allies:
+					if ally.hp == ally.max_hp:
+						continue
+					_show_heal_number(min(score[0],ally.max_hp-ally.hp),ally.position,0)
 					ally.hp = min(ally.max_hp,ally.hp+score[0])
+			
 			battle_state = BattleState.PLAYER_ATTACK
 			await _player_attack_sequence(score)
 			# 全ての攻撃が終わったかチェック
@@ -471,6 +478,22 @@ func _show_damage_number(amount: int,world_pos: Vector3,team: int):
 	dmg_label.text = str(amount)
 	dmg_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	dmg_label.modulate = Color(1,0,0)
+	if team == 0:
+		dmg_label.position = world_pos + Vector3(2,0,0)
+	else:
+		dmg_label.position = world_pos + Vector3(-2,0,0)
+	get_tree().current_scene.add_child(dmg_label)
+
+	var tween = create_tween()
+	tween.tween_property(dmg_label, "translation:y", dmg_label.position.y + 1.5, 1.0)
+	tween.tween_property(dmg_label, "modulate:a", 0.0, 1.0)
+	await tween.finished
+	dmg_label.queue_free()
+func _show_heal_number(amount: int,world_pos: Vector3,team: int):
+	var dmg_label = Label3D.new()
+	dmg_label.text = str(amount)
+	dmg_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	dmg_label.modulate = Color(0,1,0)
 	if team == 0:
 		dmg_label.position = world_pos + Vector3(2,0,0)
 	else:
