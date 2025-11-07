@@ -69,6 +69,7 @@ var snow_battle_pos: Vector3
 var enemy_data
 var charactercamera: Camera3D
 var score
+var allies_to_spawn = []
 # ===============================
 #      初期化
 # ===============================
@@ -103,10 +104,11 @@ func _on_battle_state_requested(newscore:Array,newstate:State):
 	battle_state =  newstate
 	print("get")
 	_process_battle_state()
-func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Array):
+func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Array,allies_data: Array):
 	print("prepare_battle called")
 	player_ref = player
 	player_original_position = player.global_position
+	allies_to_spawn = allies_data
 	# 探索時カメラの参照を取得して記録
 	field_camera = player.get_node("Camera3D")
 	if field_camera:
@@ -140,11 +142,6 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 		ally_camera.position += snow_battle_pos
 		enemy_camera.position += snow_battle_pos
 	spawned_allies.clear()
-	var allies_to_spawn = [
-		{"name": "hero1", "path": "res://model/enemy/have_animation/red_magician/", "type": 4, "attack": 20},
-		{"name": "hero2", "path": "res://model/enemy/have_animation/mushroom_man/", "type": 4, "attack": 20},
-		{"name": "hero3", "path": "res://model/enemy/have_animation/kurione/", "type": 4, "attack": 20}
-	]
 	var spacing1 = 10/(allies_to_spawn.size()+1)
 	for i in range(allies_to_spawn.size()):
 		var info = allies_to_spawn[i]
@@ -186,8 +183,9 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 		ally_instance.type = info.type
 		print("ally_type:",ally_instance.type)
 		ally_instance.attack = info.attack
-		ally_instance.hp = 100
-		ally_instance.max_hp = 100
+		ally_instance.defense = info.defense
+		ally_instance.hp = info.health
+		ally_instance.max_hp = info.max_health
 		ally_instance.state = State.BATTLE_IDLE
 		if biome_type == 0:
 			ally_instance.position = Vector3(plane_battle_pos.x+1,plane_battle_pos.y+0.6,plane_battle_pos.z+(i+1)*spacing1)
@@ -326,7 +324,9 @@ func _process_battle_state():
 
 		BattleState.PLAYER_ATTACK:
 			print("PLAYER_ATTACK")
-
+			if score[0] > 0:
+				for ally in spawned_allies:
+					ally.hp = min(ally.max_hp,ally.hp+score[0])
 			battle_state = BattleState.PLAYER_ATTACK
 			await _player_attack_sequence(score)
 			# 全ての攻撃が終わったかチェック
@@ -372,7 +372,7 @@ func _enemy_single_attack(enemy,cnt):
 	enemy.state = State.ATTACK_SINGLE
 	enemy.isanim = false
 	await get_tree().create_timer(1.7).timeout
-	_show_damage_number(dmg, target.global_position + Vector3(0, 2, 0))
+	_show_damage_number(dmg, target.global_position + Vector3(0, 2, 0),0)
 	target.receive_damage(dmg)
 	await _move_to_start(enemy,cnt,1)
 
@@ -383,7 +383,7 @@ func _enemy_all_attack(enemy):
 	await get_tree().create_timer(1.5).timeout
 	for ally in spawned_allies:
 		if not ally or ally.state == ally.State.DEAD: continue
-		_show_damage_number(int(dmg),ally.global_position + Vector3(0, 2, 0))
+		_show_damage_number(int(dmg),ally.global_position + Vector3(0, 2, 0),0)
 		ally.receive_damage(int(dmg))
 	enemy.state = State.BATTLE_IDLE
 	enemy.isanim = false
@@ -454,7 +454,7 @@ func _player_attack_sequence(score: Array):
 		print("   attack applied -> target_hp_after:", target.health if target.has_method("health") else "n/a")
 
 		await get_tree().create_timer(1.7).timeout
-		_show_damage_number(dmg, target.global_position + Vector3(0, 2, 0))
+		_show_damage_number(dmg, target.global_position + Vector3(0, 2, 0),1)
 		target.receive_damage(dmg)
 		
 		await _move_to_start(ally, i, 0)
@@ -466,18 +466,22 @@ func _show_label(label: Control, duration: float):
 	await get_tree().create_timer(duration).timeout
 	label.visible = false
 # --- ヘルパー関数 (ダメージ表示) ---
-func _show_damage_number(amount: int,world_pos: Vector3):
+func _show_damage_number(amount: int,world_pos: Vector3,team: int):
 	var dmg_label = Label3D.new()
 	dmg_label.text = str(amount)
 	dmg_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	dmg_label.modulate = Color(1,0,0)
-	dmg_label.position = world_pos + Vector3(0,2,0)
+	if team == 0:
+		dmg_label.position = world_pos + Vector3(2,0,0)
+	else:
+		dmg_label.position = world_pos + Vector3(-2,0,0)
 	get_tree().current_scene.add_child(dmg_label)
 
 	var tween = create_tween()
 	tween.tween_property(dmg_label, "translation:y", dmg_label.position.y + 1.5, 1.0)
 	tween.tween_property(dmg_label, "modulate:a", 0.0, 1.0)
-
+	await tween.finished
+	dmg_label.queue_free()
 # --- ヘルパー関数 (敵の生存確認) ---
 func _get_random_living_enemy() -> CharacterBody3D:
 	var living_enemies = []

@@ -36,7 +36,7 @@ environment = ExtResource("1_rmrta")
 player = NodePath("../CharacterBody3D")
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="."]
-transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 2.357, 200, 0)
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 2.357, 50, 0)
 script = ExtResource("2_kxns7")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D"]

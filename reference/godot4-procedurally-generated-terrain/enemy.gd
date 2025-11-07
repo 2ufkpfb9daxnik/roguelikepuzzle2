@@ -416,7 +416,8 @@ func _transition_to_battle(biome: int, encountered_enemy: String):
 	# プレイヤーノードと既存敵を渡して準備開始
 	var player_node = parent.get_node_or_null("CharacterBody3D") if parent else null
 	var existing_enemies: Array = get_parent().get_node("spawn_enemy").spawned_enemies
-	battle_scene.prepare_battle(player_node, self, existing_enemies)
+	var spawned_allies = get_parent().generate_allies_to_spawn()
+	battle_scene.prepare_battle(player_node, self, existing_enemies,spawned_allies)
 	battle_scene.start_battle()
 func _create_hp_bar():
 	hp_viewport = SubViewport.new()

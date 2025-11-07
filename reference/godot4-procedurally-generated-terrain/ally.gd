@@ -16,6 +16,7 @@ enum State {
 # パラメータ設定
 # ==============================
 @export var attack: int = 10
+@export var defense: int = 10
 @export var health: int = 100
 @export var max_health: int = 100
 @export var type: int = 0
