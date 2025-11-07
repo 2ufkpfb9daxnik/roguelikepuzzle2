@@ -8,7 +8,6 @@ enum State {
 	CHASE,
 	BATTLE_IDLE,
 	BATTLE_MOVE,
-	ATTACK_PREPARE,
 	ATTACK_ALL,
 	ATTACK_SINGLE,
 	DOWN,
@@ -30,7 +29,9 @@ var state_timer: float = 0.0
 var target_time: float = 0.0
 var random_direction: Vector3 = Vector3.ZERO
 var enemy_name: String = ""
-
+var hp_viewport: SubViewport
+var hp_sprite: Sprite3D
+var hp_progress: ProgressBar
 # アニメーション関連
 var animation_model_paths: Array = []        # spawn_enemy から渡される GLB パス配列
 var animation_models: Dictionary = {}        # anim_name -> path （basename をキーにする）
@@ -67,9 +68,9 @@ func _ready():
 		player = parent.get_node_or_null("CharacterBody3D")
 
 	_set_random_idle_duration()
+	_create_hp_bar()
 func assign_battle_idle_anim():
 	var idle_anim = []
-	print(animation_models.keys())
 	for key in animation_models.keys():
 		if key == "Animation_Alert_withSkin":
 			idle_anim.append("Animation_Alert_withSkin")
@@ -99,14 +100,12 @@ func _physics_process(delta):
 			_process_battle_idle(delta)
 		State.BATTLE_MOVE:
 			_process_battle_move(delta)
-		State.ATTACK_PREPARE:
-			_process_attack_prepare(delta)
 		State.ATTACK_ALL:
 			_process_attack_all(delta)
 		State.ATTACK_SINGLE:
 			_process_attack_single(delta)
 		State.DOWN:
-			pass
+			_process_down(delta)
 		State.DEAD:
 			pass
 
@@ -211,43 +210,47 @@ func _process_battle_idle(delta):
 	# animation_player があればそれのアニメ数を使う
 	if isanim:
 		return
-	else:
-		isanim = true
-		if battle_idle_anim != null:
-			_play_animation(battle_idle_anim)
+	isanim = true
+	_play_animation(battle_idle_anim)
 func _process_battle_move(delta):
 	# animation_player があればそれのアニメ数を使う
 	if isanim:
 		return
-	_play_animation("Animation_Idle_withSkin")
-func start_attack():
-	state = State.ATTACK_PREPARE
-	_play_animation("Animation_Boxing_Practice_withSkin")
-
-func _process_attack_prepare(delta):
-	# 攻撃モーションが終わったら次の攻撃へ
-	if animation_player and not animation_player.is_playing():
-		if randi() % 2 == 0:
-			state = State.ATTACK_ALL
-			_play_animation("Animation_Skill_01_withSkin")
-		else:
-			state = State.ATTACK_SINGLE
-			_play_animation("Animation_Skill_03_withSkin")
+	isanim = true
+	_play_animation("Animation_Running_withSkin")
 
 func _process_attack_all(delta):
-	if animation_player and not animation_player.is_playing():
-		state = State.BATTLE_IDLE
-
+	if isanim:
+		return
+	isanim = true
+	_play_animation("Animation_Skill_01_withSkin")
 func _process_attack_single(delta):
-	if animation_player and not animation_player.is_playing():
+	if isanim:
+		return
+	isanim = true
+	_play_animation("Animation_Skill_03_withSkin")
+func _process_down(delta):
+	state_timer += delta
+	if state_timer >= 1.0 and state_timer < 2.0:
+		if isanim:
+			return
+		isanim = true
+		_play_animation("Animation_Arise_withSkin")
+	if state_timer >= 2.0:
+		state_timer = 0.0
+		isanim = false
 		state = State.BATTLE_IDLE
-
 func receive_damage(amount: int) -> void:
 	health -= amount
+	if hp_progress:
+		hp_progress.value = health
 	if health <= 0:
+		health = 0
 		_transition_to_dead()
 	else:
-		_transition_to_down()
+		state = State.DOWN
+		isanim = false
+		_play_animation("Animation_BeHit_FlyUp_withSkin")
 
 func _transition_to_dead() -> void:
 	state = State.DEAD
@@ -255,21 +258,11 @@ func _transition_to_dead() -> void:
 	await get_tree().create_timer(2.0).timeout
 	queue_free()
 
-func _transition_to_down() -> void:
-	state = State.DOWN
-	_play_animation("Animation_BeHit_FlyUp_withSkin",false)
-	# animation_player があるなら完了を待つ
-	if animation_player:
-		await animation_player.animation_finished
-	_play_animation("Animation_Arise_withSkin",false)
-	if animation_player:
-		await animation_player.animation_finished
-	state = State.BATTLE_IDLE
-	print("a")
+	
 # ===============================
 #   アニメーション再生（GLB 分割アニメ対応）
 # ===============================
-func _play_animation(anim_name: String,isloop: bool = true) -> void:
+func _play_animation(anim_name: String) -> void:
 	if not animation_models.has(anim_name):
 		push_warning("❌ Animation not found in dictionary: " + anim_name)
 		return
@@ -322,8 +315,7 @@ func _play_animation(anim_name: String,isloop: bool = true) -> void:
 	ap.play(play_name)
 	var anim_res = ap.get_animation(play_name)
 	if anim_res:
-		if "loop" in anim_res:
-			anim_res.loop = isloop
+		anim_res.loop = true
 
 	animation_player = ap
 	current_animation_name = play_name
@@ -424,5 +416,44 @@ func _transition_to_battle(biome: int, encountered_enemy: String):
 	# プレイヤーノードと既存敵を渡して準備開始
 	var player_node = parent.get_node_or_null("CharacterBody3D") if parent else null
 	var existing_enemies: Array = get_parent().get_node("spawn_enemy").spawned_enemies
-	battle_scene.prepare_battle(player_node, self, existing_enemies)
+	var spawned_allies = get_parent().generate_allies_to_spawn()
+	battle_scene.prepare_battle(player_node, self, existing_enemies,spawned_allies)
 	battle_scene.start_battle()
+func _create_hp_bar():
+	hp_viewport = SubViewport.new()
+	hp_viewport.size = Vector2i(200, 20)
+	hp_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(hp_viewport)
+
+	# 2Dルート
+	var root = Control.new()
+	root.set_size(Vector2(hp_viewport.size))
+	root.set_custom_minimum_size(Vector2(hp_viewport.size))
+	hp_viewport.add_child(root)
+
+	# 背景
+	var bg = ColorRect.new()
+	bg.color = Color(0, 0, 0, 0.5)
+	bg.set_size(Vector2(hp_viewport.size))
+	root.add_child(bg)
+
+	# HPバー
+	hp_progress = ProgressBar.new()
+	hp_progress.min_value = 0
+	hp_progress.max_value = health
+	hp_progress.value = health
+	hp_progress.show_percentage = false  # 👈 パーセントを消す
+	hp_progress.anchor_left = 0.05
+	hp_progress.anchor_right = 0.95
+	hp_progress.anchor_top = 0.25
+	hp_progress.anchor_bottom = 0.75
+	root.add_child(hp_progress)
+
+	# 3D 表示スプライト
+	hp_sprite = Sprite3D.new()
+	hp_sprite.texture = hp_viewport.get_texture()
+	if "pixel_size" in hp_sprite:
+		hp_sprite.pixel_size = 0.005
+	hp_sprite.position = Vector3(0, 3, 0)  # 敵の頭上に配置
+	hp_sprite.scale = Vector3(1.5, 1.5, 1.5)
+	add_child(hp_sprite)

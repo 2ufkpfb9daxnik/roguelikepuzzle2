@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://demjyghdyofry"
+=======
+uid="uid://4geojdx4xijt"
+>>>>>>> bfa88a3f48211b3ab65514f91d764807b512530a
 path="res://.godot/imported/rainbow_snake_dragon.glb-ab319252d9bf1736f629da85e69baa07.scn"
 
 [deps]

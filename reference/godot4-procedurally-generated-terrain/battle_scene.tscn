@@ -117,16 +117,16 @@ offset_bottom = 535.0
 z_index = 1
 layout_mode = 0
 offset_right = 1920.0
-offset_bottom = 85.0
+offset_bottom = 140.0
 mouse_filter = 2
 bbcode_enabled = true
-text = "[font_size=60][color=white]Battle Start![/color][/font_size]"
+text = "[font_size=100][color=white]Battle Start![/color][/font_size]"
 horizontal_alignment = 1
 
 [node name="ColorRect" type="ColorRect" parent="UI/Battle_Start"]
 layout_mode = 0
 offset_right = 1920.0
-offset_bottom = 85.0
+offset_bottom = 140.0
 color = Color(0.180392, 0.333333, 1, 0.384314)
 
 [node name="YourTurn" type="Control" parent="UI"]
@@ -141,16 +141,17 @@ offset_bottom = 535.0
 z_index = 1
 layout_mode = 0
 offset_right = 1920.0
-offset_bottom = 85.0
+offset_bottom = 140.0
 mouse_filter = 2
 bbcode_enabled = true
-text = "[font_size=60][color=white]Your Turn[/color][/font_size]"
+text = "[font_size=100][color=green]Your Turn[/color][/font_size]
+"
 horizontal_alignment = 1
 
 [node name="ColorRect" type="ColorRect" parent="UI/YourTurn"]
 layout_mode = 0
 offset_right = 1920.0
-offset_bottom = 85.0
+offset_bottom = 140.0
 color = Color(0.180392, 0.333333, 1, 0.384314)
 
 [node name="EnemyTurn" type="Control" parent="UI"]
@@ -165,16 +166,40 @@ offset_bottom = 535.0
 z_index = 1
 layout_mode = 0
 offset_right = 1920.0
-offset_bottom = 85.0
+offset_bottom = 140.0
 mouse_filter = 2
 bbcode_enabled = true
-text = "[font_size=60][color=white]Enemy Turn[/color][/font_size]"
+text = "[font_size=100][color=red]enemy turn[/color][/font_size]"
 horizontal_alignment = 1
 
 [node name="ColorRect" type="ColorRect" parent="UI/EnemyTurn"]
 layout_mode = 0
 offset_right = 1920.0
-offset_bottom = 85.0
+offset_bottom = 140.0
+color = Color(0.180392, 0.333333, 1, 0.384314)
+
+[node name="Victory" type="Control" parent="UI"]
+visible = false
+layout_mode = 3
+anchors_preset = 0
+offset_top = 450.0
+offset_right = 1920.0
+offset_bottom = 590.0
+
+[node name="VictoryLabel" type="RichTextLabel" parent="UI/Victory"]
+z_index = 1
+layout_mode = 0
+offset_right = 1920.0
+offset_bottom = 140.0
+mouse_filter = 2
+bbcode_enabled = true
+text = "[font_size=100][color=gold]Victory![/color][/font_size]"
+horizontal_alignment = 1
+
+[node name="ColorRect" type="ColorRect" parent="UI/Victory"]
+layout_mode = 0
+offset_right = 1920.0
+offset_bottom = 140.0
 color = Color(0.180392, 0.333333, 1, 0.384314)
 
 [node name="FadeManager" parent="." instance=ExtResource("2_5g7vw")]

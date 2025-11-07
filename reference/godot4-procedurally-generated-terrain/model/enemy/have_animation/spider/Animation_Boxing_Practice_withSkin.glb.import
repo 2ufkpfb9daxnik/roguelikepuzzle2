@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://byo6ki5tbtac7"
+=======
+uid="uid://dq5w4smy4io30"
+>>>>>>> bfa88a3f48211b3ab65514f91d764807b512530a
 path="res://.godot/imported/Animation_Boxing_Practice_withSkin.glb-b993329c2ca2facfa728dcde87e50a6c.scn"
 
 [deps]

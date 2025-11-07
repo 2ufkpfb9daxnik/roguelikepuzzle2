@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
 uid="uid://ddrq2g6hlqq4a"
+=======
+uid="uid://dcorcw45p6iwh"
+>>>>>>> bfa88a3f48211b3ab65514f91d764807b512530a
 path="res://.godot/imported/Animation_BeHit_FlyUp_withSkin.glb-f980dcde6702f1b5b031b03bb18dd376.scn"
 
 [deps]
