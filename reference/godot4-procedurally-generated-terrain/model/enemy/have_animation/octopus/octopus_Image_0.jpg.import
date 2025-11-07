@@ -2,7 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
+<<<<<<< HEAD
+uid="uid://c6n8onpwihdiw"
+=======
 uid="uid://dw27xd4kcrmyi"
+>>>>>>> bfa88a3f48211b3ab65514f91d764807b512530a
 path.s3tc="res://.godot/imported/octopus_Image_0.jpg-09b16059b9238ed78b5ccf755eeb2fab.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],

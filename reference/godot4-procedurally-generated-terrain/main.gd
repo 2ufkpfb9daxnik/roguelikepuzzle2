@@ -1,5 +1,16 @@
 extends Node3D
 
+<<<<<<< HEAD
+# Called when the node enters the scene tree for the first time.
+func _ready() -> void:
+	var new_scene = load("res://title_screen.tscn")
+	get_tree().change_scene_to_packed(new_scene)
+
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(delta: float) -> void:
+	pass
+=======
 var allies = ["res://model/enemy/have_animation/red_magician/"]
 var allies_type = [4]
 var allies_level = [1]
@@ -24,3 +35,4 @@ func generate_allies_to_spawn() -> Array:
 		}
 		allies_to_spawn.append(info)
 	return allies_to_spawn
+>>>>>>> bfa88a3f48211b3ab65514f91d764807b512530a

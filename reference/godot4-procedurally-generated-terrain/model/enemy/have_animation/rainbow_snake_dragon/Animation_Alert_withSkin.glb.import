@@ -3,7 +3,11 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
+<<<<<<< HEAD
+uid="uid://ce6e24rok3g7i"
+=======
 uid="uid://bmch02j6tyyq6"
+>>>>>>> bfa88a3f48211b3ab65514f91d764807b512530a
 path="res://.godot/imported/Animation_Alert_withSkin.glb-982cadd0896ab74e1c9dd02896606daa.scn"
 
 [deps]
