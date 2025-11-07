@@ -7,6 +7,7 @@ enum State {
 	DETECT,
 	CHASE,
 	BATTLE_IDLE,
+	BATTLE_MOVE,
 	ATTACK_PREPARE,
 	ATTACK_ALL,
 	ATTACK_SINGLE,
@@ -16,6 +17,7 @@ enum State {
 
 @onready var detection_area = $DetectionArea
 @export var health: int = 100
+@export var attack: int = 10
 @export var speed: float = 2.5
 @export var gravity: float = 9.8
 @export var detection_range: float = 12.0
@@ -95,6 +97,8 @@ func _physics_process(delta):
 			_process_chase(delta)
 		State.BATTLE_IDLE:
 			_process_battle_idle(delta)
+		State.BATTLE_MOVE:
+			_process_battle_move(delta)
 		State.ATTACK_PREPARE:
 			_process_attack_prepare(delta)
 		State.ATTACK_ALL:
@@ -211,6 +215,11 @@ func _process_battle_idle(delta):
 		isanim = true
 		if battle_idle_anim != null:
 			_play_animation(battle_idle_anim)
+func _process_battle_move(delta):
+	# animation_player があればそれのアニメ数を使う
+	if isanim:
+		return
+	_play_animation("Animation_Idle_withSkin")
 func start_attack():
 	state = State.ATTACK_PREPARE
 	_play_animation("Animation_Boxing_Practice_withSkin")
@@ -248,19 +257,19 @@ func _transition_to_dead() -> void:
 
 func _transition_to_down() -> void:
 	state = State.DOWN
-	_play_animation("Animation_BeHit_FlyUp_withSkin")
+	_play_animation("Animation_BeHit_FlyUp_withSkin",false)
 	# animation_player があるなら完了を待つ
 	if animation_player:
 		await animation_player.animation_finished
-	_play_animation("Animation_Arise_withSkin")
+	_play_animation("Animation_Arise_withSkin",false)
 	if animation_player:
 		await animation_player.animation_finished
 	state = State.BATTLE_IDLE
-
+	print("a")
 # ===============================
 #   アニメーション再生（GLB 分割アニメ対応）
 # ===============================
-func _play_animation(anim_name: String) -> void:
+func _play_animation(anim_name: String,isloop: bool = true) -> void:
 	if not animation_models.has(anim_name):
 		push_warning("❌ Animation not found in dictionary: " + anim_name)
 		return
@@ -313,7 +322,8 @@ func _play_animation(anim_name: String) -> void:
 	ap.play(play_name)
 	var anim_res = ap.get_animation(play_name)
 	if anim_res:
-		anim_res.loop = true
+		if "loop" in anim_res:
+			anim_res.loop = isloop
 
 	animation_player = ap
 	current_animation_name = play_name

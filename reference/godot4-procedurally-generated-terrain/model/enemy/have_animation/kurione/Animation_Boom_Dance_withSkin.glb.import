@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://c3hvgjpk8xs0c"
-=======
-uid="uid://d4c72kah3o8k2"
->>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
+uid="uid://6dyfvjwfwlby"
 path="res://.godot/imported/Animation_Boom_Dance_withSkin.glb-73646f20a97c2c761d9016b69b7ecb2e.scn"
 
 [deps]
@@ -37,5 +33,5 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 _subresources={}
-gltf/naming_version=1
+gltf/naming_version=0
 gltf/embedded_image_handling=1

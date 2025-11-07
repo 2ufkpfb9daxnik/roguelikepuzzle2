@@ -12,36 +12,61 @@ enum State {
 	DEAD
 }
 
+# ==============================
+# パラメータ設定
+# ==============================
+@export var attack: int = 10
+@export var health: int = 100
+@export var max_health: int = 100
+@export var type: int = 0
+@export var gravity: float = 9.8
+
+# 外部アクセス対応用プロパティ
+var hp: int:
+	get:
+		return health
+	set(value):
+		health = clamp(value, 0, max_health)
+
+var max_hp: int:
+	get:
+		return max_health
+	set(value):
+		max_health = value
+
+# ==============================
+# 内部状態
+# ==============================
 var state: State = State.BATTLE_IDLE
-var type: int = 0
-var attack: int = 10
-var hp: int = 100
-var max_hp: int = 100
+var state_timer: float = 0.0
+var isanim: bool = false
 
 # ==============================
 # アニメーション関連
 # ==============================
-var animation_models: Dictionary = {}  # anim_name -> path
-var current_visual_model_root: Node3D = null
+var animation_model_paths: Dictionary = {}
+var animation_models: Dictionary = {}        # anim_name -> path
+var loaded_models: Dictionary = {}            # anim_name -> instantiated Node
 var animation_player: AnimationPlayer = null
+var current_visual_model_root: Node3D = null
 var current_animation_name: String = ""
-var isanim = false
+var battle_idle_anim: String = ""
 
 # ==============================
 # 初期化
 # ==============================
 func _ready():
+	_create_collision_shape()
+	_setup_visual_model()
+	assign_battle_idle_anim()
 	state = State.BATTLE_IDLE
-	_play_battle_idle()
 
-# spawn_enemy / battle_scene から渡される
-func set_animation_model_paths(model_paths: Dictionary):
-	animation_models = model_paths
-
-# ==============================
-# 戦闘処理更新
-# ==============================
 func _physics_process(delta):
+	if not is_on_floor():
+		velocity.y -= gravity * delta
+	else:
+		velocity.y = 0.0
+
 	match state:
 		State.BATTLE_IDLE:
 			_process_battle_idle(delta)
@@ -56,13 +81,59 @@ func _physics_process(delta):
 		State.DEAD:
 			pass
 
+	move_and_slide()
+
 # ==============================
-# 状態ごとの処理
+# 初期設定
+# ==============================
+func _create_collision_shape():
+	if get_node_or_null("CollisionShape3D"):
+		return
+	var col = CollisionShape3D.new()
+	var shape = CapsuleShape3D.new()
+	shape.radius = 0.8
+	shape.height = 1.5
+	col.shape = shape
+	add_child(col)
+
+func _setup_visual_model():
+	current_visual_model_root = get_node_or_null("VisualModelRoot")
+	if not current_visual_model_root:
+		current_visual_model_root = Node3D.new()
+		current_visual_model_root.name = "VisualModelRoot"
+		add_child(current_visual_model_root)
+
+# ==============================
+# アニメーションモデル設定
+# ==============================
+func set_animation_model_paths(paths: Dictionary) -> void:
+	animation_model_paths = paths
+	animation_models.clear()
+	for key in animation_model_paths.keys():
+		var p = animation_model_paths[key]
+		if typeof(p) != TYPE_STRING:
+			continue
+		var fname = p.get_file().get_basename()
+		animation_models[fname] = p
+
+func assign_battle_idle_anim():
+	var idle_anim = []
+	for key in animation_models.keys():
+		if "Idle" in key or "Alert" in key or "Dance" in key:
+			idle_anim.append(key)
+	if idle_anim.size() > 0:
+		battle_idle_anim = idle_anim.pick_random()
+
+# ==============================
+# 戦闘ステート処理
 # ==============================
 func _process_battle_idle(delta):
 	if not isanim:
 		isanim = true
-		_play_battle_idle()
+		if battle_idle_anim != "":
+			_play_animation(battle_idle_anim)
+		else:
+			_play_any_idle_animation()
 
 func _process_attack_prepare(delta):
 	if animation_player and not animation_player.is_playing():
@@ -84,68 +155,56 @@ func _process_attack_single(delta):
 		isanim = false
 
 # ==============================
-# 状態遷移
+# 行動遷移関数
 # ==============================
 func start_attack():
 	state = State.ATTACK_PREPARE
 	_play_animation("Animation_Boxing_Practice_withSkin")
 
 func receive_damage(amount: int):
-	hp -= amount
-	if hp <= 0:
-		hp = 0
-		state = State.DEAD
-		_play_death_animation()
+	health -= amount
+	if health <= 0:
+		health = 0
+		_transition_to_dead()
 	else:
-		state = State.DOWN
-		_play_hit_animation()
+		_transition_to_down()
 
+func _transition_to_dead():
+	state = State.DEAD
+	_play_animation("Animation_Dead_withSkin")
+	await get_tree().create_timer(2.0).timeout
+	queue_free()
+
+func _transition_to_down():
+	state = State.DOWN
+	_play_animation("Animation_BeHit_FlyUp_withSkin",false)
+	if animation_player:
+		await animation_player.animation_finished
+	_play_animation("Animation_Arise_withSkin",false)
+	if animation_player:
+		await animation_player.animation_finished
+	state = State.BATTLE_IDLE
+	isanim = false
 # ==============================
-# アニメーション再生関連
+# アニメーション制御
 # ==============================
-func _play_battle_idle():
-	# バトルアイドル候補を自動検出
-	var idle_candidates = []
+func _play_any_idle_animation():
 	for key in animation_models.keys():
-		if "Idle" in key or "Alert" in key or "Dance" in key:
-			idle_candidates.append(key)
-	if idle_candidates.size() > 0:
-		var chosen = idle_candidates.pick_random()
-		_play_animation(chosen)
-	else:
-		# fallback
-		if animation_models.size() > 0:
-			_play_animation(animation_models.keys()[0])
-
-func _play_hit_animation():
-	for anim in animation_models.keys():
-		if "BeHit" in anim or "Hit" in anim:
-			_play_animation(anim)
+		if "Idle" in key:
+			_play_animation(key)
 			return
+	if animation_models.size() > 0:
+		_play_animation(animation_models.keys()[0])
 
-func _play_death_animation():
-	for anim in animation_models.keys():
-		if "Dead" in anim or "Death" in anim:
-			_play_animation(anim)
-			return
-
-# ==============================
-# 汎用アニメーション再生関数
-# ==============================
-func _play_animation(anim_name: String):
+func _play_animation(anim_name: String,isloop: bool = true) -> void:
 	if not animation_models.has(anim_name):
 		push_warning("❌ Animation not found in dictionary: " + anim_name)
 		return
 
-	# 既存モデル削除
 	if current_visual_model_root:
 		for child in current_visual_model_root.get_children():
 			child.queue_free()
 		await get_tree().process_frame
-	else:
-		current_visual_model_root = Node3D.new()
-		current_visual_model_root.name = "VisualModelRoot"
-		add_child(current_visual_model_root)
 
 	var model_path = animation_models[anim_name]
 	if not ResourceLoader.exists(model_path):
@@ -153,28 +212,32 @@ func _play_animation(anim_name: String):
 		return
 
 	var scene_res = load(model_path)
-	if not scene_res or not (scene_res is PackedScene):
-		push_warning("❌ Failed to load GLB: " + model_path)
+	if not (scene_res and scene_res is PackedScene):
+		push_warning("❌ Failed to load GLB at: " + model_path)
 		return
 
 	var inst = scene_res.instantiate()
 	current_visual_model_root.add_child(inst)
+	loaded_models.clear()
+	loaded_models[anim_name] = inst
 
-	animation_player = inst.get_node_or_null("AnimationPlayer")
-	if not animation_player:
-		animation_player = inst.find_child("AnimationPlayer", true, false)
-	if not animation_player:
-		push_warning("❌ No AnimationPlayer found for " + anim_name)
+	var ap = inst.get_node_or_null("AnimationPlayer")
+	if not ap:
+		ap = inst.find_child("AnimationPlayer", true, false)
+	if not ap:
+		push_warning("❌ No AnimationPlayer found inside: " + anim_name)
 		return
 
 	var play_name = anim_name
-	var anims = animation_player.get_animation_list()
-	if not (anim_name in anims) and anims.size() > 0:
-		play_name = anims[0]
+	var ap_anims = ap.get_animation_list()
+	if not (anim_name in ap_anims) and ap_anims.size() > 0:
+		play_name = ap_anims[0]
 
-	animation_player.play(play_name)
-	var anim_res = animation_player.get_animation(play_name)
+	ap.play(play_name)
+	var anim_res = ap.get_animation(play_name)
 	if anim_res:
-		anim_res.loop = true
+		if "loop" in anim_res:
+			anim_res.loop = isloop
 
+	animation_player = ap
 	current_animation_name = play_name

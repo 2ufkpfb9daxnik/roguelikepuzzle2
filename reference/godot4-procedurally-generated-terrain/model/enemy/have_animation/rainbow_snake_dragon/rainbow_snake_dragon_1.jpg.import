@@ -2,34 +2,26 @@
 
 importer="texture"
 type="CompressedTexture2D"
-<<<<<<< HEAD
-uid="uid://biew0x5ep1yrf"
-=======
-uid="uid://beevn7ob3fhii"
->>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
-path.s3tc="res://.godot/imported/rainbow_snake_dragon_1.jpg-867775ed10fbce416d76d75503481317.s3tc.ctex"
+uid="uid://c8f57dhnlckdx"
+path="res://.godot/imported/rainbow_snake_dragon_1.jpg-867775ed10fbce416d76d75503481317.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
-}
-generator_parameters={
-"md5": "1a3dc33875c37b490515e1b7e4dbc536"
+"vram_texture": false
 }
 
 [deps]
 
 source_file="res://model/enemy/have_animation/rainbow_snake_dragon/rainbow_snake_dragon_1.jpg"
-dest_files=["res://.godot/imported/rainbow_snake_dragon_1.jpg-867775ed10fbce416d76d75503481317.s3tc.ctex"]
+dest_files=["res://.godot/imported/rainbow_snake_dragon_1.jpg-867775ed10fbce416d76d75503481317.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -39,4 +31,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

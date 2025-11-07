@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://dgar3ljpgcavi"
-=======
-uid="uid://dg5rjhb0587p2"
->>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
+uid="uid://d0mlp2072ge4c"
 path="res://.godot/imported/Animation_Idle_withSkin.glb-617d3d0f979ba87e2f86c0cde7148778.scn"
 
 [deps]
@@ -37,5 +33,5 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 _subresources={}
-gltf/naming_version=1
+gltf/naming_version=0
 gltf/embedded_image_handling=1

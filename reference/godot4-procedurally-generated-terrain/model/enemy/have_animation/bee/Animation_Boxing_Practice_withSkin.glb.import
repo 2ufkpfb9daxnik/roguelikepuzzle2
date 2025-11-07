@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://c5j8yesrojh5"
-=======
-uid="uid://131i2bbjdbxc"
->>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
+uid="uid://dubmr3avful1q"
 path="res://.godot/imported/Animation_Boxing_Practice_withSkin.glb-52c509c85b9a996b229f31838de42106.scn"
 
 [deps]
@@ -37,5 +33,5 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 _subresources={}
-gltf/naming_version=1
+gltf/naming_version=0
 gltf/embedded_image_handling=1

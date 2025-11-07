@@ -12,52 +12,66 @@ var cells = []
 var curpos: Vector2i = Vector2i(-1, -1)
 var ispressed = false
 var dragging_piece: TextureRect = null
-var same_cells = [[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]]
+var same_cells = []
 var canmove = true
 var matching = false
 var falling = false
-var score = [0,0,0,0,0]
+var score = [0,0,0,0,0,0,0,0,0,0,0]
+var base_names = [
+	"bread",
+	"coin",
+	"potion",
+	"shield",
+	"sword",
+	"arrow",
+	"heal",
+	"axe",
+	"club",
+	"magicCircle",
+	"wand"
+]
+enum BattleState {
+	INTRO,			 
+	PLAYER_TURN_START, 
+	PLAYER_TURN,	   
+	PLAYER_ATTACK,	
+	ENEMY_TURN_START,  
+	ENEMY_TURN,		
+	VICTORY,		   
+	DEFEAT			 
+}
+signal battle_state_requested(new_state: String)
 func _ready():
-	parse_int_to_png[0] = load("res://texture/cell/bread.png")
-	same_cells[0].append(0)
-	parse_int_to_png[1] = load("res://texture/cell/coin.png")
-	same_cells[1].append(1)
-	parse_int_to_png[2] = load("res://texture/cell/potion.png")
-	same_cells[2].append(2)
-	parse_int_to_png[3] = load("res://texture/cell/shield.png")
-	same_cells[3].append(3)
-	parse_int_to_png[4] = load("res://texture/cell/sword.png")
-	same_cells[4].append(4)
-	parse_int_to_png[5] = load("res://texture/cell/bread_coin.png")
-	same_cells[5].append(0)
-	same_cells[5].append(1)
-	parse_int_to_png[6] = load("res://texture/cell/bread_potion.png")
-	same_cells[6].append(0)
-	same_cells[6].append(2)
-	parse_int_to_png[7] = load("res://texture/cell/bread_shield.png")
-	same_cells[7].append(0)
-	same_cells[7].append(3)
-	parse_int_to_png[8] = load("res://texture/cell/bread_sword.png")
-	same_cells[8].append(0)
-	same_cells[8].append(4)
-	parse_int_to_png[9] = load("res://texture/cell/coin_potion.png")
-	same_cells[9].append(1)
-	same_cells[9].append(2)
-	parse_int_to_png[10] = load("res://texture/cell/coin_shield.png")
-	same_cells[10].append(1)
-	same_cells[10].append(3)
-	parse_int_to_png[11] = load("res://texture/cell/coin_sword.png")
-	same_cells[11].append(1)
-	same_cells[11].append(4)
-	parse_int_to_png[12] = load("res://texture/cell/potion_shield.png")
-	same_cells[12].append(2)
-	same_cells[12].append(3)
-	parse_int_to_png[13] = load("res://texture/cell/potion_sword.png")
-	same_cells[13].append(2)
-	same_cells[13].append(4)
-	parse_int_to_png[14] = load("res://texture/cell/shield_sword.png")
-	same_cells[14].append(3)
-	same_cells[14].append(4)
+	for i in range(58):
+		same_cells.append([])
+	for i in base_names.size():
+		var name = base_names[i]
+		parse_int_to_png[i] = load("res://texture/cell/%s.png" % name)
+		same_cells[i] = [i]
+
+	# === 複数駒を自動登録 ===
+	var combo_index = base_names.size()
+	var texture_dir = "res://texture/cell/"
+
+	var dir = DirAccess.open(texture_dir)
+	if dir:
+		for file_name in dir.get_files():
+			if not file_name.ends_with(".png"):
+				continue
+			var base_name = file_name.get_basename()
+			# 「_」を含むファイル名のみ処理
+			if "_" in base_name:
+				var parts = base_name.split("_")
+				var cell_list = []
+				for part in parts:
+					var idx = base_names.find(part)
+					if idx != -1:
+						cell_list.append(idx)
+				if cell_list.size() > 0:
+					parse_int_to_png[combo_index] = load(texture_dir + file_name)
+					same_cells[combo_index] = cell_list
+					combo_index += 1
+	
 	for i in range(board_height*frame_count):
 		var arrw = []
 		for j in range(board_width):
@@ -76,7 +90,7 @@ func _generate_board():
 			continue
 		for j in range(board_width):
 			var candidates = []
-			for k in range(15):
+			for k in range(12,same_cells.size()):
 				var ok = true
 				for l in range(same_cells[k].size()):
 					var cur = same_cells[k][l]
@@ -114,7 +128,7 @@ func _generate_board():
 
 			# 候補が空になることは稀だが、その場合はランダムで埋める
 			if candidates.is_empty():
-				board[i][j] = randi() % 15
+				board[i][j] = randi() % (same_cells.size()-11)+11
 			else:
 				board[i][j] = candidates.pick_random()
 func is_same_group(a: int, b: int) -> bool:
@@ -137,11 +151,11 @@ func _draw_board():
 
 			# === スペーシング + オフセットを考慮した配置 ===
 			var x = board_offset.x + j * (cell_size + spacing)
-			var y = board_offset.y + int(float(i/30) * (cell_size + spacing))
+			var y = board_offset.y + (float(i)/float(30) * (cell_size + spacing))
 			tex_rect.position = Vector2(x, y)
 			# ============================================
 
-			tex_rect.scale = Vector2(0.08, 0.08)
+			tex_rect.scale = Vector2(0.04, 0.04)
 			tex_rect.stretch_mode = TextureRect.STRETCH_SCALE
 			tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			add_child(tex_rect)
@@ -311,7 +325,7 @@ func fall_cell() -> bool:
 				f = false
 				break
 		if f:
-			board[0][j] = randi() % 15
+			board[0][j] = randi() % (same_cells.size()-11)+11
 			did_fall = true
 	return did_fall
 func _process(delta):
@@ -326,11 +340,10 @@ func _process(delta):
 	if matching:
 		var pop_cell = cell_matching()
 		if pop_cell.size() == 0:
-			print(score)
-			for i in range(5):
+			emit_signal("battle_state_requested",score,BattleState.PLAYER_ATTACK)
+			for i in range(11):
 				score[i] = 0
 			matching = false
-			
 			return
 		for k in range(pop_cell.size()):
 			if pop_cell[k][1] == 0:

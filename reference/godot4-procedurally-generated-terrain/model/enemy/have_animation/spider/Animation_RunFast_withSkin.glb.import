@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://dkjkmht8choiw"
-=======
-uid="uid://diuqs47eefqqi"
->>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
+uid="uid://4o6oja1b4sk8"
 path="res://.godot/imported/Animation_RunFast_withSkin.glb-df98ecc0a78afc89bc0eef6b9af29939.scn"
 
 [deps]
@@ -37,5 +33,5 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 _subresources={}
-gltf/naming_version=1
+gltf/naming_version=0
 gltf/embedded_image_handling=1

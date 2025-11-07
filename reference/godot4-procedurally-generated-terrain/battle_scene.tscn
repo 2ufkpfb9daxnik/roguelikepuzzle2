@@ -10,30 +10,50 @@ anchors_preset = 0
 mouse_filter = 2
 script = ExtResource("1_r5l0u")
 
-[node name="Battle3DViewport" type="SubViewportContainer" parent="."]
+[node name="AllyViewport" type="SubViewportContainer" parent="."]
 layout_mode = 0
-offset_left = 374.0
-offset_top = -99.0
-offset_right = 886.0
-offset_bottom = 413.0
-scale = Vector2(2.3, 2.3)
+offset_left = 199.0
+offset_top = -112.0
+offset_right = 711.0
+offset_bottom = 400.0
+scale = Vector2(1.5, 1.5)
 mouse_filter = 2
 
-[node name="SubViewport" type="SubViewport" parent="Battle3DViewport"]
+[node name="SubViewport" type="SubViewport" parent="AllyViewport"]
 handle_input_locally = false
 render_target_update_mode = 4
 
-[node name="Camera3D" type="Camera3D" parent="Battle3DViewport/SubViewport"]
+[node name="AllyCamera" type="Camera3D" parent="AllyViewport/SubViewport"]
 transform = Transform3D(1.19249e-08, 0.173648, -0.984808, 0, 0.984808, 0.173648, 1, -2.07073e-09, 1.17437e-08, 0, 0, 2.5)
 current = true
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="Battle3DViewport/SubViewport"]
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="AllyViewport/SubViewport"]
 
-[node name="Allies" type="Node3D" parent="Battle3DViewport/SubViewport"]
+[node name="Allies" type="Node3D" parent="AllyViewport/SubViewport"]
 
-[node name="Enemies" type="Node3D" parent="Battle3DViewport/SubViewport"]
+[node name="EnemyViewport" type="SubViewportContainer" parent="."]
+layout_mode = 0
+offset_left = 960.0
+offset_top = -112.0
+offset_right = 1472.0
+offset_bottom = 400.0
+scale = Vector2(1.5, 1.5)
+mouse_filter = 2
+
+[node name="SubViewport" type="SubViewport" parent="EnemyViewport"]
+handle_input_locally = false
+render_target_update_mode = 4
+
+[node name="EnemyCamera" type="Camera3D" parent="EnemyViewport/SubViewport"]
+transform = Transform3D(1.19249e-08, 0.173648, -0.984808, 0, 0.984808, 0.173648, 1, -2.07073e-09, 1.17437e-08, 0, 0, 2.5)
+current = true
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="EnemyViewport/SubViewport"]
+
+[node name="Enemies" type="Node3D" parent="EnemyViewport/SubViewport"]
 
 [node name="UI" type="CanvasLayer" parent="."]
+layer = 2
 
 [node name="AllyStatusPanel" type="Control" parent="UI"]
 layout_mode = 3
@@ -60,28 +80,101 @@ offset_right = 506.0
 offset_bottom = 220.0
 mouse_filter = 2
 
-[node name="BattleStartLabel" type="RichTextLabel" parent="UI"]
+[node name="ViewportLabels" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="AllyLabel" type="RichTextLabel" parent="UI/ViewportLabels"]
+z_index = 3
+layout_mode = 0
+offset_left = 512.0
+offset_top = 2.0
+offset_right = 640.0
+offset_bottom = 87.0
+bbcode_enabled = true
+text = "[font_size=60][color=green]味方[/color][/font_size]"
+
+[node name="EnemyLabel" type="RichTextLabel" parent="UI/ViewportLabels"]
+layout_mode = 0
+offset_left = 1315.0
+offset_top = 4.0
+offset_right = 1386.0
+offset_bottom = 90.0
+bbcode_enabled = true
+text = "[font_size=60][color=red]敵[/color][/font_size]"
+
+[node name="Battle_Start" type="Control" parent="UI"]
+visible = false
+layout_mode = 3
+anchors_preset = 0
+offset_top = 450.0
+offset_right = 1920.0
+offset_bottom = 535.0
+
+[node name="BattleStartLabel" type="RichTextLabel" parent="UI/Battle_Start"]
 z_index = 1
-offset_right = 1925.0
-offset_bottom = 1094.0
+layout_mode = 0
+offset_right = 1920.0
+offset_bottom = 85.0
 mouse_filter = 2
-text = "Battle Start!"
+bbcode_enabled = true
+text = "[font_size=60][color=white]Battle Start![/color][/font_size]"
 horizontal_alignment = 1
 
-[node name="YourTurnLabel" type="RichTextLabel" parent="UI"]
+[node name="ColorRect" type="ColorRect" parent="UI/Battle_Start"]
+layout_mode = 0
+offset_right = 1920.0
+offset_bottom = 85.0
+color = Color(0.180392, 0.333333, 1, 0.384314)
+
+[node name="YourTurn" type="Control" parent="UI"]
+visible = false
+layout_mode = 3
+anchors_preset = 0
+offset_top = 450.0
+offset_right = 1920.0
+offset_bottom = 535.0
+
+[node name="YourTurnLabel" type="RichTextLabel" parent="UI/YourTurn"]
 z_index = 1
-offset_right = 1925.0
-offset_bottom = 1094.0
+layout_mode = 0
+offset_right = 1920.0
+offset_bottom = 85.0
 mouse_filter = 2
-text = "Your Turn"
+bbcode_enabled = true
+text = "[font_size=60][color=white]Your Turn[/color][/font_size]"
 horizontal_alignment = 1
 
-[node name="EnemyTurnLabel" type="RichTextLabel" parent="UI"]
+[node name="ColorRect" type="ColorRect" parent="UI/YourTurn"]
+layout_mode = 0
+offset_right = 1920.0
+offset_bottom = 85.0
+color = Color(0.180392, 0.333333, 1, 0.384314)
+
+[node name="EnemyTurn" type="Control" parent="UI"]
+visible = false
+layout_mode = 3
+anchors_preset = 0
+offset_top = 450.0
+offset_right = 1920.0
+offset_bottom = 535.0
+
+[node name="EnemyTurnLabel" type="RichTextLabel" parent="UI/EnemyTurn"]
 z_index = 1
-offset_right = 1925.0
-offset_bottom = 1094.0
+layout_mode = 0
+offset_right = 1920.0
+offset_bottom = 85.0
 mouse_filter = 2
-text = "Enemy Turn"
+bbcode_enabled = true
+text = "[font_size=60][color=white]Enemy Turn[/color][/font_size]"
 horizontal_alignment = 1
+
+[node name="ColorRect" type="ColorRect" parent="UI/EnemyTurn"]
+layout_mode = 0
+offset_right = 1920.0
+offset_bottom = 85.0
+color = Color(0.180392, 0.333333, 1, 0.384314)
 
 [node name="FadeManager" parent="." instance=ExtResource("2_5g7vw")]

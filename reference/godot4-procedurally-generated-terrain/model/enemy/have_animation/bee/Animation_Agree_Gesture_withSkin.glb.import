@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://dr0u28vaacaaw"
-=======
-uid="uid://dxgoj5rtwdtcv"
->>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
+uid="uid://du5o22sjo61fe"
 path="res://.godot/imported/Animation_Agree_Gesture_withSkin.glb-2d474e339d990a64eace7723d86b25dd.scn"
 
 [deps]
@@ -37,5 +33,5 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 _subresources={}
-gltf/naming_version=1
+gltf/naming_version=0
 gltf/embedded_image_handling=1
