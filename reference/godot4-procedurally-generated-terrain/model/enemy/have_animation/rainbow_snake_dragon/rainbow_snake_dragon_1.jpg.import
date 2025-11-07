@@ -2,18 +2,11 @@
 
 importer="texture"
 type="CompressedTexture2D"
-<<<<<<< HEAD
-uid="uid://biew0x5ep1yrf"
-=======
-uid="uid://beevn7ob3fhii"
->>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
+uid="uid://dsu7f3ty6qcqw"
 path.s3tc="res://.godot/imported/rainbow_snake_dragon_1.jpg-867775ed10fbce416d76d75503481317.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
-}
-generator_parameters={
-"md5": "1a3dc33875c37b490515e1b7e4dbc536"
 }
 
 [deps]

@@ -2,34 +2,26 @@
 
 importer="texture"
 type="CompressedTexture2D"
-<<<<<<< HEAD
-uid="uid://dy0i30f8fvqxe"
-=======
-uid="uid://dh7o4hrtgaxy5"
->>>>>>> c7fbd27bdf055ecc5fba8c2040ab444ac833e580
-path.s3tc="res://.godot/imported/bee_Image_0.jpg-5d9c9cdc33e1c8519191707308093d62.s3tc.ctex"
+uid="uid://c7e7nn213y631"
+path="res://.godot/imported/bee_Image_0.jpg-5d9c9cdc33e1c8519191707308093d62.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
-}
-generator_parameters={
-"md5": "1d5ad469ac14f9c7e3677f2741264893"
+"vram_texture": false
 }
 
 [deps]
 
 source_file="res://model/enemy/have_animation/bee/bee_Image_0.jpg"
-dest_files=["res://.godot/imported/bee_Image_0.jpg-5d9c9cdc33e1c8519191707308093d62.s3tc.ctex"]
+dest_files=["res://.godot/imported/bee_Image_0.jpg-5d9c9cdc33e1c8519191707308093d62.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -39,4 +31,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1
