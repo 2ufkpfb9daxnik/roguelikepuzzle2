@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://bqlrokxfqg3r8"
-path="res://.godot/imported/keikoku-2.mp3-2011206011c743368b6a6a53a95f8da7.mp3str"
+path="res://.godot/imported/keikoku-2.mp3-e917096ac0c78ae104302dbfc6e23940.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/se/stagekirikae/keikoku-2.mp3"
-dest_files=["res://.godot/imported/keikoku-2.mp3-2011206011c743368b6a6a53a95f8da7.mp3str"]
+source_file="res://sound/se/se/stagekirikae/keikoku-2.mp3"
+dest_files=["res://.godot/imported/keikoku-2.mp3-e917096ac0c78ae104302dbfc6e23940.mp3str"]
 
 [params]
 

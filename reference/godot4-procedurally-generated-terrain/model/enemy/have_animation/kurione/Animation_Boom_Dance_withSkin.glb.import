@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://6dyfvjwfwlby"
-=======
-uid="uid://dxnj137n1yo5t"
->>>>>>> ed7842724b3b2486169b3c2a594203292349075d
+uid="uid://drifnlk4gs25q"
 path="res://.godot/imported/Animation_Boom_Dance_withSkin.glb-73646f20a97c2c761d9016b69b7ecb2e.scn"
 
 [deps]

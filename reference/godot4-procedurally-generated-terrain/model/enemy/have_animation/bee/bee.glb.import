@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://cqr3seu5s2ngd"
-=======
-uid="uid://dc0d0crue0utr"
->>>>>>> ed7842724b3b2486169b3c2a594203292349075d
+uid="uid://bvqqrywd2jkhd"
 path="res://.godot/imported/bee.glb-88516b7be38c56610842e1e15b4816ed.scn"
 
 [deps]

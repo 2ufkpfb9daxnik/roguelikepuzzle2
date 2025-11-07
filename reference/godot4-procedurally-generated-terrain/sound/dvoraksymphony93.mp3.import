@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://djxepb6wewi2f"
-path="res://.godot/imported/dvoraksymphony93.mp3-d0137e25b90246f60dc3cece6da1e609.mp3str"
+path="res://.godot/imported/dvoraksymphony93.mp3-8032a91eb5b51ab76296a4b94ffb6006.mp3str"
 
 [deps]
 
-source_file="res://Sound/dvoraksymphony93.mp3"
-dest_files=["res://.godot/imported/dvoraksymphony93.mp3-d0137e25b90246f60dc3cece6da1e609.mp3str"]
+source_file="res://sound/dvoraksymphony93.mp3"
+dest_files=["res://.godot/imported/dvoraksymphony93.mp3-8032a91eb5b51ab76296a4b94ffb6006.mp3str"]
 
 [params]
 

@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://cifjr61p2ajmt"
-path="res://.godot/imported/move_22_demo.mp3-fa2468fbfa8bd3d4f8455f5e1d87c767.mp3str"
+path="res://.godot/imported/move_22_demo.mp3-416ae9946e70f26fcadeebeb2cce2d11.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/kieruoto/move_22_demo.mp3"
-dest_files=["res://.godot/imported/move_22_demo.mp3-fa2468fbfa8bd3d4f8455f5e1d87c767.mp3str"]
+source_file="res://sound/se/kieruoto/move_22_demo.mp3"
+dest_files=["res://.godot/imported/move_22_demo.mp3-416ae9946e70f26fcadeebeb2cce2d11.mp3str"]
 
 [params]
 

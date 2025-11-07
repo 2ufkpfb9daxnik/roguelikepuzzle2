@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://dboo2wke2gk25"
-path="res://.godot/imported/buff2.mp3-d4ce291d1d175040476db51e25e5d4cf.mp3str"
+path="res://.godot/imported/buff2.mp3-3decb3cca9db22da3774f8f728892115.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/buff/buff2.mp3"
-dest_files=["res://.godot/imported/buff2.mp3-d4ce291d1d175040476db51e25e5d4cf.mp3str"]
+source_file="res://sound/se/buff/buff2.mp3"
+dest_files=["res://.godot/imported/buff2.mp3-3decb3cca9db22da3774f8f728892115.mp3str"]
 
 [params]
 

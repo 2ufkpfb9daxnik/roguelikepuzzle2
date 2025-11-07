@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://d4blx4p024lhx"
-path="res://.godot/imported/kettei-.mp3-6b4aa8a565f63113e022320f4d1d6dc8.mp3str"
+path="res://.godot/imported/kettei-.mp3-1b42343df4d57e041e1c59a176128b1e.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/kurikku/kettei-.mp3"
-dest_files=["res://.godot/imported/kettei-.mp3-6b4aa8a565f63113e022320f4d1d6dc8.mp3str"]
+source_file="res://sound/se/kurikku/kettei-.mp3"
+dest_files=["res://.godot/imported/kettei-.mp3-1b42343df4d57e041e1c59a176128b1e.mp3str"]
 
 [params]
 

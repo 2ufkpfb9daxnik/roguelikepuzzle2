@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://doeusteanei02"
-path="res://.godot/imported/MusMus-BGM-039.mp3-7914a5098f214b8832ab4b3bb4ee63b8.mp3str"
+path="res://.godot/imported/MusMus-BGM-039.mp3-b29c539029057d8992bf27cd76073a83.mp3str"
 
 [deps]
 
-source_file="res://Sound/bgm/gameppoi/MusMus-BGM-039.mp3"
-dest_files=["res://.godot/imported/MusMus-BGM-039.mp3-7914a5098f214b8832ab4b3bb4ee63b8.mp3str"]
+source_file="res://sound/bgm/gameppoi/MusMus-BGM-039.mp3"
+dest_files=["res://.godot/imported/MusMus-BGM-039.mp3-b29c539029057d8992bf27cd76073a83.mp3str"]
 
 [params]
 

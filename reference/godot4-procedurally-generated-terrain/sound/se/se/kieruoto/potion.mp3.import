@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://db5omhfg7nyet"
-path="res://.godot/imported/potion.mp3-133917cf77f201affd3ed980e47c9e85.mp3str"
+path="res://.godot/imported/potion.mp3-0292b4717048b8e3321111c936d0e1ca.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/se/kieruoto/potion.mp3"
-dest_files=["res://.godot/imported/potion.mp3-133917cf77f201affd3ed980e47c9e85.mp3str"]
+source_file="res://sound/se/se/kieruoto/potion.mp3"
+dest_files=["res://.godot/imported/potion.mp3-0292b4717048b8e3321111c936d0e1ca.mp3str"]
 
 [params]
 

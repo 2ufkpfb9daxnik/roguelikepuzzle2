@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://d0u1utx7argao"
-path="res://.godot/imported/RPG_Battle_demo_bpm192.mp3-c1d144c60eecd7e2ae587d2323a2b4dd.mp3str"
+path="res://.godot/imported/RPG_Battle_demo_bpm192.mp3-e169fbacf49b32437bd360e4672c910f.mp3str"
 
 [deps]
 
-source_file="res://Sound/bgm/gameppoi/RPG_Battle_demo_bpm192.mp3"
-dest_files=["res://.godot/imported/RPG_Battle_demo_bpm192.mp3-c1d144c60eecd7e2ae587d2323a2b4dd.mp3str"]
+source_file="res://sound/bgm/gameppoi/RPG_Battle_demo_bpm192.mp3"
+dest_files=["res://.godot/imported/RPG_Battle_demo_bpm192.mp3-e169fbacf49b32437bd360e4672c910f.mp3str"]
 
 [params]
 

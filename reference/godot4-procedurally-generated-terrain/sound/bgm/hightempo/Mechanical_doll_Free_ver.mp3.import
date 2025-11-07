@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://tv1njvvi75xv"
-path="res://.godot/imported/Mechanical_doll_Free_ver.mp3-ae0796a82ddf05ce5cb9c0baf1f456ba.mp3str"
+path="res://.godot/imported/Mechanical_doll_Free_ver.mp3-94b014046a25ecc09ee30ec035c1b72b.mp3str"
 
 [deps]
 
-source_file="res://Sound/bgm/hightempo/Mechanical_doll_Free_ver.mp3"
-dest_files=["res://.godot/imported/Mechanical_doll_Free_ver.mp3-ae0796a82ddf05ce5cb9c0baf1f456ba.mp3str"]
+source_file="res://sound/bgm/hightempo/Mechanical_doll_Free_ver.mp3"
+dest_files=["res://.godot/imported/Mechanical_doll_Free_ver.mp3-94b014046a25ecc09ee30ec035c1b72b.mp3str"]
 
 [params]
 

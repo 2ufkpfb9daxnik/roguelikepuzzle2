@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://ds1f3k66iqbvx"
-=======
-uid="uid://cy6bfhiu2fqb8"
->>>>>>> ed7842724b3b2486169b3c2a594203292349075d
+uid="uid://ckak0rpjrf7f4"
 path="res://.godot/imported/Animation_You_Groove_withSkin.glb-3ac6efbc705fe1db4aab4a05f39e2689.scn"
 
 [deps]
@@ -37,5 +33,5 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 _subresources={}
-gltf/naming_version=1
+gltf/naming_version=0
 gltf/embedded_image_handling=1

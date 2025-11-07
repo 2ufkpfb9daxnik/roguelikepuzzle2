@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://lc6ol2xxy6wa"
-path="res://.godot/imported/acceleration_15_demo.mp3-c442e33f3f86ddb7f4095a28a575a964.mp3str"
+path="res://.godot/imported/acceleration_15_demo.mp3-b419d12e33be514ae04cc9d5fd27755d.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/patinko/acceleration_15_demo.mp3"
-dest_files=["res://.godot/imported/acceleration_15_demo.mp3-c442e33f3f86ddb7f4095a28a575a964.mp3str"]
+source_file="res://sound/se/patinko/acceleration_15_demo.mp3"
+dest_files=["res://.godot/imported/acceleration_15_demo.mp3-b419d12e33be514ae04cc9d5fd27755d.mp3str"]
 
 [params]
 

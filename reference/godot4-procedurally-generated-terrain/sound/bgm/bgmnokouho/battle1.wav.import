@@ -3,11 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://b24xepqgw6h2f"
-valid=false
+path="res://.godot/imported/battle1.wav-de040f66531152e36c4d60bb4748d295.sample"
 
 [deps]
 
-source_file="res://Sound/bgm/bgmnokouho/battle1.wav"
+source_file="res://sound/bgm/bgmnokouho/battle1.wav"
+dest_files=["res://.godot/imported/battle1.wav-de040f66531152e36c4d60bb4748d295.sample"]
 
 [params]
 

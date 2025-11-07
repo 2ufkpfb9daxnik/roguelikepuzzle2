@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://beha5nn1c7gvl"
-path="res://.godot/imported/gekiatu.mp3-dffb6ecc940690cc6505838b4714c5d5.mp3str"
+path="res://.godot/imported/gekiatu.mp3-7fcfddc12d0f3f6a0c3b876b0ed89b0e.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/teki/gekiatu.mp3"
-dest_files=["res://.godot/imported/gekiatu.mp3-dffb6ecc940690cc6505838b4714c5d5.mp3str"]
+source_file="res://sound/se/teki/gekiatu.mp3"
+dest_files=["res://.godot/imported/gekiatu.mp3-7fcfddc12d0f3f6a0c3b876b0ed89b0e.mp3str"]
 
 [params]
 

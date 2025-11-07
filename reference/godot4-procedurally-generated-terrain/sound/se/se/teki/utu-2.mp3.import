@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://bul0wte4nuc70"
-path="res://.godot/imported/utu-2.mp3-3a4466149ce645fc7ada9492b1179bac.mp3str"
+path="res://.godot/imported/utu-2.mp3-5ad632b1dffde0bfe2ff0cc67cbf16fc.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/se/teki/utu-2.mp3"
-dest_files=["res://.godot/imported/utu-2.mp3-3a4466149ce645fc7ada9492b1179bac.mp3str"]
+source_file="res://sound/se/se/teki/utu-2.mp3"
+dest_files=["res://.godot/imported/utu-2.mp3-5ad632b1dffde0bfe2ff0cc67cbf16fc.mp3str"]
 
 [params]
 

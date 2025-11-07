@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://70ks2kw6iacy"
-path="res://.godot/imported/break_and_chain_03_2_demo.mp3-2ceeec357ed9888cf507f0fe9c4c8c85.mp3str"
+path="res://.godot/imported/break_and_chain_03_2_demo.mp3-caeac20a3ad1b8f63841b066460d2e3c.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/kieruoto/break_and_chain_03_2_demo.mp3"
-dest_files=["res://.godot/imported/break_and_chain_03_2_demo.mp3-2ceeec357ed9888cf507f0fe9c4c8c85.mp3str"]
+source_file="res://sound/se/kieruoto/break_and_chain_03_2_demo.mp3"
+dest_files=["res://.godot/imported/break_and_chain_03_2_demo.mp3-caeac20a3ad1b8f63841b066460d2e3c.mp3str"]
 
 [params]
 

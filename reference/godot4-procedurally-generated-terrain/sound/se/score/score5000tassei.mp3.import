@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://cp2h5e8q80dtq"
-path="res://.godot/imported/score5000tassei.mp3-bd02ab4a31beb241d49a89f14bd21a51.mp3str"
+path="res://.godot/imported/score5000tassei.mp3-28d03e6b0e1ade73a5cda674173a6778.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/score/score5000tassei.mp3"
-dest_files=["res://.godot/imported/score5000tassei.mp3-bd02ab4a31beb241d49a89f14bd21a51.mp3str"]
+source_file="res://sound/se/score/score5000tassei.mp3"
+dest_files=["res://.godot/imported/score5000tassei.mp3-28d03e6b0e1ade73a5cda674173a6778.mp3str"]
 
 [params]
 

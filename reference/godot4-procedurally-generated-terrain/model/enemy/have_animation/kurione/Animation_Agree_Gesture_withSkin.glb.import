@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://3ceejmo25cyb"
-=======
-uid="uid://cjdut6ahrt43u"
->>>>>>> ed7842724b3b2486169b3c2a594203292349075d
+uid="uid://cocc0d5smi306"
 path="res://.godot/imported/Animation_Agree_Gesture_withSkin.glb-523c414fe506426d676472a64c7bf299.scn"
 
 [deps]

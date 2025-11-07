@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://x2ecdukqtibx"
-path="res://.godot/imported/ゲージ回復1.mp3-98f6402afbb79919dccdaaecd979af6e.mp3str"
+path="res://.godot/imported/ゲージ回復1.mp3-9697abc9a2c3121382be6bf19d42eae7.mp3str"
 
 [deps]
 
-source_file="res://Sound/ゲージ回復1.mp3"
-dest_files=["res://.godot/imported/ゲージ回復1.mp3-98f6402afbb79919dccdaaecd979af6e.mp3str"]
+source_file="res://sound/ゲージ回復1.mp3"
+dest_files=["res://.godot/imported/ゲージ回復1.mp3-9697abc9a2c3121382be6bf19d42eae7.mp3str"]
 
 [params]
 

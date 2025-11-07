@@ -3,12 +3,12 @@
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
 uid="uid://qsm3v6hpnoxh"
-path="res://.godot/imported/パーティーはハチャメチャ大騒ぎ.ogg-2b32d249f472ab41507fd2c425f15ca8.oggvorbisstr"
+path="res://.godot/imported/パーティーはハチャメチャ大騒ぎ.ogg-3f28db224bd83337946c4a4632e16cb1.oggvorbisstr"
 
 [deps]
 
-source_file="res://Sound/パーティーはハチャメチャ大騒ぎ.ogg"
-dest_files=["res://.godot/imported/パーティーはハチャメチャ大騒ぎ.ogg-2b32d249f472ab41507fd2c425f15ca8.oggvorbisstr"]
+source_file="res://sound/パーティーはハチャメチャ大騒ぎ.ogg"
+dest_files=["res://.godot/imported/パーティーはハチャメチャ大騒ぎ.ogg-3f28db224bd83337946c4a4632e16cb1.oggvorbisstr"]
 
 [params]
 

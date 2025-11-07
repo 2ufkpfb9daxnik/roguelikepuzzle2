@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://dpnocndr81y26"
-path="res://.godot/imported/BATTLE_BONUS_3000獲得音.mp3-ded674070ad9ee9dc11ce329eb7cc0e7.mp3str"
+path="res://.godot/imported/BATTLE_BONUS_3000獲得音.mp3-769b5d0f0191b53af6e3859a6d3dd4d8.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/se/patinko/BATTLE_BONUS_3000獲得音.mp3"
-dest_files=["res://.godot/imported/BATTLE_BONUS_3000獲得音.mp3-ded674070ad9ee9dc11ce329eb7cc0e7.mp3str"]
+source_file="res://sound/se/se/patinko/BATTLE_BONUS_3000獲得音.mp3"
+dest_files=["res://.godot/imported/BATTLE_BONUS_3000獲得音.mp3-769b5d0f0191b53af6e3859a6d3dd4d8.mp3str"]
 
 [params]
 

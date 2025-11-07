@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://c5fbbcmufrloq"
-path="res://.godot/imported/cursor_14_demo.mp3-e357acec28fc6ea5ac2179b5d3395c5b.mp3str"
+path="res://.godot/imported/cursor_14_demo.mp3-d27c1fcb2fdfb1556b81960d899f2334.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/se/kurikku/cursor_14_demo.mp3"
-dest_files=["res://.godot/imported/cursor_14_demo.mp3-e357acec28fc6ea5ac2179b5d3395c5b.mp3str"]
+source_file="res://sound/se/se/kurikku/cursor_14_demo.mp3"
+dest_files=["res://.godot/imported/cursor_14_demo.mp3-d27c1fcb2fdfb1556b81960d899f2334.mp3str"]
 
 [params]
 
