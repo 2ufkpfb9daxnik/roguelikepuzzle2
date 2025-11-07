@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://bn1ntoxsl775c"
-path="res://.godot/imported/B00128_kamatamago_fantastic-forest.mp3-86bdc4ae459b0a7fe4a3bf3daeed5f5f.mp3str"
+path="res://.godot/imported/B00128_kamatamago_fantastic-forest.mp3-671bd4c3e89a8429354164b62956f261.mp3str"
 
 [deps]
 
-source_file="res://Sound/bgm/yukkurippoi/B00128_kamatamago_fantastic-forest.mp3"
-dest_files=["res://.godot/imported/B00128_kamatamago_fantastic-forest.mp3-86bdc4ae459b0a7fe4a3bf3daeed5f5f.mp3str"]
+source_file="res://sound/bgm/yukkurippoi/B00128_kamatamago_fantastic-forest.mp3"
+dest_files=["res://.godot/imported/B00128_kamatamago_fantastic-forest.mp3-671bd4c3e89a8429354164b62956f261.mp3str"]
 
 [params]
 

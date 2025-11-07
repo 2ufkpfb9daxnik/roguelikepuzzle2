@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://b8pq73yq4cli"
-path="res://.godot/imported/maou_bgm_fantasy15.mp3-7268a61534b270abf28a3125cd41d3ba.mp3str"
+path="res://.godot/imported/maou_bgm_fantasy15.mp3-195411948f9d41ef38bdfc0018c6ee97.mp3str"
 
 [deps]
 
-source_file="res://Sound/bgm/bossppoi/maou_bgm_fantasy15.mp3"
-dest_files=["res://.godot/imported/maou_bgm_fantasy15.mp3-7268a61534b270abf28a3125cd41d3ba.mp3str"]
+source_file="res://sound/bgm/bossppoi/maou_bgm_fantasy15.mp3"
+dest_files=["res://.godot/imported/maou_bgm_fantasy15.mp3-195411948f9d41ef38bdfc0018c6ee97.mp3str"]
 
 [params]
 

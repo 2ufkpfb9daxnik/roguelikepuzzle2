@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://b2vg3x7cwvg5i"
-path="res://.godot/imported/battle2.mp3-a7f0108ba2dd08586c518a72092cd252.mp3str"
+path="res://.godot/imported/battle2.mp3-0792ecae6a46f2fa8793415d2c774733.mp3str"
 
 [deps]
 
-source_file="res://Sound/bgm/bgmnokouho/battle2.mp3"
-dest_files=["res://.godot/imported/battle2.mp3-a7f0108ba2dd08586c518a72092cd252.mp3str"]
+source_file="res://sound/bgm/bgmnokouho/battle2.mp3"
+dest_files=["res://.godot/imported/battle2.mp3-0792ecae6a46f2fa8793415d2c774733.mp3str"]
 
 [params]
 

@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://cyayc7hv1yygm"
-path="res://.godot/imported/pause_12_demo.mp3-09e99082c7bc9ea7848b8c429cd16c80.mp3str"
+path="res://.godot/imported/pause_12_demo.mp3-3148e51bff26da65cbfa918495369adf.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/se/kurikku/pause_12_demo.mp3"
-dest_files=["res://.godot/imported/pause_12_demo.mp3-09e99082c7bc9ea7848b8c429cd16c80.mp3str"]
+source_file="res://sound/se/se/kurikku/pause_12_demo.mp3"
+dest_files=["res://.godot/imported/pause_12_demo.mp3-3148e51bff26da65cbfa918495369adf.mp3str"]
 
 [params]
 

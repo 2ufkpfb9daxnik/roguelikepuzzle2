@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://cshqo6nxrp5cb"
-path="res://.godot/imported/sword.mp3-73175e3a1c002ffe655b251976f98918.mp3str"
+path="res://.godot/imported/sword.mp3-30fca426313cec10e9a59b8424976981.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/kieruoto/sword.mp3"
-dest_files=["res://.godot/imported/sword.mp3-73175e3a1c002ffe655b251976f98918.mp3str"]
+source_file="res://sound/se/kieruoto/sword.mp3"
+dest_files=["res://.godot/imported/sword.mp3-30fca426313cec10e9a59b8424976981.mp3str"]
 
 [params]
 

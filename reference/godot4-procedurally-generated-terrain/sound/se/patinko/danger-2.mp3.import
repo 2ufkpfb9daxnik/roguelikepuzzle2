@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://2l5tfasrcci6"
-path="res://.godot/imported/danger-2.mp3-c43a3e01ed4f09e15e21e463cd0087ab.mp3str"
+path="res://.godot/imported/danger-2.mp3-06c4bf98a19e0406e996d9ff957371bb.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/patinko/danger-2.mp3"
-dest_files=["res://.godot/imported/danger-2.mp3-c43a3e01ed4f09e15e21e463cd0087ab.mp3str"]
+source_file="res://sound/se/patinko/danger-2.mp3"
+dest_files=["res://.godot/imported/danger-2.mp3-06c4bf98a19e0406e996d9ff957371bb.mp3str"]
 
 [params]
 

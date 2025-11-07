@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://cfubo3vs2mthn"
-path="res://.godot/imported/kougeki.mp3-df90d59246d289a7a1764787d4f898cd.mp3str"
+path="res://.godot/imported/kougeki.mp3-297e83f1802d9a4aa4dd782dea6fa7c1.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/teki/kougeki.mp3"
-dest_files=["res://.godot/imported/kougeki.mp3-df90d59246d289a7a1764787d4f898cd.mp3str"]
+source_file="res://sound/se/teki/kougeki.mp3"
+dest_files=["res://.godot/imported/kougeki.mp3-297e83f1802d9a4aa4dd782dea6fa7c1.mp3str"]
 
 [params]
 

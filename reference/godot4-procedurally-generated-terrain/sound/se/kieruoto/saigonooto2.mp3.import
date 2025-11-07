@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://bmslgjyl77j8o"
-path="res://.godot/imported/saigonooto2.mp3-af1f61e6c9aac5613e6742cd9fb857d4.mp3str"
+path="res://.godot/imported/saigonooto2.mp3-ccbfcb3fb4bf8e2d2189802d37e311c2.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/kieruoto/saigonooto2.mp3"
-dest_files=["res://.godot/imported/saigonooto2.mp3-af1f61e6c9aac5613e6742cd9fb857d4.mp3str"]
+source_file="res://sound/se/kieruoto/saigonooto2.mp3"
+dest_files=["res://.godot/imported/saigonooto2.mp3-ccbfcb3fb4bf8e2d2189802d37e311c2.mp3str"]
 
 [params]
 

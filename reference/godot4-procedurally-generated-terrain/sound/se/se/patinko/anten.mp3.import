@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://bwu2yu0ks6t2u"
-path="res://.godot/imported/anten.mp3-facaf00abf17980f5c2da06f5135f55c.mp3str"
+path="res://.godot/imported/anten.mp3-f085137a3b2c405fc5c4f58fac07910b.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/se/patinko/anten.mp3"
-dest_files=["res://.godot/imported/anten.mp3-facaf00abf17980f5c2da06f5135f55c.mp3str"]
+source_file="res://sound/se/se/patinko/anten.mp3"
+dest_files=["res://.godot/imported/anten.mp3-f085137a3b2c405fc5c4f58fac07910b.mp3str"]
 
 [params]
 

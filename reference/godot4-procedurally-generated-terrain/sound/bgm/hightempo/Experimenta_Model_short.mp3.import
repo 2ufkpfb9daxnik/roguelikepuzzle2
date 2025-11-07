@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://cike6x5nyyic3"
-path="res://.godot/imported/Experimenta_Model_short.mp3-3c7e8cc04f5733982ecbee7c3134554e.mp3str"
+path="res://.godot/imported/Experimenta_Model_short.mp3-b1d5f192a8e82a50686f2949c9399923.mp3str"
 
 [deps]
 
-source_file="res://Sound/bgm/hightempo/Experimenta_Model_short.mp3"
-dest_files=["res://.godot/imported/Experimenta_Model_short.mp3-3c7e8cc04f5733982ecbee7c3134554e.mp3str"]
+source_file="res://sound/bgm/hightempo/Experimenta_Model_short.mp3"
+dest_files=["res://.godot/imported/Experimenta_Model_short.mp3-b1d5f192a8e82a50686f2949c9399923.mp3str"]
 
 [params]
 

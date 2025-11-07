@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://cn4i1t0sutor7"
-path="res://.godot/imported/Skylords.mp3-e4d85495011fcf879bf0a2b70b0d0116.mp3str"
+path="res://.godot/imported/Skylords.mp3-93a7d8e80dc4ff0c09b566677ac0684f.mp3str"
 
 [deps]
 
-source_file="res://Sound/bgm/gameppoi/Skylords.mp3"
-dest_files=["res://.godot/imported/Skylords.mp3-e4d85495011fcf879bf0a2b70b0d0116.mp3str"]
+source_file="res://sound/bgm/gameppoi/Skylords.mp3"
+dest_files=["res://.godot/imported/Skylords.mp3-93a7d8e80dc4ff0c09b566677ac0684f.mp3str"]
 
 [params]
 

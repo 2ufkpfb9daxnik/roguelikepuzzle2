@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://dipp41obt6lvp"
-path="res://.godot/imported/Free_BGM_Study.mp3-6fb3e0a51110ebf600732db31027cf34.mp3str"
+path="res://.godot/imported/Free_BGM_Study.mp3-c700184b000e868f8131558afe67834e.mp3str"
 
 [deps]
 
-source_file="res://Sound/bgm/pazudorappoi/Free_BGM_Study.mp3"
-dest_files=["res://.godot/imported/Free_BGM_Study.mp3-6fb3e0a51110ebf600732db31027cf34.mp3str"]
+source_file="res://sound/bgm/pazudorappoi/Free_BGM_Study.mp3"
+dest_files=["res://.godot/imported/Free_BGM_Study.mp3-c700184b000e868f8131558afe67834e.mp3str"]
 
 [params]
 

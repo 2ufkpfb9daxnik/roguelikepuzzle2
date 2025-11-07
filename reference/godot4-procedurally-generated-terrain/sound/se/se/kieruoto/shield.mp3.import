@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://np8toil6w2n7"
-path="res://.godot/imported/shield.mp3-de49f16766f226e4153c8922a49af51e.mp3str"
+path="res://.godot/imported/shield.mp3-5546311e25d21a6969f6c1ab563588e7.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/se/kieruoto/shield.mp3"
-dest_files=["res://.godot/imported/shield.mp3-de49f16766f226e4153c8922a49af51e.mp3str"]
+source_file="res://sound/se/se/kieruoto/shield.mp3"
+dest_files=["res://.godot/imported/shield.mp3-5546311e25d21a6969f6c1ab563588e7.mp3str"]
 
 [params]
 

@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://n33yu6ed7da4"
-path="res://.godot/imported/sakusen.mp3-d760f6d9fd00a9c7c3b78409a11def1b.mp3str"
+path="res://.godot/imported/sakusen.mp3-d03f1972eb451e2a31749d9e441c5860.mp3str"
 
 [deps]
 
-source_file="res://Sound/bgm/gameppoi/sakusen.mp3"
-dest_files=["res://.godot/imported/sakusen.mp3-d760f6d9fd00a9c7c3b78409a11def1b.mp3str"]
+source_file="res://sound/bgm/gameppoi/sakusen.mp3"
+dest_files=["res://.godot/imported/sakusen.mp3-d03f1972eb451e2a31749d9e441c5860.mp3str"]
 
 [params]
 

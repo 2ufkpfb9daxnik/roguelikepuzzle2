@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://bi6uaailkpouh"
-path="res://.godot/imported/y014.wav-caa1809f9d1992f7a5bec5abcd4bbfa4.sample"
+path="res://.godot/imported/y014.wav-42aae1b435409b4447ce92ffb46b7695.sample"
 
 [deps]
 
-source_file="res://Sound/bgm/pazudorappoi/y014.wav"
-dest_files=["res://.godot/imported/y014.wav-caa1809f9d1992f7a5bec5abcd4bbfa4.sample"]
+source_file="res://sound/bgm/pazudorappoi/y014.wav"
+dest_files=["res://.godot/imported/y014.wav-42aae1b435409b4447ce92ffb46b7695.sample"]
 
 [params]
 

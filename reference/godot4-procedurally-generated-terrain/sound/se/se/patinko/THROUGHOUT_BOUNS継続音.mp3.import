@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://bi6722e84ylol"
-path="res://.godot/imported/THROUGHOUT_BOUNS継続音.mp3-e98aec9691694b8623bb30b1fb5538c3.mp3str"
+path="res://.godot/imported/THROUGHOUT_BOUNS継続音.mp3-8954181bd139d3072b22e4eeaca59cab.mp3str"
 
 [deps]
 
-source_file="res://Sound/se/se/patinko/THROUGHOUT_BOUNS継続音.mp3"
-dest_files=["res://.godot/imported/THROUGHOUT_BOUNS継続音.mp3-e98aec9691694b8623bb30b1fb5538c3.mp3str"]
+source_file="res://sound/se/se/patinko/THROUGHOUT_BOUNS継続音.mp3"
+dest_files=["res://.godot/imported/THROUGHOUT_BOUNS継続音.mp3-8954181bd139d3072b22e4eeaca59cab.mp3str"]
 
 [params]
 

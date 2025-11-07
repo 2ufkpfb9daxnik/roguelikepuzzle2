@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://2hjttqbpqwos"
-=======
-uid="uid://bvi8cpj5gse3p"
->>>>>>> ed7842724b3b2486169b3c2a594203292349075d
+uid="uid://bgr7djy711bj6"
 path="res://.godot/imported/Animation_BeHit_FlyUp_withSkin.glb-1f69eb93b8af08ef6666df25b4a6b84b.scn"
 
 [deps]
@@ -37,5 +33,5 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 _subresources={}
-gltf/naming_version=1
+gltf/naming_version=0
 gltf/embedded_image_handling=1
