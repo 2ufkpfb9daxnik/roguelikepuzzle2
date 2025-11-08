@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bf16mxjyml22w"
-path="res://.godot/imported/2CDF0D54-BB4C-40BC-9FDA-BFFC9BE514ED-preview.png-d9a6bbc3627ffefd3758462b4b953c5e.ctex"
+uid="uid://lwa3rlequ1tk"
+path="res://.godot/imported/rainbow_snake_dragon.png-2763ffcb7bc1bb45dff0f6bde0105d9b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://model/enemy/元画像/2CDF0D54-BB4C-40BC-9FDA-BFFC9BE514ED-preview.png"
-dest_files=["res://.godot/imported/2CDF0D54-BB4C-40BC-9FDA-BFFC9BE514ED-preview.png-d9a6bbc3627ffefd3758462b4b953c5e.ctex"]
+source_file="res://model/enemy/元画像/rainbow_snake_dragon.png"
+dest_files=["res://.godot/imported/rainbow_snake_dragon.png-2763ffcb7bc1bb45dff0f6bde0105d9b.ctex"]
 
 [params]
 

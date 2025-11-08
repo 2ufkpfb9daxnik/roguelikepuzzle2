@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://lwa3rlequ1tk"
-path="res://.godot/imported/BE12CB2A-9B00-4FA7-A1B2-76B518633DCD-preview.png-fab8282345cd1ea0189417ad998935e9.ctex"
+uid="uid://cdd3lr58b8n5y"
+path="res://.godot/imported/bee.png-f6cec49f8967629230a4089354ec1344.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://model/enemy/元画像/BE12CB2A-9B00-4FA7-A1B2-76B518633DCD-preview.png"
-dest_files=["res://.godot/imported/BE12CB2A-9B00-4FA7-A1B2-76B518633DCD-preview.png-fab8282345cd1ea0189417ad998935e9.ctex"]
+source_file="res://model/enemy/元画像/bee.png"
+dest_files=["res://.godot/imported/bee.png-f6cec49f8967629230a4089354ec1344.ctex"]
 
 [params]
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cmhlvxc762r0m"
-path="res://.godot/imported/dragon_preview_rev_1.png-c0dfb728e34664a0f777c0f340e9ae8c.ctex"
+uid="uid://8y2lkknuhk50"
+path="res://.godot/imported/swamp_guardian.png-04fddc4793086076f3c7088d3bf974d1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://model/enemy/元画像/dragon_preview_rev_1.png"
-dest_files=["res://.godot/imported/dragon_preview_rev_1.png-c0dfb728e34664a0f777c0f340e9ae8c.ctex"]
+source_file="res://model/enemy/元画像/swamp_guardian.png"
+dest_files=["res://.godot/imported/swamp_guardian.png-04fddc4793086076f3c7088d3bf974d1.ctex"]
 
 [params]
 

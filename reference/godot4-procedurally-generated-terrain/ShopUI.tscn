@@ -1,0 +1,189 @@
+[gd_scene load_steps=2 format=3 uid="uid://djex7kc42jg8x"]
+
+[ext_resource type="Script" uid="uid://b5yhgn30nx0v0" path="res://shop_ui.gd" id="1_2ga4l"]
+
+[node name="ShopUi" type="CanvasLayer"]
+script = ExtResource("1_2ga4l")
+
+[node name="MoneyLabel" type="Label" parent="."]
+offset_right = 200.0
+offset_bottom = 51.0
+theme_override_font_sizes/font_size = 24
+
+[node name="MainMenu" type="VBoxContainer" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -300.0
+offset_right = 200.0
+offset_bottom = 300.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 135
+alignment = 1
+
+[node name="LevelUpButtonContainer" type="Panel" parent="MainMenu"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="LevelUpButton" type="Button" parent="MainMenu/LevelUpButtonContainer"]
+layout_mode = 2
+offset_left = 140.0
+offset_top = -70.0
+offset_right = 260.0
+offset_bottom = -10.0
+size_flags_horizontal = 4
+size_flags_stretch_ratio = 20.1
+toggle_mode = true
+action_mode = 0
+text = "Level Up"
+
+[node name="Background" type="ColorRect" parent="MainMenu/LevelUpButtonContainer"]
+z_index = -1
+layout_mode = 0
+offset_left = 100.0
+offset_top = -90.0
+offset_right = 300.0
+offset_bottom = 10.0
+mouse_filter = 2
+color = Color(0, 0.320127, 0.568751, 1)
+
+[node name="BuyCharacterButtonContainer" type="Panel" parent="MainMenu"]
+layout_mode = 2
+mouse_filter = 1
+
+[node name="BuyCharacterButton" type="Button" parent="MainMenu/BuyCharacterButtonContainer"]
+z_index = 1
+custom_minimum_size = Vector2(80, 40)
+layout_mode = 2
+offset_left = 140.0
+offset_top = -30.0
+offset_right = 260.0
+offset_bottom = 30.0
+size_flags_horizontal = 4
+size_flags_vertical = 4
+toggle_mode = true
+text = "Buy Character"
+
+[node name="Background" type="ColorRect" parent="MainMenu/BuyCharacterButtonContainer"]
+layout_mode = 0
+offset_left = 100.0
+offset_top = -50.0
+offset_right = 300.0
+offset_bottom = 50.0
+mouse_filter = 2
+color = Color(0, 0.321569, 0.568627, 1)
+
+[node name="BuyBuffButtonContainer" type="Panel" parent="MainMenu"]
+layout_mode = 2
+mouse_filter = 1
+
+[node name="BuyBuffButton" type="Button" parent="MainMenu/BuyBuffButtonContainer"]
+z_index = 1
+custom_minimum_size = Vector2(80, 40)
+layout_mode = 2
+offset_left = 140.0
+offset_top = 10.0
+offset_right = 260.0
+offset_bottom = 70.0
+size_flags_horizontal = 4
+size_flags_vertical = 4
+toggle_mode = true
+text = "Buy Buff"
+
+[node name="Background" type="ColorRect" parent="MainMenu/BuyBuffButtonContainer"]
+layout_mode = 0
+offset_left = 100.0
+offset_top = -10.0
+offset_right = 300.0
+offset_bottom = 90.0
+mouse_filter = 2
+color = Color(0, 0.321569, 0.568627, 1)
+
+[node name="LevelUpScreen" type="VBoxContainer" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -500.0
+offset_top = -300.0
+offset_right = 500.0
+offset_bottom = 300.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ScrollContainer" type="ScrollContainer" parent="LevelUpScreen"]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="LevelUpScreen/ScrollContainer"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="BuyCharacterScreen" type="VBoxContainer" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -500.0
+offset_top = -300.0
+offset_right = 500.0
+offset_bottom = 300.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ScrollContainer" type="ScrollContainer" parent="BuyCharacterScreen"]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="BuyCharacterScreen/ScrollContainer"]
+layout_mode = 2
+
+[node name="BuyBuffScreen" type="VBoxContainer" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -497.0
+offset_top = -316.0
+offset_right = 503.0
+offset_bottom = 284.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ScrollContainer" type="ScrollContainer" parent="BuyBuffScreen"]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="BuyBuffScreen/ScrollContainer"]
+layout_mode = 2
+
+[node name="CloseButton" type="Button" parent="."]
+offset_left = 874.0
+offset_top = 21.0
+offset_right = 919.0
+offset_bottom = 65.0
+text = "✖"
+icon_alignment = 1
+
+[node name="ColorRect" type="ColorRect" parent="."]
+z_index = -2
+offset_left = 220.0
+offset_top = 20.0
+offset_right = 920.0
+offset_bottom = 620.0
+mouse_filter = 2
+color = Color(1, 1, 1, 0.470588)
+
+[connection signal="pressed" from="MainMenu/LevelUpButtonContainer/LevelUpButton" to="." method="_on_level_up_button_pressed"]
+[connection signal="pressed" from="MainMenu/BuyCharacterButtonContainer/BuyCharacterButton" to="." method="_on_buy_character_button_pressed"]
+[connection signal="pressed" from="MainMenu/BuyBuffButtonContainer/BuyBuffButton" to="." method="_on_buy_buff_button_pressed"]
+[connection signal="pressed" from="CloseButton" to="." method="_on_close_button_pressed"]

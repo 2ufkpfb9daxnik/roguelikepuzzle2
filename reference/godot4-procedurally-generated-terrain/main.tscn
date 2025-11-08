@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://detacysixr15p"]
+[gd_scene load_steps=31 format=3 uid="uid://detacysixr15p"]
 
 [ext_resource type="Script" uid="uid://dhao8gfw2kqu7" path="res://main.gd" id="1_lquwl"]
 [ext_resource type="Environment" uid="uid://gejkg4ou3v7t" path="res://env.tres" id="1_rmrta"]
@@ -6,6 +6,16 @@
 [ext_resource type="PackedScene" uid="uid://ry3c5djemip2" path="res://terrain.tscn" id="2_vayhu"]
 [ext_resource type="Script" uid="uid://cj8s8y67xkq7s" path="res://spawn_enemy.gd" id="4_1bvp3"]
 [ext_resource type="Script" uid="uid://l2hlwgqy43vh" path="res://enemy.gd" id="6_7mycd"]
+[ext_resource type="PackedScene" uid="uid://cjlltgyheoocv" path="res://model/shop/plain_shop.glb" id="7_w48qg"]
+[ext_resource type="Texture2D" uid="uid://lrf2wdg4qc0y" path="res://model/shop/plain_shop_tripo_image_a7d5bffe-5cce-40f2-a3a2-3e5e37693737_0.jpg" id="8_vivmo"]
+[ext_resource type="PackedScene" uid="uid://o6o6283rsb31" path="res://model/shop/snow_shop.glb" id="9_2cqfq"]
+[ext_resource type="Script" uid="uid://c2rjcj3fsttjg" path="res://Shop.gd" id="9_yaehf"]
+[ext_resource type="Texture2D" uid="uid://dvjy12dtjnwhc" path="res://model/shop/snow_shop_tripo_image_2701c995-ac78-44dd-a83a-bf04341cd6bf_0.jpg" id="10_yaehf"]
+[ext_resource type="PackedScene" uid="uid://bhyv8fkgtca8q" path="res://model/shop/desert_shop.glb" id="11_074og"]
+[ext_resource type="Texture2D" uid="uid://w2fei46k147t" path="res://model/shop/desert_shop_tripo_image_5703bab1-9b91-4326-87cc-268c491e2bae_0.jpg" id="12_cegan"]
+[ext_resource type="PackedScene" uid="uid://dis2ktkmslshd" path="res://model/shop/castle_shop.glb" id="13_82xsv"]
+[ext_resource type="Texture2D" uid="uid://ovpqawioirdk" path="res://model/shop/castle_shop_tripo_image_e7a1905e-2178-450e-946c-bf33de2b0e3b_0.jpg" id="14_getpj"]
+[ext_resource type="PackedScene" uid="uid://djex7kc42jg8x" path="res://ShopUI.tscn" id="15_vivmo"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_ipq3q"]
 
@@ -21,6 +31,31 @@ dof_blur_amount = 0.02
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_h2yge"]
 albedo_color = Color(1, 0, 1, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ryguw"]
+albedo_texture = ExtResource("8_vivmo")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_d13ii"]
+albedo_texture = ExtResource("8_vivmo")
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_vivmo"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_w48qg"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0odxb"]
+albedo_texture = ExtResource("10_yaehf")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lswn8"]
+albedo_texture = ExtResource("10_yaehf")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_a6jrf"]
+albedo_texture = ExtResource("12_cegan")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xuqvo"]
+albedo_texture = ExtResource("12_cegan")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_qsp4k"]
+albedo_texture = ExtResource("14_getpj")
 
 [node name="main" type="Node3D"]
 script = ExtResource("1_lquwl")
@@ -87,3 +122,86 @@ root_node = NodePath("")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="enemy/DetectionArea"]
 
 [node name="BattleTransition" type="CanvasLayer" parent="."]
+
+[node name="plain_shop" parent="." instance=ExtResource("7_w48qg")]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="plain_shop"]
+material_override = SubResource("StandardMaterial3D_ryguw")
+material_overlay = SubResource("StandardMaterial3D_d13ii")
+
+[node name="Area3D" type="Area3D" parent="plain_shop"]
+script = ExtResource("9_yaehf")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="plain_shop/Area3D"]
+shape = SubResource("BoxShape3D_vivmo")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="plain_shop"]
+shape = SubResource("BoxShape3D_w48qg")
+
+[node name="snow_shop" parent="." instance=ExtResource("9_2cqfq")]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="snow_shop"]
+material_override = SubResource("StandardMaterial3D_0odxb")
+material_overlay = SubResource("StandardMaterial3D_lswn8")
+
+[node name="Area3D" type="Area3D" parent="snow_shop"]
+script = ExtResource("9_yaehf")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="snow_shop/Area3D"]
+shape = SubResource("BoxShape3D_w48qg")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="snow_shop"]
+shape = SubResource("BoxShape3D_w48qg")
+
+[node name="desert_shop" parent="." instance=ExtResource("11_074og")]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="desert_shop"]
+material_override = SubResource("StandardMaterial3D_a6jrf")
+material_overlay = SubResource("StandardMaterial3D_xuqvo")
+
+[node name="Area3D" type="Area3D" parent="desert_shop"]
+script = ExtResource("9_yaehf")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="desert_shop/Area3D"]
+shape = SubResource("BoxShape3D_w48qg")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="desert_shop"]
+shape = SubResource("BoxShape3D_w48qg")
+
+[node name="castle_shop" parent="." instance=ExtResource("13_82xsv")]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="castle_shop"]
+material_override = SubResource("StandardMaterial3D_qsp4k")
+
+[node name="Area3D" type="Area3D" parent="castle_shop"]
+script = ExtResource("9_yaehf")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="castle_shop/Area3D"]
+shape = SubResource("BoxShape3D_w48qg")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="castle_shop"]
+shape = SubResource("BoxShape3D_w48qg")
+
+[node name="cave_shop" parent="." instance=ExtResource("7_w48qg")]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="cave_shop"]
+material_override = SubResource("StandardMaterial3D_ryguw")
+material_overlay = SubResource("StandardMaterial3D_d13ii")
+
+[node name="Area3D" type="Area3D" parent="cave_shop"]
+script = ExtResource("9_yaehf")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="cave_shop/Area3D"]
+shape = SubResource("BoxShape3D_w48qg")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="cave_shop"]
+shape = SubResource("BoxShape3D_w48qg")
+
+[node name="ShopUi" parent="." instance=ExtResource("15_vivmo")]
+visible = false
+
+[connection signal="body_entered" from="plain_shop/Area3D" to="plain_shop/Area3D" method="_on_body_entered"]
+[connection signal="body_entered" from="snow_shop/Area3D" to="snow_shop/Area3D" method="_on_body_entered"]
+[connection signal="body_entered" from="desert_shop/Area3D" to="desert_shop/Area3D" method="_on_body_entered"]
+[connection signal="body_entered" from="castle_shop/Area3D" to="castle_shop/Area3D" method="_on_body_entered"]
+[connection signal="body_entered" from="cave_shop/Area3D" to="cave_shop/Area3D" method="_on_body_entered"]

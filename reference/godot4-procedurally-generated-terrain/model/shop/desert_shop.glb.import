@@ -13,7 +13,7 @@ dest_files=["res://.godot/imported/desert_shop.glb-25aec94fe25a5e57be013f074ea4f
 
 [params]
 
-nodes/root_type=""
+nodes/root_type="StaticBody3D"
 nodes/root_name=""
 nodes/apply_root_scale=true
 nodes/root_scale=1.0

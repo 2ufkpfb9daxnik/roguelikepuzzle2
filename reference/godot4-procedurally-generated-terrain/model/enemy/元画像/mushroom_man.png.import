@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ceevw4hjk8xjj"
-path="res://.godot/imported/95682DCB-962F-40A4-8FC3-78D5221F1151-preview.png-5dcc9ebfb28f23c3b8fe8397a8192c92.ctex"
+uid="uid://ebhxvmef1s3g"
+path="res://.godot/imported/mushroom_man.png-47ee979154d1690d5048a0137a92ee94.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://model/enemy/元画像/95682DCB-962F-40A4-8FC3-78D5221F1151-preview.png"
-dest_files=["res://.godot/imported/95682DCB-962F-40A4-8FC3-78D5221F1151-preview.png-5dcc9ebfb28f23c3b8fe8397a8192c92.ctex"]
+source_file="res://model/enemy/元画像/mushroom_man.png"
+dest_files=["res://.godot/imported/mushroom_man.png-47ee979154d1690d5048a0137a92ee94.ctex"]
 
 [params]
 

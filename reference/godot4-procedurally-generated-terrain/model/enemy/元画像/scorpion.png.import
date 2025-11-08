@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://byjlpepgddml4"
-path="res://.godot/imported/89B867BC-A9EC-41CA-91B8-842173054CE6-preview.png-d2173f759b96bc6a07eb33ed90c23d46.ctex"
+uid="uid://32b43fiytijp"
+path="res://.godot/imported/scorpion.png-be5a31b0a7ca526dfc03732ea08e8caa.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://model/enemy/元画像/89B867BC-A9EC-41CA-91B8-842173054CE6-preview.png"
-dest_files=["res://.godot/imported/89B867BC-A9EC-41CA-91B8-842173054CE6-preview.png-d2173f759b96bc6a07eb33ed90c23d46.ctex"]
+source_file="res://model/enemy/元画像/scorpion.png"
+dest_files=["res://.godot/imported/scorpion.png-be5a31b0a7ca526dfc03732ea08e8caa.ctex"]
 
 [params]
 

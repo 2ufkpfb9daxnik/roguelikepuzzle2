@@ -17,6 +17,8 @@ enum State {
 @onready var detection_area = $DetectionArea
 @export var health: int = 100
 @export var attack: int = 10
+@export var defense: int = 10
+@export var type: int = 10
 @export var speed: float = 2.5
 @export var gravity: float = 9.8
 @export var detection_range: float = 12.0
@@ -80,6 +82,8 @@ func assign_battle_idle_anim():
 			idle_anim.append("Animation_Boom_Dance_withSkin")
 	if idle_anim.size() > 0:
 		battle_idle_anim = idle_anim.pick_random()
+	else:
+		battle_idle_anim = animation_models.keys().pick_random()
 func _physics_process(delta):
 	# 重力処理
 	if not is_on_floor():
@@ -156,7 +160,10 @@ func _process_idle(delta):
 	state_timer += delta
 	if state_timer >= target_time:
 		state = State.MOVE
-		_play_animation("Animation_Walking_withSkin")
+		if not animation_models.keys().find("Animation_Walking_withSkin"):
+			_play_animation(battle_idle_anim)
+		else:
+			_play_animation("Animation_Walking_withSkin")
 		state_timer = 0.0
 		target_time = randf_range(1.5, 3.0)
 		random_direction = Vector3(randf_range(-1.0, 1.0), 0, randf_range(-1.0, 1.0)).normalized()
@@ -168,6 +175,8 @@ func _process_idle(delta):
 			_play_detection()
 
 func _process_move(delta):
+	if get_parent().isshoping:
+		return
 	state_timer += delta
 	var forward = Vector3(sin(rotation.y), 0, cos(rotation.y))
 	velocity.x = forward.x * speed
@@ -175,7 +184,10 @@ func _process_move(delta):
 
 	if state_timer >= target_time:
 		state = State.IDLE
-		_play_animation("Animation_Idle_withSkin")
+		if not animation_models.keys().find("Animation_Idle_withSkin"):
+			_play_animation(battle_idle_anim)
+		else:
+			_play_animation("Animation_Idle_withSkin")
 		velocity.x = 0.0
 		velocity.z = 0.0
 		state_timer = 0.0
@@ -185,12 +197,19 @@ func _process_move(delta):
 		_play_detection()
 
 func _process_detect(delta):
+	if get_parent().isshoping:
+		return
 	exclamation_time += delta
 	if exclamation_time >= exclamation_duration:
 		state = State.CHASE
-		_play_animation("Animation_Running_withSkin")
+		if not animation_models.keys().find("Animation_Running_withSkin"):
+			_play_animation(battle_idle_anim)
+		else:
+			_play_animation("Animation_Running_withSkin")
 
 func _process_chase(delta):
+	if get_parent().isshoping:
+		return
 	if not player: return
 	var dir = (player.global_position - global_position).normalized()
 	var target_rot = atan2(dir.x, dir.z)
@@ -201,7 +220,10 @@ func _process_chase(delta):
 
 	if global_position.distance_to(player.global_position) > detection_range * 1.5:
 		state = State.IDLE
-		_play_animation("Animation_Idle_withSkin")
+		if not animation_models.keys().find("Animation_Idle_withSkin"):
+			_play_animation(battle_idle_anim)
+		else:
+			_play_animation("Animation_Idle_withSkin")
 
 # ===============================
 #   バトルモード（IDLEでランダムにループ）
@@ -217,25 +239,37 @@ func _process_battle_move(delta):
 	if isanim:
 		return
 	isanim = true
-	_play_animation("Animation_Running_withSkin")
+	if not animation_models.keys().find("Animation_Running_withSkin"):
+		_play_animation(battle_idle_anim)
+	else:
+		_play_animation("Animation_Running_withSkin")
 
 func _process_attack_all(delta):
 	if isanim:
 		return
 	isanim = true
-	_play_animation("Animation_Skill_01_withSkin")
+	if not animation_models.keys().find("Animation_Skill_01_withSkin"):
+		_play_animation(battle_idle_anim)
+	else:
+		_play_animation("Animation_Skill_01_withSkin")
 func _process_attack_single(delta):
 	if isanim:
 		return
 	isanim = true
-	_play_animation("Animation_Skill_03_withSkin")
+	if not animation_models.keys().find("Animation_Skill_03_withSkin"):
+		_play_animation(battle_idle_anim)
+	else:
+		_play_animation("Animation_Skill_03_withSkin")
 func _process_down(delta):
 	state_timer += delta
 	if state_timer >= 1.0 and state_timer < 2.0:
 		if isanim:
 			return
 		isanim = true
-		_play_animation("Animation_Arise_withSkin")
+		if not animation_models.keys().find("Animation_Arise_withSkin"):
+			_play_animation(battle_idle_anim)
+		else:
+			_play_animation("Animation_Arise_withSkin")
 	if state_timer >= 2.0:
 		state_timer = 0.0
 		isanim = false
@@ -250,11 +284,17 @@ func receive_damage(amount: int) -> void:
 	else:
 		state = State.DOWN
 		isanim = false
-		_play_animation("Animation_BeHit_FlyUp_withSkin")
+		if not animation_models.keys().find("Animation_BeHit_FlyUp_withSkin"):
+			_play_animation(battle_idle_anim)
+		else:
+			_play_animation("Animation_BeHit_FlyUp_withSkin")
 
 func _transition_to_dead() -> void:
 	state = State.DEAD
-	_play_animation("Animation_Dead_withSkin")
+	if not animation_models.keys().find("Animation_Dead_withSkin"):
+		_play_animation(battle_idle_anim)
+	else:
+		_play_animation("Animation_Dead_withSkin")
 	await get_tree().create_timer(2.0).timeout
 	queue_free()
 
@@ -388,6 +428,8 @@ func _on_body_entered(body):
 		await _transition_to_battle(biome_type, enemy_name)
 	get_parent().get_node("spawn_enemy").delete_enemy
 func _transition_to_battle(biome: int, encountered_enemy: String):
+	if get_parent().isshoping:
+		return
 	var battle_scene = preload("res://battle_scene.tscn").instantiate()
 	if not battle_scene:
 		push_warning("Battle scene not found!")

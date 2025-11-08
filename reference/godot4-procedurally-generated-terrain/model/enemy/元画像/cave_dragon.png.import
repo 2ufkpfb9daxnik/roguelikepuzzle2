@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ctkh6lppjn7ec"
-path="res://.godot/imported/AE3D90A3-3C62-4DEE-A714-D850BE8EE2F7-preview.png-88ad686e3ce47a6b24956322b8b4788d.ctex"
+uid="uid://ce8pa0klyqp5a"
+path="res://.godot/imported/cave_dragon.png-1bf877d65ab00358712d0c3239a868e6.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://model/enemy/元画像/AE3D90A3-3C62-4DEE-A714-D850BE8EE2F7-preview.png"
-dest_files=["res://.godot/imported/AE3D90A3-3C62-4DEE-A714-D850BE8EE2F7-preview.png-88ad686e3ce47a6b24956322b8b4788d.ctex"]
+source_file="res://model/enemy/元画像/cave_dragon.png"
+dest_files=["res://.godot/imported/cave_dragon.png-1bf877d65ab00358712d0c3239a868e6.ctex"]
 
 [params]
 

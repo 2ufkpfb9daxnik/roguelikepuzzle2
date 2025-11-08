@@ -6,6 +6,7 @@ extends CharacterBody3D
 @export var mouse_sensitivity = 2
 var torch_light: OmniLight3D
 var isbattle = false
+var money: int = 0
 #==> OTHER <==#
 var gravity = 9.8
 var time_passed = 0.0

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bqps0j8tg07b6"
-path="res://.godot/imported/A28C2F4D-FB65-4B73-963C-3956F9D5FAAC-preview.png-a0f4aa67357e5b4e6d9ead46bc1241be.ctex"
+uid="uid://byjlpepgddml4"
+path="res://.godot/imported/stone_guardian.png-b32a88497054078f60119dba53a86311.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://model/enemy/元画像/A28C2F4D-FB65-4B73-963C-3956F9D5FAAC-preview.png"
-dest_files=["res://.godot/imported/A28C2F4D-FB65-4B73-963C-3956F9D5FAAC-preview.png-a0f4aa67357e5b4e6d9ead46bc1241be.ctex"]
+source_file="res://model/enemy/元画像/stone_guardian.png"
+dest_files=["res://.godot/imported/stone_guardian.png-b32a88497054078f60119dba53a86311.ctex"]
 
 [params]
 

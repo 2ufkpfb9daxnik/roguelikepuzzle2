@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://grenutwelgay"
-path="res://.godot/imported/treeman_preview_rev_1.png-e8c086ea8cb93093f04a099380bf03c5.ctex"
+uid="uid://qnac85y2do7y"
+path="res://.godot/imported/octopus.png-e275f6ec412d6390a05e82c2a6d189e2.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://model/enemy/元画像/treeman_preview_rev_1.png"
-dest_files=["res://.godot/imported/treeman_preview_rev_1.png-e8c086ea8cb93093f04a099380bf03c5.ctex"]
+source_file="res://model/enemy/元画像/octopus.png"
+dest_files=["res://.godot/imported/octopus.png-e275f6ec412d6390a05e82c2a6d189e2.ctex"]
 
 [params]
 

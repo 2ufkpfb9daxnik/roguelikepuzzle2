@@ -18,6 +18,7 @@ enum State {
 @export var attack: int = 10
 @export var defense: int = 10
 @export var health: int = 100
+@export var level: int = 1
 @export var max_health: int = 100
 @export var type: int = 0
 @export var gravity: float = 9.8
@@ -139,6 +140,8 @@ func assign_battle_idle_anim():
 			idle_anim.append(key)
 	if idle_anim.size() > 0:
 		battle_idle_anim = idle_anim.pick_random()
+	else:
+		battle_idle_anim = animation_models.keys().pick_random()
 
 # ==============================
 # 戦闘ステート処理
@@ -154,19 +157,28 @@ func _process_battle_idle(delta):
 func _process_battle_move(delta):
 	if isanim:
 		return
-	_play_animation("Animation_Running_withSkin")
+	if not animation_models.keys().find("Animation_Running_withSkin"):
+		_play_animation(battle_idle_anim)
+	else:
+		_play_animation("Animation_Running_withSkin")
 	isanim = true
 
 func _process_attack_all(delta):
 	if isanim:
 		return
-	_play_animation("Animation_Skill_01_withSkin")
+	if not animation_models.keys().find("Animation_Skill_01_withSkin"):
+		_play_animation(battle_idle_anim)
+	else:
+		_play_animation("Animation_Skill_01_withSkin")
 	isanim = true
 
 func _process_attack_single(delta):
 	if isanim:
 		return
-	_play_animation("Animation_Skill_03_withSkin")
+	if not animation_models.keys().find("Animation_Skill_03_withSkin"):
+		_play_animation(battle_idle_anim)
+	else:
+		_play_animation("Animation_Skill_03_withSkin")
 	isanim = true
 
 func _process_down(delta):
@@ -175,7 +187,10 @@ func _process_down(delta):
 		if isanim:
 			return
 		isanim = true
-		_play_animation("Animation_Arise_withSkin")
+		if not animation_models.keys().find("Animation_Arise_withSkin"):
+			_play_animation(battle_idle_anim)
+		else:
+			_play_animation("Animation_Arise_withSkin")
 	if state_timer >= 2.0:
 		state_timer = 0.0
 		isanim = false
@@ -193,7 +208,10 @@ func receive_damage(amount: int):
 	else:
 		state = State.DOWN
 		isanim = false
-		_play_animation("Animation_BeHit_FlyUp_withSkin")
+		if not animation_models.keys().find("Animation_BeHit_FlyUp_withSkin"):
+			_play_animation(battle_idle_anim)
+		else:
+			_play_animation("Animation_BeHit_FlyUp_withSkin")
 		_update_hp_billboard() # ← ダメージ受けた時に更新
 func receive_heal(amount: int):
 	var heal = amount
@@ -205,7 +223,10 @@ func receive_heal(amount: int):
 	_update_hp_billboard()
 func _transition_to_dead():
 	state = State.DEAD
-	_play_animation("Animation_Dead_withSkin")
+	if not animation_models.keys().find("Animation_Dead_withSkin"):
+		_play_animation(battle_idle_anim)
+	else:
+		_play_animation("Animation_Dead_withSkin")
 	await get_tree().create_timer(2.0).timeout
 	queue_free()
 

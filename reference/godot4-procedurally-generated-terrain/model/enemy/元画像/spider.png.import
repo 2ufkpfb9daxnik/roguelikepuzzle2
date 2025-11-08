@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://qnac85y2do7y"
-path="res://.godot/imported/octopus_preview_rev_1.png-e212a113622c823dd26cdd426c795496.ctex"
+uid="uid://de0ktinmpt8w1"
+path="res://.godot/imported/spider.png-d41ddd21fe253e27c3763270a2c9f546.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://model/enemy/元画像/octopus_preview_rev_1.png"
-dest_files=["res://.godot/imported/octopus_preview_rev_1.png-e212a113622c823dd26cdd426c795496.ctex"]
+source_file="res://model/enemy/元画像/spider.png"
+dest_files=["res://.godot/imported/spider.png-d41ddd21fe253e27c3763270a2c9f546.ctex"]
 
 [params]
 

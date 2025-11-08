@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dd4func4jb1f0"
-path="res://.godot/imported/F2724454-974E-419C-944E-C63884AE593E-preview.png-803f33e26fb742a9a3b96d2f26d2645f.ctex"
+uid="uid://ctkh6lppjn7ec"
+path="res://.godot/imported/kurione.png-a7829f04404ad41232c0215a103ecc12.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://model/enemy/元画像/F2724454-974E-419C-944E-C63884AE593E-preview.png"
-dest_files=["res://.godot/imported/F2724454-974E-419C-944E-C63884AE593E-preview.png-803f33e26fb742a9a3b96d2f26d2645f.ctex"]
+source_file="res://model/enemy/元画像/kurione.png"
+dest_files=["res://.godot/imported/kurione.png-a7829f04404ad41232c0215a103ecc12.ctex"]
 
 [params]
 

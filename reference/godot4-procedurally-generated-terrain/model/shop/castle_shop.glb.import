@@ -13,7 +13,7 @@ dest_files=["res://.godot/imported/castle_shop.glb-1647e6ab4877fb8f5e10c209d2428
 
 [params]
 
-nodes/root_type=""
+nodes/root_type="StaticBody3D"
 nodes/root_name=""
 nodes/apply_root_scale=true
 nodes/root_scale=1.0

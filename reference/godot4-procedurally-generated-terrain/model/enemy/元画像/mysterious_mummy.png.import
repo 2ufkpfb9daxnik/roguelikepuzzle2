@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ebhxvmef1s3g"
-path="res://.godot/imported/486F2D2A-3A64-45B7-AE33-84043A25886C-preview.png-9efa495a381f6f0a8a5209df53c1ac44.ctex"
+uid="uid://b7oaqps4q2vr4"
+path="res://.godot/imported/mysterious_mummy.png-c772bf3d86c1fb1aca840e12b86101e0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://model/enemy/元画像/486F2D2A-3A64-45B7-AE33-84043A25886C-preview.png"
-dest_files=["res://.godot/imported/486F2D2A-3A64-45B7-AE33-84043A25886C-preview.png-9efa495a381f6f0a8a5209df53c1ac44.ctex"]
+source_file="res://model/enemy/元画像/mysterious_mummy.png"
+dest_files=["res://.godot/imported/mysterious_mummy.png-c772bf3d86c1fb1aca840e12b86101e0.ctex"]
 
 [params]
 

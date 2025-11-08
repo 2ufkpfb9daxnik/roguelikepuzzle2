@@ -251,6 +251,10 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 		enemy_instance.rotation = Vector3(deg_to_rad(0),deg_to_rad(-90),deg_to_rad(0))
 		enemy_instance.set_animation_model_paths(enemy_info[1])
 		enemy_instance.assign_battle_idle_anim()
+		enemy_instance.health = get_parent().all_characters[name][0]
+		enemy_instance.attack = get_parent().all_characters[name][1]
+		enemy_instance.defense = get_parent().all_characters[name][2]
+		enemy_instance.type = get_parent().all_characters[name][3]
 		enemy_instance.health *= pow(10,biome_type)
 		enemy_instance.attack *= pow(2,biome_type)
 		enemy_instance.state = State.BATTLE_IDLE
@@ -283,8 +287,37 @@ func start_battle():
 #      バトル終了
 # ===============================
 func end_battle():
+	var resallies = get_parent().allies
+	var resallies_name = get_parent().allies_name
+	var resallies_cur_health = get_parent().allies_cur_health
+	var restype = get_parent().allies_type
+	var resallies_level = get_parent().allies_level
+	var resallies_base_health = get_parent().allies_base_health
+	var resallies_base_attack = get_parent().allies_base_attack
+	var resallies_base_defense = get_parent().allies_base_defense
+	get_parent().allies = []
+	get_parent().allies_name = []
+	get_parent().allies_cur_health = []
+	get_parent().allies_type = []
+	get_parent().allies_level = []
+	get_parent().allies_base_health = []
+	get_parent().allies_base_attack = []
+	get_parent().allies_base_defense = []
 	for i in range(spawned_allies.size()):
-		get_parent().allies_cur_health[i] = spawned_allies[i].hp
+		resallies_cur_health[i] = spawned_allies[i].hp
+	for i in range(spawned_allies.size()):
+		var ally = spawned_allies[i]
+		if ally != null:
+			get_parent().allies.append(resallies[i])
+			get_parent().allies_name.append(resallies_name[i])
+			get_parent().allies_cur_health.append(resallies_cur_health[i])
+			get_parent().allies_type.append(restype[i])
+			get_parent().allies_level.append(resallies_level[i])
+			get_parent().allies_base_health.append(resallies_base_health[i])
+			get_parent().allies_base_attack.append(resallies_base_attack[i])
+			get_parent().allies_base_defense.append(resallies_base_defense[i])
+			
+		
 	await fade_manager.fade_in(1.0)
 	if player_ref:
 		player_ref.global_position = player_original_position
@@ -296,7 +329,7 @@ func end_battle():
 		field_camera.current = true  # 再び探索カメラを有効化
 
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	
+	get_parent().get_node("CharacterBody3D").money += money
 	# バトルシーン削除
 	queue_free()
 # --- バトルステートマシン本体 ---
@@ -311,7 +344,7 @@ func _process_battle_state():
 		BattleState.PLAYER_TURN_START:
 			# "Your Turn" UI表示
 			for i in range(spawned_allies.size()):
-				get_parent().allies_cur_health = spawned_allies[i].hp
+				get_parent().allies_cur_health[i] = spawned_allies[i].hp
 			
 			await _show_label(your_turn_label, 1.0)
 			puzzle_board.canmove = true
@@ -362,53 +395,88 @@ func _process_battle_state():
 func _enemy_turn_sequence():
 	for i in range(spawned_enemies.size()):
 		var enemy = spawned_enemies[i]
-		if not enemy or enemy.state == enemy.State.DEAD:
+		if not enemy:
 			continue
-		
-		if randi() % 2 == 0:
-			await _enemy_single_attack(enemy,i)
+		if enemy.state == enemy.State.DEAD:
+			continue
+			
+		var dmg = enemy.attack
+		var isall = false
+		var effect
+		print(enemy.type)
+		if enemy.type == 4:
+			if randi() % 2 == 0:
+				effect = "slash_hit"
+			else:
+				isall = true
+				effect = "shock_wave"
+		if enemy.type == 8:
+			if randi() % 2 == 0:
+				effect = "impact_smash"
+			else:
+				isall = true
+				effect = "arrow_storm"
+		if enemy.type == 10:
+			if randi() % 2 == 0:
+				effect = "magic_burst"
+			else:
+				isall = true
+				effect = "magic_circle_burst"
+		if enemy.type == 0:
+			if randi() % 2 == 0:
+				await _enemy_single_heal(enemy,i,dmg)
+			else:
+				isall = true
+				await _enemy_all_heal(enemy,dmg)
+			continue
+		if dmg <= 0:
+			continue
+		if !isall:
+			await _enemy_single_attack(enemy,i,effect,dmg)
 		else:
-			await _enemy_all_attack(enemy)
-func _enemy_single_attack(enemy,cnt):
+			await _enemy_all_attack(enemy,effect,dmg)
+func _enemy_single_attack(enemy,cnt,effect,dmg):
 	var target = _get_random_living_ally()
 	if not target: return
-	var dmg = enemy.attack
 	await _move_to_target(enemy,target,1)
 	enemy.state = State.ATTACK_SINGLE
 	enemy.isanim = false
-	await get_tree().create_timer(1.7).timeout
-	_show_damage_number(dmg, target.global_position + Vector3(0, 2, 0),0)
+	EffectManager.show_effect(effect, target.position)
+	await get_tree().create_timer(1.5).timeout
+	_show_damage_number(dmg, target.position + Vector3(0, 2, 0),0)
 	target.receive_damage(dmg)
 	await _move_to_start(enemy,cnt,1)
 
-func _enemy_all_attack(enemy):
-	var dmg = enemy.attack * 0.4
+func _enemy_all_attack(enemy,effect,dmg):
+	dmg *= 0.4
 	enemy.state = State.ATTACK_ALL
 	enemy.isanim = false
+	for ally in spawned_allies:
+		if not ally or ally.state == ally.State.DEAD: continue
+		EffectManager.show_effect(effect, ally.position)
 	await get_tree().create_timer(1.5).timeout
 	for ally in spawned_allies:
 		if not ally or ally.state == ally.State.DEAD: continue
-		_show_damage_number(int(dmg),ally.global_position + Vector3(0, 2, 0),0)
+		_show_damage_number(int(dmg),ally.position + Vector3(0, 2, 0),0)
 		ally.receive_damage(int(dmg))
 	await get_tree().create_timer(1.0).timeout
 	enemy.state = State.BATTLE_IDLE
 	enemy.isanim = false
-func _player_single_attack(ally,cnt,effect):
+func _player_single_attack(ally,cnt,effect,dmg):
 	var target = _get_random_living_enemy()
 	if not target: return
-	var dmg = ally.attack
 
 	await _move_to_target(ally,target,0)
 	ally.state = State1.ATTACK_SINGLE
 	ally.isanim = false
 	EffectManager.show_effect(effect, target.position)
 	await get_tree().create_timer(1.5).timeout
-	_show_damage_number(dmg, target.global_position + Vector3(0, 2, 0),0)
+	_show_damage_number(dmg, target.position + Vector3(0, 2, 0),1)
 	target.receive_damage(dmg)
 	await _move_to_start(ally,cnt,0)
 
-func _player_all_attack(ally,effect):
-	var dmg = ally.attack * 0.8
+func _player_all_attack(ally,effect,dmg):
+	dmg *= 0.4
 	ally.state = State1.ATTACK_ALL
 	ally.isanim = false
 	for enemy in spawned_enemies:
@@ -417,16 +485,15 @@ func _player_all_attack(ally,effect):
 	await get_tree().create_timer(1.5).timeout
 	for enemy in spawned_enemies:
 		if not enemy or enemy.state == enemy.State.DEAD: continue
-		_show_damage_number(int(dmg),enemy.global_position + Vector3(0, 2, 0),0)
+		_show_damage_number(int(dmg),enemy.position + Vector3(0, 2, 0),1)
 		enemy.receive_damage(int(dmg))
 	await get_tree().create_timer(1.0).timeout
 	ally.state = State1.BATTLE_IDLE
 	ally.isanim = false
 
-func _player_single_heal(ally,cnt):
+func _player_single_heal(ally,cnt,heal):
 	var target = _get_random_living_ally()
 	if not target: return
-	var heal = ally.attack
 	
 	await get_tree().create_timer(1.0).timeout
 	ally.state = State1.ATTACK_SINGLE
@@ -437,10 +504,10 @@ func _player_single_heal(ally,cnt):
 	target.receive_heal(heal)
 	ally.state = State1.BATTLE_IDLE
 	ally.isanim = false
-func _player_all_heal(ally):
+func _player_all_heal(ally,heal):
 	var target = _get_random_living_ally()
 	if not target: return
-	var heal = ally.attack
+	heal *= 0.4
 	
 	await get_tree().create_timer(1.0).timeout
 	ally.state = State1.ATTACK_ALL
@@ -452,6 +519,33 @@ func _player_all_heal(ally):
 	target.receive_heal(heal)
 	ally.state = State1.BATTLE_IDLE
 	ally.isanim = false
+
+func _enemy_single_heal(enemy,cnt,heal):
+	var target = _get_random_living_enemy()
+	if not target: return
+	
+	await get_tree().create_timer(1.0).timeout
+	enemy.state = State.ATTACK_SINGLE
+	enemy.isanim = false
+	await get_tree().create_timer(1.7).timeout
+	EffectManager.show_effect("heal", target.position + Vector3(2, 0, 0))
+	_show_heal_number(heal, target.global_position + Vector3(0, 2, 0),0)
+	target.receive_heal(heal)
+	enemy.state = State.BATTLE_IDLE
+	enemy.isanim = false
+func _enemy_all_heal(enemy,heal):
+	heal *= 0.4
+	
+	await get_tree().create_timer(1.0).timeout
+	enemy.state = State.ATTACK_ALL
+	enemy.isanim = false
+	await get_tree().create_timer(1.7).timeout
+	for enemy1 in spawned_enemies:
+		EffectManager.show_effect("heal", enemy1.position + Vector3(2, 0, 0))
+		_show_heal_number(heal, enemy1.global_position + Vector3(0, 2, 0),0)
+		enemy1.receive_heal(heal)
+	enemy.state = State.BATTLE_IDLE
+	enemy.isanim = false
 func _move_to_target(actor: CharacterBody3D, target: Node3D,team: int):
 	if team == 0:
 		actor.state = State1.BATTLE_MOVE
@@ -520,18 +614,18 @@ func _player_turn_sequence(score: Array):
 		if ally.type == 0:
 			if score[0] >= score[6]:
 				dmg = int(score[0]) * int(ally.attack)
-				await _player_single_heal(ally,i)
+				await _player_single_heal(ally,i,dmg)
 			else:
 				isall = true
 				dmg = int(score[6]) * int(ally.attack)	
-				await _player_all_heal(ally)
+				await _player_all_heal(ally,dmg)
 			continue
 		if dmg <= 0:
 			continue
 		if !isall:
-			await _player_single_attack(ally,i,effect)
+			await _player_single_attack(ally,i,effect,dmg)
 		else:
-			await _player_all_attack(ally,effect)
+			await _player_all_attack(ally,effect,dmg)
 func _show_label(label: Control, duration: float):
 	await get_tree().create_timer(duration).timeout
 	label.visible = true
@@ -546,7 +640,7 @@ func _show_damage_number(amount: int,world_pos: Vector3,team: int):
 	if team == 0:
 		dmg_label.position = world_pos + Vector3(2,0,-0.5)
 	else:
-		dmg_label.position = world_pos + Vector3(-2,0,0.5)
+		dmg_label.position = world_pos + Vector3(-2,0,-0.5)
 	get_tree().current_scene.add_child(dmg_label)
 
 	var tween = create_tween()
@@ -562,7 +656,7 @@ func _show_heal_number(amount: int,world_pos: Vector3,team: int):
 	if team == 0:
 		dmg_label.position = world_pos + Vector3(2,0,-0.5)
 	else:
-		dmg_label.position = world_pos + Vector3(-2,0,0.5)
+		dmg_label.position = world_pos + Vector3(-2,0,-0.5)
 	get_tree().current_scene.add_child(dmg_label)
 
 	var tween = create_tween()

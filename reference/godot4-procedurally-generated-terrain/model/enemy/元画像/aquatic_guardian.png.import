@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cxo2y87g4e7vv"
-path="res://.godot/imported/431C5D5B-E03A-4132-944F-BCB9280B9E02-preview.png-5d32052a9a87b0d4765071d84392e559.ctex"
+path="res://.godot/imported/aquatic_guardian.png-06ce901b1ffaee8b2037128a0e451758.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://model/enemy/元画像/431C5D5B-E03A-4132-944F-BCB9280B9E02-preview.png"
-dest_files=["res://.godot/imported/431C5D5B-E03A-4132-944F-BCB9280B9E02-preview.png-5d32052a9a87b0d4765071d84392e559.ctex"]
+source_file="res://model/enemy/元画像/aquatic_guardian.png"
+dest_files=["res://.godot/imported/aquatic_guardian.png-06ce901b1ffaee8b2037128a0e451758.ctex"]
 
 [params]
 
