@@ -182,7 +182,9 @@ func _process_down(delta):
 		state = State.BATTLE_IDLE
 
 func receive_damage(amount: int):
-	health -= amount
+	var damage = int(amount * (100.0 / (100.0 + defense)))
+	damage = max(1, damage)
+	health -= damage
 	if hp_progress:
 		hp_progress.value = health
 	if health <= 0:
@@ -193,7 +195,14 @@ func receive_damage(amount: int):
 		isanim = false
 		_play_animation("Animation_BeHit_FlyUp_withSkin")
 		_update_hp_billboard() # ← ダメージ受けた時に更新
-
+func receive_heal(amount: int):
+	var heal = amount
+	health += heal
+	if health > max_health:
+		health = max_health
+	if hp_progress:
+		hp_progress.value = health
+	_update_hp_billboard()
 func _transition_to_dead():
 	state = State.DEAD
 	_play_animation("Animation_Dead_withSkin")

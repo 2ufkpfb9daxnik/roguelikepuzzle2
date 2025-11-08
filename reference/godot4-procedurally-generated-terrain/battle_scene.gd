@@ -16,6 +16,7 @@ extends Control
 @onready var your_turn_label = $UI/YourTurn
 @onready var enemy_turn_label = $UI/EnemyTurn
 @onready var victory_label = $UI/Victory
+@onready var EffectManager = $EffectManager
 var main_world_env: WorldEnvironment
 var spawned_enemies: Array = [] 
 var enemies_start_pos: Array = []
@@ -25,6 +26,7 @@ var player_ref: Node3D = null
 var field_camera: Camera3D = null
 var player_original_position: Vector3
 var camera_original_transform: Transform3D
+var money:int = 0
 # ===============================
 #      データ
 # ===============================
@@ -102,10 +104,8 @@ func set_world_environment(env: WorldEnvironment):
 func _on_battle_state_requested(newscore:Array,newstate:State):
 	score = newscore.duplicate(true)
 	battle_state =  newstate
-	print("get")
 	_process_battle_state()
 func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Array,allies_data: Array):
-	print("prepare_battle called")
 	player_ref = player
 	player_original_position = player.global_position
 	allies_to_spawn = allies_data
@@ -181,7 +181,6 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 					if anims.size() > 0:
 						anim_player.play(anims[randi() % anims.size()])
 		ally_instance.type = info.type
-		print("ally_type:",ally_instance.type)
 		ally_instance.attack = info.attack
 		ally_instance.defense = info.defense
 		ally_instance.hp = info.health
@@ -253,6 +252,7 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 		enemy_instance.set_animation_model_paths(enemy_info[1])
 		enemy_instance.assign_battle_idle_anim()
 		enemy_instance.health *= pow(10,biome_type)
+		enemy_instance.attack *= pow(2,biome_type)
 		enemy_instance.state = State.BATTLE_IDLE
 		if enemy_instance.has_method("adjust_model_to_ground"):
 			enemy_instance.adjust_model_to_ground()
@@ -303,15 +303,16 @@ func end_battle():
 func _process_battle_state():
 	match battle_state:
 		BattleState.INTRO:
-			print("INTRO")
 			await _show_label(battle_start_label, 1.0)
 			# 次のステートへ
 			battle_state = BattleState.PLAYER_TURN_START
 			_process_battle_state()
 
 		BattleState.PLAYER_TURN_START:
-			print("PLAYER_TURN_START")
 			# "Your Turn" UI表示
+			for i in range(spawned_allies.size()):
+				get_parent().allies_cur_health = spawned_allies[i].hp
+			
 			await _show_label(your_turn_label, 1.0)
 			puzzle_board.canmove = true
 			# 次のステートへ
@@ -319,23 +320,23 @@ func _process_battle_state():
 			_process_battle_state()
 
 		BattleState.PLAYER_TURN:
-			print("PLAYER_TURN")
 			# パズルボードの操作を許可
 			
 			puzzle_board.canmove = true
 			# ここでステートは待機。_on_puzzle_complete シグナルで次に進む
 
 		BattleState.PLAYER_ATTACK:
-			print("PLAYER_ATTACK")
-			if score[0] > 0:
-				for ally in spawned_allies:
-					if ally.hp == ally.max_hp:
-						continue
-					_show_heal_number(min(score[0],ally.max_hp-ally.hp),ally.position,0)
-					ally.hp = min(ally.max_hp,ally.hp+score[0])
-			
+			await get_tree().create_timer(0.3).timeout
+			if score[3] > 0:
+				for i in range(spawned_allies.size()):
+					var info = allies_to_spawn[i]
+					var ally = spawned_allies[i]
+					EffectManager.show_effect("shield", ally.position + Vector3(0, 1, 0))
+					ally.defense += info.defense*score[3]
+			money += score[1]
+			await get_tree().create_timer(1.0).timeout
 			battle_state = BattleState.PLAYER_ATTACK
-			await _player_attack_sequence(score)
+			await _player_turn_sequence(score)
 			# 全ての攻撃が終わったかチェック
 			if _are_all_enemies_dead():
 				battle_state = BattleState.VICTORY
@@ -346,14 +347,12 @@ func _process_battle_state():
 			_process_battle_state()
 
 		BattleState.ENEMY_TURN_START:
-			print("ENEMY_TURN_START")
 			await _show_label(enemy_turn_label, 2.0)
 			await _enemy_turn_sequence()
 			battle_state = BattleState.PLAYER_TURN_START
 			_process_battle_state()
 			
 		BattleState.VICTORY:
-			print("VICTORY")
 			print("バトル勝利！")
 			enemy_turn_label.visible = false
 			victory_label.visible = true
@@ -374,7 +373,6 @@ func _enemy_single_attack(enemy,cnt):
 	var target = _get_random_living_ally()
 	if not target: return
 	var dmg = enemy.attack
-
 	await _move_to_target(enemy,target,1)
 	enemy.state = State.ATTACK_SINGLE
 	enemy.isanim = false
@@ -384,7 +382,7 @@ func _enemy_single_attack(enemy,cnt):
 	await _move_to_start(enemy,cnt,1)
 
 func _enemy_all_attack(enemy):
-	var dmg = enemy.attack * 0.8
+	var dmg = enemy.attack * 0.4
 	enemy.state = State.ATTACK_ALL
 	enemy.isanim = false
 	await get_tree().create_timer(1.5).timeout
@@ -392,8 +390,68 @@ func _enemy_all_attack(enemy):
 		if not ally or ally.state == ally.State.DEAD: continue
 		_show_damage_number(int(dmg),ally.global_position + Vector3(0, 2, 0),0)
 		ally.receive_damage(int(dmg))
+	await get_tree().create_timer(1.0).timeout
 	enemy.state = State.BATTLE_IDLE
 	enemy.isanim = false
+func _player_single_attack(ally,cnt,effect):
+	var target = _get_random_living_enemy()
+	if not target: return
+	var dmg = ally.attack
+
+	await _move_to_target(ally,target,0)
+	ally.state = State1.ATTACK_SINGLE
+	ally.isanim = false
+	EffectManager.show_effect(effect, target.position)
+	await get_tree().create_timer(1.5).timeout
+	_show_damage_number(dmg, target.global_position + Vector3(0, 2, 0),0)
+	target.receive_damage(dmg)
+	await _move_to_start(ally,cnt,0)
+
+func _player_all_attack(ally,effect):
+	var dmg = ally.attack * 0.8
+	ally.state = State1.ATTACK_ALL
+	ally.isanim = false
+	for enemy in spawned_enemies:
+		if not enemy or enemy.state == enemy.State.DEAD: continue
+		EffectManager.show_effect(effect, enemy.position)
+	await get_tree().create_timer(1.5).timeout
+	for enemy in spawned_enemies:
+		if not enemy or enemy.state == enemy.State.DEAD: continue
+		_show_damage_number(int(dmg),enemy.global_position + Vector3(0, 2, 0),0)
+		enemy.receive_damage(int(dmg))
+	await get_tree().create_timer(1.0).timeout
+	ally.state = State1.BATTLE_IDLE
+	ally.isanim = false
+
+func _player_single_heal(ally,cnt):
+	var target = _get_random_living_ally()
+	if not target: return
+	var heal = ally.attack
+	
+	await get_tree().create_timer(1.0).timeout
+	ally.state = State1.ATTACK_SINGLE
+	ally.isanim = false
+	await get_tree().create_timer(1.7).timeout
+	EffectManager.show_effect("heal", target.position + Vector3(2, 0, 0))
+	_show_heal_number(heal, target.global_position + Vector3(0, 2, 0),0)
+	target.receive_heal(heal)
+	ally.state = State1.BATTLE_IDLE
+	ally.isanim = false
+func _player_all_heal(ally):
+	var target = _get_random_living_ally()
+	if not target: return
+	var heal = ally.attack
+	
+	await get_tree().create_timer(1.0).timeout
+	ally.state = State1.ATTACK_ALL
+	ally.isanim = false
+	await get_tree().create_timer(1.7).timeout
+	for ally1 in spawned_allies:
+		EffectManager.show_effect("heal", ally1.position + Vector3(2, 0, 0))
+		_show_heal_number(heal, ally1.global_position + Vector3(0, 2, 0),0)
+	target.receive_heal(heal)
+	ally.state = State1.BATTLE_IDLE
+	ally.isanim = false
 func _move_to_target(actor: CharacterBody3D, target: Node3D,team: int):
 	if team == 0:
 		actor.state = State1.BATTLE_MOVE
@@ -424,49 +482,56 @@ func _move_to_start(actor: CharacterBody3D,cnt: int,team: int):
 	else:
 		actor.state = State.BATTLE_IDLE
 	actor.isanim = false
-func _player_attack_sequence(score: Array):
+func _player_turn_sequence(score: Array):
 	for i in range(spawned_allies.size()):
 		var ally = spawned_allies[i]
 		if not ally:
 			continue
 		if ally.state == ally.State.DEAD:
 			continue
-
-		# 現在の敵一覧とHPをログ
-		var enemies_info = []
-		for e in spawned_enemies:
-			if e:
-				var hp_val = "unknown"
-				if e.has_method("health"):
-					hp_val = str(e.health)
-				enemies_info.append(e.name + ":" + hp_val)
-		print("   enemies:", enemies_info)
-
-		var target = _get_random_living_enemy()
-		if not target:
+			
+		var dmg
+		var isall = false
+		var effect
+		if ally.type == 4:
+			if score[4] >= score[7]:
+				dmg = int(score[4]) * int(ally.attack)
+				effect = "slash_hit"
+			else:
+				isall = true
+				dmg = int(score[7]) * int(ally.attack)
+				effect = "shock_wave"
+		if ally.type == 8:
+			if score[8] >= score[5]:
+				dmg = int(score[8]) * int(ally.attack)
+				effect = "impact_smash"
+			else:
+				isall = true
+				dmg = int(score[5]) * int(ally.attack)
+				effect = "arrow_storm"
+		if ally.type == 10:
+			if score[10] >= score[9]:
+				dmg = int(score[10]) * int(ally.attack)
+				effect = "magic_burst"
+			else:
+				isall = true
+				dmg = int(score[9]) * int(ally.attack)
+				effect = "magic_circle_burst"
+		if ally.type == 0:
+			if score[0] >= score[6]:
+				dmg = int(score[0]) * int(ally.attack)
+				await _player_single_heal(ally,i)
+			else:
+				isall = true
+				dmg = int(score[6]) * int(ally.attack)	
+				await _player_all_heal(ally)
 			continue
-
-		# ダメージ算出（安全に）
-		var dmg = int(score[ally.type]) * int(ally.attack)
 		if dmg <= 0:
 			continue
-
-		print("ally_type:",ally.type," ",score[ally.type])
-
-		await _move_to_target(ally, target,0)
-		ally.state = State1.ATTACK_SINGLE
-		ally.isanim = false
-
-
-		print("   attack applied -> target_hp_after:", target.health if target.has_method("health") else "n/a")
-
-		await get_tree().create_timer(1.7).timeout
-		_show_damage_number(dmg, target.global_position + Vector3(0, 2, 0),1)
-		target.receive_damage(dmg)
-		
-		await _move_to_start(ally, i, 0)
-		print("   ally returned to start index:", i)
-	print("PLAYER_ATTACK SEQUENCE END")
+		if !isall:
+			await _player_single_attack(ally,i,effect)
+		else:
+			await _player_all_attack(ally,effect)
 func _show_label(label: Control, duration: float):
 	await get_tree().create_timer(duration).timeout
 	label.visible = true
@@ -479,9 +544,9 @@ func _show_damage_number(amount: int,world_pos: Vector3,team: int):
 	dmg_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	dmg_label.modulate = Color(1,0,0)
 	if team == 0:
-		dmg_label.position = world_pos + Vector3(2,0,0)
+		dmg_label.position = world_pos + Vector3(2,0,-0.5)
 	else:
-		dmg_label.position = world_pos + Vector3(-2,0,0)
+		dmg_label.position = world_pos + Vector3(-2,0,0.5)
 	get_tree().current_scene.add_child(dmg_label)
 
 	var tween = create_tween()
@@ -495,9 +560,9 @@ func _show_heal_number(amount: int,world_pos: Vector3,team: int):
 	dmg_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	dmg_label.modulate = Color(0,1,0)
 	if team == 0:
-		dmg_label.position = world_pos + Vector3(2,0,0)
+		dmg_label.position = world_pos + Vector3(2,0,-0.5)
 	else:
-		dmg_label.position = world_pos + Vector3(-2,0,0)
+		dmg_label.position = world_pos + Vector3(-2,0,0.5)
 	get_tree().current_scene.add_child(dmg_label)
 
 	var tween = create_tween()

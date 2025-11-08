@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://b331w8ak3i8lf"
-=======
-uid="uid://ojiprmad6ii0"
->>>>>>> bfa88a3f48211b3ab65514f91d764807b512530a
+uid="uid://bvy6k6603146o"
 path="res://.godot/imported/businessman (1).glb-9a6491ef45bfea09e1bb2a9449322109.scn"
 
 [deps]
@@ -37,5 +33,5 @@ animation/remove_immutable_tracks=true
 animation/import_rest_as_RESET=false
 import_script/path=""
 _subresources={}
-gltf/naming_version=1
+gltf/naming_version=0
 gltf/embedded_image_handling=1

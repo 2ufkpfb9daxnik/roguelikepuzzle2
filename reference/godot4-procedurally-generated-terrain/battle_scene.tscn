@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://dmfwj2n6gw0l0"]
+[gd_scene load_steps=5 format=3 uid="uid://dmfwj2n6gw0l0"]
 
 [ext_resource type="Script" uid="uid://deckwgtix7nla" path="res://battle_scene.gd" id="1_r5l0u"]
 [ext_resource type="PackedScene" uid="uid://dake1dfhw3tyi" path="res://ui/fade_manager.tscn" id="2_5g7vw"]
 [ext_resource type="Script" uid="uid://dn0boxs8t1p8j" path="res://puzzle_board.gd" id="2_5joda"]
+[ext_resource type="Script" uid="uid://dt0ms37yyv6j3" path="res://Effect_Manager.gd" id="4_5joda"]
 
 [node name="BattleScene" type="Control"]
 layout_mode = 3
@@ -203,3 +204,6 @@ offset_bottom = 140.0
 color = Color(0.180392, 0.333333, 1, 0.384314)
 
 [node name="FadeManager" parent="." instance=ExtResource("2_5g7vw")]
+
+[node name="EffectManager" type="Node3D" parent="."]
+script = ExtResource("4_5joda")

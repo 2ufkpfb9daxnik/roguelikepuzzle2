@@ -3,11 +3,7 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-<<<<<<< HEAD
-uid="uid://bbqy8bglswps7"
-=======
-uid="uid://cj6gtci54svlw"
->>>>>>> bfa88a3f48211b3ab65514f91d764807b512530a
+uid="uid://dgjmgwobxdhl0"
 path="res://.godot/imported/octopus.glb-bfe7464e5954b6e5725044b14b7e00a4.scn"
 
 [deps]
