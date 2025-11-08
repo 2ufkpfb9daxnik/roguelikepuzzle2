@@ -4,12 +4,11 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://6lmargyr54f5"
-path="res://.godot/imported/Animation_Skill_01_withSkin.glb-a1ac8e7036023c74cc80aef6790c3721.scn"
+valid=false
 
 [deps]
 
 source_file="res://model/enemy/have_animation/spider/Animation_Skill_01_withSkin.glb"
-dest_files=["res://.godot/imported/Animation_Skill_01_withSkin.glb-a1ac8e7036023c74cc80aef6790c3721.scn"]
 
 [params]
 
