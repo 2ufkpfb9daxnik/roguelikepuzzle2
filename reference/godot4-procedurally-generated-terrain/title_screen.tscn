@@ -36,6 +36,7 @@ scale = Vector2(1.09588, 1.2396)
 texture = ExtResource("2_ak2if")
 
 [node name="title2" type="RichTextLabel" parent="."]
+layout_mode = 0
 offset_left = 15.0
 offset_top = -28.0
 offset_right = 969.0
@@ -56,7 +57,6 @@ text = "スタート"
 [node name="titlebgm" type="AudioStreamPlayer2D" parent="."]
 stream = ExtResource("3_ig5kc")
 autoplay = true
-stream_paused = true
 parameters/looping = true
 
 [node name="click" type="AudioStreamPlayer2D" parent="."]
