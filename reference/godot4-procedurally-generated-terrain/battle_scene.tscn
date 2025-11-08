@@ -1,9 +1,14 @@
-[gd_scene load_steps=5 format=3 uid="uid://dmfwj2n6gw0l0"]
+[gd_scene load_steps=10 format=3 uid="uid://dmfwj2n6gw0l0"]
 
 [ext_resource type="Script" uid="uid://deckwgtix7nla" path="res://battle_scene.gd" id="1_r5l0u"]
 [ext_resource type="PackedScene" uid="uid://dake1dfhw3tyi" path="res://ui/fade_manager.tscn" id="2_5g7vw"]
 [ext_resource type="Script" uid="uid://dn0boxs8t1p8j" path="res://puzzle_board.gd" id="2_5joda"]
 [ext_resource type="Script" uid="uid://dt0ms37yyv6j3" path="res://Effect_Manager.gd" id="4_5joda"]
+[ext_resource type="AudioStream" uid="uid://xlr02wlxwpt3" path="res://sound/bgm.mp3" id="5_gf131"]
+[ext_resource type="AudioStream" uid="uid://bhyciyabtltpy" path="res://sound/fever.mp3" id="6_sl17i"]
+[ext_resource type="AudioStream" uid="uid://1i5xy01g65cl" path="res://sound/攻撃.mp3" id="7_x5h4l"]
+[ext_resource type="AudioStream" uid="uid://uxrdkaqip8m3" path="res://sound/駒をクリックしたときの音.mp3" id="8_vtmj2"]
+[ext_resource type="AudioStream" uid="uid://oeyg1xd18rj0" path="res://sound/HP吸収魔法1.mp3" id="9_irjls"]
 
 [node name="BattleScene" type="Control"]
 layout_mode = 3
@@ -207,3 +212,21 @@ color = Color(0.180392, 0.333333, 1, 0.384314)
 
 [node name="EffectManager" type="Node3D" parent="."]
 script = ExtResource("4_5joda")
+
+[node name="BattleBgm" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("5_gf131")
+volume_db = 2.971
+parameters/looping = true
+
+[node name="FeverBgm" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("6_sl17i")
+parameters/looping = true
+
+[node name="Attack" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("7_x5h4l")
+
+[node name="CellClick" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("8_vtmj2")
+
+[node name="Heal" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("9_irjls")

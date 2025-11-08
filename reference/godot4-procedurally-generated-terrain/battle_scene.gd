@@ -274,6 +274,7 @@ func _setup_ui():
 #      バトル開始
 # ===============================
 func start_battle():
+	get_node("BattleBgm").play()
 	_setup_ui()
 	print("Battle started with", enemies_root.get_child_count(), "enemies")
 	battle_state = BattleState.INTRO
@@ -283,6 +284,7 @@ func start_battle():
 #      バトル終了
 # ===============================
 func end_battle():
+	get_node("BattleBgm").stop()
 	for i in range(spawned_allies.size()):
 		get_parent().allies_cur_health[i] = spawned_allies[i].hp
 	await fade_manager.fade_in(1.0)
@@ -370,6 +372,7 @@ func _enemy_turn_sequence():
 		else:
 			await _enemy_all_attack(enemy)
 func _enemy_single_attack(enemy,cnt):
+	get_node("Attack").play()
 	var target = _get_random_living_ally()
 	if not target: return
 	var dmg = enemy.attack
@@ -382,6 +385,8 @@ func _enemy_single_attack(enemy,cnt):
 	await _move_to_start(enemy,cnt,1)
 
 func _enemy_all_attack(enemy):
+	for i in range(5):
+		get_node("Attack").play()
 	var dmg = enemy.attack * 0.4
 	enemy.state = State.ATTACK_ALL
 	enemy.isanim = false
@@ -394,6 +399,7 @@ func _enemy_all_attack(enemy):
 	enemy.state = State.BATTLE_IDLE
 	enemy.isanim = false
 func _player_single_attack(ally,cnt,effect):
+	get_node("Attack").play()
 	var target = _get_random_living_enemy()
 	if not target: return
 	var dmg = ally.attack
@@ -408,6 +414,8 @@ func _player_single_attack(ally,cnt,effect):
 	await _move_to_start(ally,cnt,0)
 
 func _player_all_attack(ally,effect):
+	for i in range(5):
+		get_node("Attack").play()
 	var dmg = ally.attack * 0.8
 	ally.state = State1.ATTACK_ALL
 	ally.isanim = false
@@ -424,6 +432,7 @@ func _player_all_attack(ally,effect):
 	ally.isanim = false
 
 func _player_single_heal(ally,cnt):
+	get_node("Heal").play()
 	var target = _get_random_living_ally()
 	if not target: return
 	var heal = ally.attack
@@ -438,6 +447,7 @@ func _player_single_heal(ally,cnt):
 	ally.state = State1.BATTLE_IDLE
 	ally.isanim = false
 func _player_all_heal(ally):
+	get_node("Heal").play()
 	var target = _get_random_living_ally()
 	if not target: return
 	var heal = ally.attack
@@ -453,6 +463,7 @@ func _player_all_heal(ally):
 	ally.state = State1.BATTLE_IDLE
 	ally.isanim = false
 func _move_to_target(actor: CharacterBody3D, target: Node3D,team: int):
+	get_node("CellClick").play()
 	if team == 0:
 		actor.state = State1.BATTLE_MOVE
 	else:
@@ -466,6 +477,7 @@ func _move_to_target(actor: CharacterBody3D, target: Node3D,team: int):
 	await tween.finished
 
 func _move_to_start(actor: CharacterBody3D,cnt: int,team: int):
+	get_node("CellClick").play()
 	var start_pos
 	if team == 0:
 		start_pos = allies_start_pos[cnt]

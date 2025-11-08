@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://ry3c5djemip2"]
 
 [ext_resource type="Script" uid="uid://cwem2h4e8m8hj" path="res://terrain.gd" id="1_pl7xx"]
-[ext_resource type="AudioStream" uid="uid://xlr02wlxwpt3" path="res://sound/bgm.mp3" id="2_0u6kl"]
+[ext_resource type="AudioStream" uid="uid://dlvpodk7puf4o" path="res://sound/field_music.mp3" id="2_0u6kl"]
 
 [node name="terrain" type="Node3D"]
 script = ExtResource("1_pl7xx")
