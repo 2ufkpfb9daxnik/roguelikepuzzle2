@@ -4,12 +4,11 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://qeendo2ymnyc"
-path="res://.godot/imported/Animation_BeHit_FlyUp_withSkin.glb-646f76bf50c9178092cde177f7c3123e.scn"
+valid=false
 
 [deps]
 
 source_file="res://model/enemy/have_animation/rainbow_snake_dragon/Animation_BeHit_FlyUp_withSkin.glb"
-dest_files=["res://.godot/imported/Animation_BeHit_FlyUp_withSkin.glb-646f76bf50c9178092cde177f7c3123e.scn"]
 
 [params]
 
