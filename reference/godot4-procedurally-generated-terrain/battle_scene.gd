@@ -443,8 +443,8 @@ func _enemy_single_attack(enemy,cnt,effect,dmg):
 	enemy.state = State.ATTACK_SINGLE
 	enemy.isanim = false
 	EffectManager.show_effect(effect, target.position)
-	await get_tree().create_timer(1.5).timeout
-	_show_damage_number(dmg, target.position + Vector3(0, 2, 0),0)
+	await get_tree().create_timer(1.5).timeouts
+	_show_damage_number(dmg, target.position + Vector3(0, 2, 0),0,target)
 	target.receive_damage(dmg)
 	await _move_to_start(enemy,cnt,1)
 
@@ -458,7 +458,7 @@ func _enemy_all_attack(enemy,effect,dmg):
 	await get_tree().create_timer(1.5).timeout
 	for ally in spawned_allies:
 		if not ally or ally.state == ally.State.DEAD: continue
-		_show_damage_number(int(dmg),ally.position + Vector3(0, 2, 0),0)
+		_show_damage_number(int(dmg),ally.position + Vector3(0, 2, 0),0,ally)
 		ally.receive_damage(int(dmg))
 	await get_tree().create_timer(1.0).timeout
 	enemy.state = State.BATTLE_IDLE
@@ -472,7 +472,7 @@ func _player_single_attack(ally,cnt,effect,dmg):
 	ally.isanim = false
 	EffectManager.show_effect(effect, target.position)
 	await get_tree().create_timer(1.5).timeout
-	_show_damage_number(dmg, target.position + Vector3(0, 2, 0),1)
+	_show_damage_number(dmg, target.position + Vector3(0, 2, 0),1,target)
 	target.receive_damage(dmg)
 	await _move_to_start(ally,cnt,0)
 
@@ -486,7 +486,7 @@ func _player_all_attack(ally,effect,dmg):
 	await get_tree().create_timer(1.5).timeout
 	for enemy in spawned_enemies:
 		if not enemy or enemy.state == enemy.State.DEAD: continue
-		_show_damage_number(int(dmg),enemy.position + Vector3(0, 2, 0),1)
+		_show_damage_number(int(dmg),enemy.position + Vector3(0, 2, 0),1,enemy)
 		enemy.receive_damage(int(dmg))
 	await get_tree().create_timer(1.0).timeout
 	ally.state = State1.BATTLE_IDLE
@@ -542,7 +542,9 @@ func _enemy_all_heal(enemy,heal):
 	enemy.isanim = false
 	await get_tree().create_timer(1.7).timeout
 	for enemy1 in spawned_enemies:
-		EffectManager.show_effect("heal", enemy1.position + Vector3(2, 0, 0))
+		if not enemy1:
+			continue
+		EffectManager.show_effect("heal", enemy1.global_position + Vector3(2, 0, 0))
 		_show_heal_number(heal, enemy1.global_position + Vector3(0, 2, 0),0)
 		enemy1.receive_heal(heal)
 	enemy.state = State.BATTLE_IDLE
@@ -633,9 +635,11 @@ func _show_label(label: Control, duration: float):
 	await get_tree().create_timer(duration).timeout
 	label.visible = false
 # --- ヘルパー関数 (ダメージ表示) ---
-func _show_damage_number(amount: int,world_pos: Vector3,team: int):
+func _show_damage_number(amount: int,world_pos: Vector3,team: int,char:CharacterBody3D):
 	var dmg_label = Label3D.new()
-	dmg_label.text = str(amount)
+	var damage = int(amount * (100.0 / (100.0 + char.defense)))
+	damage = max(1, damage)
+	dmg_label.text = str(damage)
 	dmg_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	dmg_label.modulate = Color(1,0,0)
 	if team == 0:

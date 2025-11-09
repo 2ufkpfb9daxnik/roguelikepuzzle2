@@ -197,9 +197,7 @@ func _process_down(delta):
 		state = State.BATTLE_IDLE
 
 func receive_damage(amount: int):
-	var damage = int(amount * (100.0 / (100.0 + defense)))
-	damage = max(1, damage)
-	health -= damage
+	health -= amount
 	if hp_progress:
 		hp_progress.value = health
 	if health <= 0:

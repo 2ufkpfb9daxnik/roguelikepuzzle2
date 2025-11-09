@@ -13,6 +13,7 @@ var type_to_img: Dictionary = {0:"res://texture/cell/bread.png",
 7:"res://texture/cell/axe.png",8:"res://texture/cell/club.png",
 9:"res://texture/cell/magicCircle.png",10:"res://texture/cell/wand.png"}
 var char_scene = preload("res://LevelUpChar.tscn")
+var char_scene1 = preload("res://BuyCharacterScreen.tscn")
 func _ready():
 	$MainMenu.visible = true
 	levelup_screen.visible = false
@@ -80,7 +81,7 @@ func populate_buy_characters():
 		vbox.remove_child(child)
 		child.queue_free()
 	for char_data in get_all_characters():
-		var char_instance = char_scene.instantiate()
+		var char_instance = char_scene1.instantiate()
 		print(char_instance)
 		# 画像
 		char_instance.get_node("ColorRect/Image").texture = char_data["image"]
@@ -90,7 +91,7 @@ func populate_buy_characters():
 		char_instance.get_node("ColorRect/Type_single").texture = char_data["type_image_single"]
 		char_instance.get_node("ColorRect/Type_all").texture = char_data["type_image_all"]
 		# お金
-		char_instance.get_node("ColorRect/Money").text = "Money"+str(char_data["levelup_cost"])
+		char_instance.get_node("ColorRect/Money").text = "Money"+str(char_data["price"])
 		# レベル
 		char_instance.get_node("ColorRect/Level").text = "Lv."+str(char_data["level"])
 		#体力
@@ -234,7 +235,7 @@ func _on_buy_character_button_pressed() -> void:
 	print("b")
 	$MainMenu.visible = false
 	buy_buff_screen.visible = true
-	populate_buffs()
+	populate_buy_characters()
 
 
 
@@ -244,9 +245,14 @@ func _on_buy_buff_button_pressed() -> void:
 	levelup_screen.visible = false
 	buy_character_screen.visible = false
 	buy_buff_screen.visible = false
-
+	populate_buffs()
 
 func _on_close_button_pressed() -> void:
+	$MainMenu.visible = true
+	levelup_screen.visible = false
+	buy_character_screen.visible = false
+	buy_buff_screen.visible = false
 	get_node("ColorRect").get_parent().visible = false
 	get_parent().isshoping = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	

@@ -24,7 +24,7 @@ var all_characters: Dictionary = {"aquatic_guardian":[5,5,5,0,"res://model/enemy
 "octopus":[5,5,5,10,"res://model/enemy/have_animation/octopus",250000],
 "rainbow_snake_dragon":[5,5,5,8,"res://model/enemy/have_animation/rainbow_snake_dragon",150000],
 "red_magician":[5,5,5,10,"res://model/enemy/have_animation/red_magician",350000],
-"scorpion":[5,5,5,8,"res://model/enemy/have_animation/scorpion"],
+"scorpion":[5,5,5,8,"res://model/enemy/have_animation/scorpion",10000],
 "sea_dragon":[5,5,5,10,"res://model/enemy/have_animation/sea_dragon",1200],
 "snake_head":[5,5,5,8,"res://model/enemy/have_animation/snake_head",10000],
 "spider":[5,5,5,4,"res://model/enemy/have_animation/spider",7000],

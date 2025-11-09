@@ -299,6 +299,7 @@ func receive_heal(amount: int):
 	_update_hp_billboard()
 func _transition_to_dead() -> void:
 	state = State.DEAD
+	
 	if not animation_models.keys().find("Animation_Dead_withSkin"):
 		_play_animation(battle_idle_anim)
 	else:
