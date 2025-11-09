@@ -1,6 +1,6 @@
-[gd_scene load_steps=5 format=3 uid="uid://cat0nxrs0lnwo"]
+[gd_scene load_steps=5 format=3 uid="uid://bcgtkbmi3q36e"]
 
-[ext_resource type="Script" uid="uid://ddrlvc1vlqovw" path="res://title_screen.gd" id="1_v6p8y"]
+[ext_resource type="Script" path="res://title_screen.gd" id="1_v6p8y"]
 [ext_resource type="Texture2D" uid="uid://cet44444mhnui" path="res://texture/titlescreen.jpg" id="2_ak2if"]
 [ext_resource type="AudioStream" uid="uid://dgrmnv4hwil2x" path="res://sound/music.mp3" id="3_ig5kc"]
 [ext_resource type="AudioStream" uid="uid://cido62ybxcooh" path="res://sound/決定ボタンを押す31.mp3" id="4_05l2w"]
