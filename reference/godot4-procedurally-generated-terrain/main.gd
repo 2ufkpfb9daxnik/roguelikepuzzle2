@@ -11,26 +11,26 @@ var allies_base_defense = [20]
 var allies_cur_health = [-1]
 var isshoping = false
 var money:int = 0
-var all_characters: Dictionary = {"aquatic_guardian":[5,5,5,0,"res://model/enemy/have_animation/aquatic_guardian",300],
-"bee":[5,5,5,8,"res://model/enemy/have_animation/bee",500],
-"blue_dragon":[5,5,5,4,"res://model/enemy/have_animation/blue_dragon",50000],
-"cave_dragon":[5,5,5,8,"res://model/enemy/have_animation/cave_dragon",15000],
-"demon":[5,5,5,10,"res://model/enemy/have_animation/demon",1000000],
-"enigmatic_sorcerer":[5,5,5,10,"res://model/enemy/have_animation/enigmatic_sorcerer",100000],
-"fantasy_wolf":[5,5,5,4,"res://model/enemy/have_animation/fantasy_wolf",1500],
-"kurione":[5,5,5,0,"res://model/enemy/have_animation/kurione",150000],
-"mushroom_man":[5,5,5,0,"res://model/enemy/have_animation/mushroom_man",7000],
-"mysterious_mummy":[5,5,5,4,"res://model/enemy/have_animation/mysterious_mummy",5000],
-"octopus":[5,5,5,10,"res://model/enemy/have_animation/octopus",250000],
-"rainbow_snake_dragon":[5,5,5,8,"res://model/enemy/have_animation/rainbow_snake_dragon",150000],
-"red_magician":[5,5,5,10,"res://model/enemy/have_animation/red_magician",350000],
-"scorpion":[5,5,5,8,"res://model/enemy/have_animation/scorpion",10000],
-"sea_dragon":[5,5,5,10,"res://model/enemy/have_animation/sea_dragon",1200],
-"snake_head":[5,5,5,8,"res://model/enemy/have_animation/snake_head",10000],
-"spider":[5,5,5,4,"res://model/enemy/have_animation/spider",7000],
-"stone_guardian":[5,5,5,4,"res://model/enemy/have_animation/stone_guardian",2000],
-"swamp_guardian":[5,5,5,0,"res://model/enemy/have_animation/swamp_guardian",6000],
-"wood_monster":[5,5,5,10,"res://model/enemy/have_animation/wood_monster",30000]}
+var all_characters: Dictionary = {"aquatic_guardian":[80,15,25,0,"res://model/enemy/have_animation/aquatic_guardian",300],
+"bee":[25,45,5,8,"res://model/enemy/have_animation/bee",500],
+"blue_dragon":[155,75,65,4,"res://model/enemy/have_animation/blue_dragon",50000],
+"cave_dragon":[155,75,65,8,"res://model/enemy/have_animation/cave_dragon",15000],
+"demon":[475,125,135,10,"res://model/enemy/have_animation/demon",1000000],
+"enigmatic_sorcerer":[75,45,15,10,"res://model/enemy/have_animation/enigmatic_sorcerer",100000],
+"fantasy_wolf":[95,45,35,4,"res://model/enemy/have_animation/fantasy_wolf",1500],
+"kurione":[65,15,5,0,"res://model/enemy/have_animation/kurione",150000],
+"mushroom_man":[170,35,345,0,"res://model/enemy/have_animation/mushroom_man",7000],
+"mysterious_mummy":[90,25,35,4,"res://model/enemy/have_animation/mysterious_mummy",5000],
+"octopus":[100,15,25,10,"res://model/enemy/have_animation/octopus",250000],
+"rainbow_snake_dragon":[76,75,65,8,"res://model/enemy/have_animation/rainbow_snake_dragon",150000],
+"red_magician":[155,65,54,10,"res://model/enemy/have_animation/red_magician",350000],
+"scorpion":[95,45,35,8,"res://model/enemy/have_animation/scorpion",10000],
+"sea_dragon":[155,75,85,10,"res://model/enemy/have_animation/sea_dragon",1200],
+"snake_head":[75,35,25,8,"res://model/enemy/have_animation/snake_head",10000],
+"spider":[45,35,15,4,"res://model/enemy/have_animation/spider",7000],
+"stone_guardian":[95,55,95,4,"res://model/enemy/have_animation/stone_guardian",2000],
+"swamp_guardian":[85,55,95,0,"res://model/enemy/have_animation/swamp_guardian",6000],
+"wood_monster":[75,45,55,10,"res://model/enemy/have_animation/wood_monster",30000]}
 
 func calculate_status(base: float, level: int, power: float = 2.0/3.0) -> int:
 	return int(base + level * pow(base, power))
