@@ -252,6 +252,7 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 		enemy_instance.set_animation_model_paths(enemy_info[1])
 		enemy_instance.assign_battle_idle_anim()
 		enemy_instance.health = get_parent().all_characters[name][0]
+		enemy_instance.max_health = get_parent().all_characters[name][0]
 		enemy_instance.attack = get_parent().all_characters[name][1]
 		enemy_instance.defense = get_parent().all_characters[name][2]
 		enemy_instance.type = get_parent().all_characters[name][3]

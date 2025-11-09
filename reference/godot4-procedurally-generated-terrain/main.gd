@@ -10,6 +10,7 @@ var allies_base_attack = [15]
 var allies_base_defense = [20]
 var allies_cur_health = [-1]
 var isshoping = false
+var money:int = 0
 var all_characters: Dictionary = {"aquatic_guardian":[5,5,5,0,"res://model/enemy/have_animation/aquatic_guardian",300],
 "bee":[5,5,5,8,"res://model/enemy/have_animation/bee",500],
 "blue_dragon":[5,5,5,4,"res://model/enemy/have_animation/blue_dragon",50000],

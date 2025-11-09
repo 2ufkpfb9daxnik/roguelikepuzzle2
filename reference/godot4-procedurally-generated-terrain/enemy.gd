@@ -16,6 +16,7 @@ enum State {
 
 @onready var detection_area = $DetectionArea
 @export var health: int = 100
+@export var max_health: int = 100
 @export var attack: int = 10
 @export var defense: int = 10
 @export var type: int = 10
@@ -288,7 +289,14 @@ func receive_damage(amount: int) -> void:
 			_play_animation(battle_idle_anim)
 		else:
 			_play_animation("Animation_BeHit_FlyUp_withSkin")
-
+func receive_heal(amount: int):
+	var heal = amount
+	health += heal
+	if health > max_health:
+		health = max_health
+	if hp_progress:
+		hp_progress.value = health
+	_update_hp_billboard()
 func _transition_to_dead() -> void:
 	state = State.DEAD
 	if not animation_models.keys().find("Animation_Dead_withSkin"):
@@ -499,3 +507,7 @@ func _create_hp_bar():
 	hp_sprite.position = Vector3(0, 3, 0)  # 敵の頭上に配置
 	hp_sprite.scale = Vector3(1.5, 1.5, 1.5)
 	add_child(hp_sprite)
+func _update_hp_billboard():
+	if hp_progress:
+		hp_progress.max_value = max_health
+		hp_progress.value = health

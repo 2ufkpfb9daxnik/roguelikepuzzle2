@@ -198,7 +198,6 @@ shape = SubResource("BoxShape3D_w48qg")
 shape = SubResource("BoxShape3D_w48qg")
 
 [node name="ShopUi" parent="." instance=ExtResource("15_vivmo")]
-visible = false
 
 [connection signal="body_entered" from="plain_shop/Area3D" to="plain_shop/Area3D" method="_on_body_entered"]
 [connection signal="body_entered" from="snow_shop/Area3D" to="snow_shop/Area3D" method="_on_body_entered"]
