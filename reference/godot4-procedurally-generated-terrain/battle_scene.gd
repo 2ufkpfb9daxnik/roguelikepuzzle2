@@ -338,6 +338,7 @@ func end_battle():
 		for i in range(h):
 			for j in range(w):
 				get_parent().get_node("spawn_enemy").isspawned[k][i][j] = 0
+	get_parent().get_node("spawn_enemy").spawn_time = 0.0
 	# バトルシーン削除
 	queue_free()
 # --- バトルステートマシン本体 ---

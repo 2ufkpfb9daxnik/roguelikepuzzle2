@@ -59,18 +59,18 @@ func populate_levelup_characters():
 func _on_levelup_pressed(char_data,char_instance,idx):
 	if get_parent().money >= char_data.levelup_cost:
 		get_parent().money -= char_data.levelup_cost
-		char_data.level += 1
-		char_data.levelup_cost *= 1.3
+		char_data["level"] += 1
+		char_data["levelup_cost"] *= 1.3
 		get_parent().allies_level[idx] += 1
-		char_data.hp = calculate_status(char_data.base_hp[idx], char_data.level)
-		char_data.atk = calculate_status(char_data.base_atk[idx], char_data.level)
-		char_data.def = calculate_status(char_data.base_def[idx], char_data.level)
+		char_data.hp = calculate_status(char_data["base_hp"], char_data["level"])
+		char_data.atk = calculate_status(char_data["base_atk"], char_data["level"])
+		char_data.def = calculate_status(char_data["base_def"], char_data["level"])
 		char_instance.get_node("ColorRect/hp").text = "HP:"+str(char_data["hp"])
 		char_instance.get_node("ColorRect/hp").text = "ATK:"+str(char_data["atk"])
 		char_instance.get_node("ColorRect/hp").text = "DEF:"+str(char_data["def"])
 		char_instance.get_node("ColorRect/Money").text = "Money"+str(char_data["levelup_cost"])
 		char_instance.get_node("ColorRect/Level").text = "Lv."+str(char_data["level"])
-		get_node("MoneyLabel").text = "Money:"+str(get_parent().get_parent().money)
+		get_node("MoneyLabel").text = "Money:"+str(get_parent().money)
 		money_label.text = str(get_parent().money)
 		
 # =====================
@@ -111,9 +111,9 @@ func populate_buy_characters():
 func _on_buy_character_pressed(char_data):
 	if get_parent().allies.size() == 3:
 		return
-	if get_parent().money >= char_data.price:
-		get_parent().money -= char_data.price
-		get_node("MoneyLabel").text = "Money:"+str(get_parent().get_parent().money)
+	if get_parent().money >= char_data["price"]:
+		get_parent().money -= char_data["price"]
+		get_node("MoneyLabel").text = "Money:"+str(get_parent().money)
 		add_character_to_party(char_data)
 		money_label.text = str(get_parent().money)
 
@@ -202,7 +202,7 @@ func get_all_characters():
 			type_image_all = load(type_to_img[5])
 		else:
 			type_image_all = load(type_to_img[9])
-		res.append({"name":key, "image":image, "type_image_single":type_image_single,"type_image_all":type_image_all,"price":chardict[key][5],"hp":hp,"atk":atk,"def":def,"level":ally_level,"path":chardict[key][4]})
+		res.append({"name":key, "image":image, "type_image_single":type_image_single,"type_image_all":type_image_all,"price":chardict[key][5],"hp":hp,"atk":atk,"def":def,"level":ally_level,"path":chardict[key][4],"type":chardict[key][3]})
 	return res
 
 func get_all_buffs():
@@ -219,7 +219,8 @@ func add_character_to_party(char_data):
 	get_parent().allies_base_health.append(char_data["hp"])
 	get_parent().allies_base_attack.append(char_data["atk"])
 	get_parent().allies_base_defense.append(char_data["def"])
-	get_parent().allies_cur_health.append(char_data["hp"])
+	get_parent().allies_cur_health.append(-1)
+	
 func apply_buff(buff):
 	# 仮に適用処理
 	print("Buff applied: ", buff.name)

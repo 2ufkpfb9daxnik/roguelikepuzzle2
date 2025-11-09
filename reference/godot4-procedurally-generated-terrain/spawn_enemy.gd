@@ -48,6 +48,7 @@ var player:Node3D
 var spawn_range = 5
 var can_spawn = true
 var spawned_enemies = []
+var spawn_time = 0.0
 enum State {
 	IDLE,
 	MOVE,
@@ -262,27 +263,29 @@ func _process(delta):
 		return
 	if not can_spawn:
 		return
-	var cur_pos = player.global_transform.origin
-	for i in range(-spawn_range,spawn_range+1):
-		for j in range(-spawn_range,spawn_range+1):
-			var check_x = int(cur_pos.x) - i
-			var check_y = int(cur_pos.y)
-			var check_z = int(cur_pos.z) - j
-			
-			if check_y < 0 or check_y >= nearest_ground.size(): continue
-			if check_x < 0 or check_x >= nearest_ground[0].size(): continue
-			if check_z < 0 or check_z >= nearest_ground[0][0].size(): continue
-			
-			if i*i + j*j <= spawn_range*spawn_range:
-				# スポーン頻度を調整する条件（例: 4マスごとに1体）
-				if check_x % 10 == 0 and check_z % 10 == 0: # Y座標のチェックは地形に依存するため、ここでは外す
-					var ground_y = nearest_ground[check_y][check_x][check_z]
-					if ground_y < 0: continue
-					if isspawned[ground_y][check_x][check_z] == 0:
-						# Y座標は地面の高さ+オフセットを使用
-						if ground_y < 0: continue # 地面がない場所にはスポーンしない
-						isspawned[ground_y][check_x][check_z] = 1 # スポーン済みにする
-						spawn_enemy(Vector3(float(check_x), ground_y + 1.0, float(check_z))) # 地面から1.0上のY座標
+	spawn_time += delta
+	if spawn_time >= 4.0:
+		var cur_pos = player.global_transform.origin
+		for i in range(-spawn_range,spawn_range+1):
+			for j in range(-spawn_range,spawn_range+1):
+				var check_x = int(cur_pos.x) - i
+				var check_y = int(cur_pos.y)
+				var check_z = int(cur_pos.z) - j
+				
+				if check_y < 0 or check_y >= nearest_ground.size(): continue
+				if check_x < 0 or check_x >= nearest_ground[0].size(): continue
+				if check_z < 0 or check_z >= nearest_ground[0][0].size(): continue
+				
+				if i*i + j*j <= spawn_range*spawn_range:
+					# スポーン頻度を調整する条件（例: 4マスごとに1体）
+					if check_x % 10 == 0 and check_z % 10 == 0: # Y座標のチェックは地形に依存するため、ここでは外す
+						var ground_y = nearest_ground[check_y][check_x][check_z]
+						if ground_y < 0: continue
+						if isspawned[ground_y][check_x][check_z] == 0:
+							# Y座標は地面の高さ+オフセットを使用
+							if ground_y < 0: continue # 地面がない場所にはスポーンしない
+							isspawned[ground_y][check_x][check_z] = 1 # スポーン済みにする
+							spawn_enemy(Vector3(float(check_x), ground_y + 1.0, float(check_z))) # 地面から1.0上のY座標
 func _ready() -> void:
 	var parent = get_parent()
 	if not is_instance_valid(parent):
