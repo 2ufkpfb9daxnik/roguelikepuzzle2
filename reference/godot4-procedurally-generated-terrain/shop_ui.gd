@@ -70,6 +70,7 @@ func _on_levelup_pressed(char_data,char_instance,idx):
 		char_instance.get_node("ColorRect/hp").text = "DEF:"+str(char_data["def"])
 		char_instance.get_node("ColorRect/Money").text = "Money"+str(char_data["levelup_cost"])
 		char_instance.get_node("ColorRect/Level").text = "Lv."+str(char_data["level"])
+		get_node("MoneyLabel").text = "Money:"+str(get_parent().get_parent().money)
 		money_label.text = str(get_parent().money)
 		
 # =====================
@@ -112,6 +113,7 @@ func _on_buy_character_pressed(char_data):
 		return
 	if get_parent().money >= char_data.price:
 		get_parent().money -= char_data.price
+		get_node("MoneyLabel").text = "Money:"+str(get_parent().get_parent().money)
 		add_character_to_party(char_data)
 		money_label.text = str(get_parent().money)
 
@@ -145,6 +147,7 @@ func populate_buffs():
 func _on_buy_buff_pressed(buff):
 	if get_parent().money >= buff.price:
 		get_parent().money -= buff.price
+		get_node("MoneyLabel").text = "Money:"+str(get_parent().get_parent().money)
 		apply_buff(buff)
 		money_label.text = str(get_parent().money)
 func get_levelup_cost(level: int) -> int:
@@ -234,7 +237,7 @@ func _on_level_up_button_pressed() -> void:
 func _on_buy_character_button_pressed() -> void:
 	print("b")
 	$MainMenu.visible = false
-	buy_buff_screen.visible = true
+	buy_character_screen.visible = true
 	populate_buy_characters()
 
 
@@ -244,7 +247,7 @@ func _on_buy_buff_button_pressed() -> void:
 	$MainMenu.visible = true
 	levelup_screen.visible = false
 	buy_character_screen.visible = false
-	buy_buff_screen.visible = false
+	buy_buff_screen.visible = true
 	populate_buffs()
 
 func _on_close_button_pressed() -> void:

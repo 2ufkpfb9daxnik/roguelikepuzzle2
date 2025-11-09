@@ -330,7 +330,14 @@ func end_battle():
 		field_camera.current = true  # 再び探索カメラを有効化
 
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	get_parent().get_node("CharacterBody3D").money += money
+	get_parent().money += money
+	var d = get_parent().get_node("spawn_enemy").isspawned.size()
+	var h = get_parent().get_node("spawn_enemy").isspawned[0].size()
+	var w = get_parent().get_node("spawn_enemy").isspawned[0][0].size()
+	for k in range(d):
+		for i in range(h):
+			for j in range(w):
+				get_parent().get_node("spawn_enemy").isspawned[k][i][j] = 0
 	# バトルシーン削除
 	queue_free()
 # --- バトルステートマシン本体 ---
@@ -443,7 +450,7 @@ func _enemy_single_attack(enemy,cnt,effect,dmg):
 	enemy.state = State.ATTACK_SINGLE
 	enemy.isanim = false
 	EffectManager.show_effect(effect, target.position)
-	await get_tree().create_timer(1.5).timeouts
+	await get_tree().create_timer(1.5).timeout
 	_show_damage_number(dmg, target.position + Vector3(0, 2, 0),0,target)
 	target.receive_damage(dmg)
 	await _move_to_start(enemy,cnt,1)
