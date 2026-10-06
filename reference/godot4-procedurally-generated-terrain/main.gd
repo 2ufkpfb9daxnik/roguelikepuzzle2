@@ -147,7 +147,6 @@ func _process(_delta: float) -> void:
 		if minimap_container:
 			if in_battle or map_mode == 2:
 				minimap_container.visible = false
-				if minimap_container_under: minimap_container_under.visible = false
 			else:
 				minimap_container.visible = true
 				
@@ -510,10 +509,8 @@ func _setup_minimap() -> void:
 	
 	if hud_layer:
 		hud_layer.add_child(minimap_container)
-		hud_layer.add_child(minimap_container_under)
 	else:
 		add_child(minimap_container)
-		add_child(minimap_container_under)
 
 	_update_map_mode()
 
