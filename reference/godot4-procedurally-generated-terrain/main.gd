@@ -11,9 +11,11 @@ var isshoping: bool = false
 var money: int = 0
 var minimap_container: SubViewportContainer
 var minimap_camera: Camera3D
-var minimap_container_under: SubViewportContainer
-var minimap_camera_under: Camera3D
 var _is_underground_cached: bool = false
+var underground_texture_rect: TextureRect
+var underground_image: Image
+var underground_tex: ImageTexture
+var _underground_update_timer: float = 0.0
 var player_marker: ColorRect
 
 # 全キャラクターのマスター定義
@@ -162,31 +164,17 @@ func _process(_delta: float) -> void:
 				
 				if _is_underground_cached:
 					minimap_container.modulate.a = 0.3
-					if minimap_container_under: minimap_container_under.visible = true
 				else:
 					minimap_container.modulate.a = 1.0
-					if minimap_container_under: minimap_container_under.visible = false
 					
 		if minimap_camera and minimap_container.visible:
 			if map_mode == 1:
-				# 全体マップ: 地形の中心に固定 (worldw/2, 0, worldh/2)
 				var terrain_node = get_node_or_null("terrain")
 				if terrain_node:
 					minimap_camera.global_position = Vector3(terrain_node.worldh / 2.0, 200, terrain_node.worldw / 2.0)
-					if minimap_camera_under:
-						minimap_camera_under.global_position = Vector3(terrain_node.worldh / 2.0, get_meta("_last_ground_y", player_node.global_position.y) + 50.0, terrain_node.worldw / 2.0)
 			else:
-				# ミニマップ: プレイヤー追従
 				minimap_camera.global_position = player_node.global_position + Vector3(0, 80, 0)
-				if minimap_camera_under:
-					minimap_camera_under.global_position = player_node.global_position + Vector3(0, 50, 0)
-					minimap_camera_under.global_position.y = get_meta("_last_ground_y", player_node.global_position.y) + 50.0
-			
 			minimap_camera.rotation_degrees = Vector3(-90, 0, 0)
-			if minimap_camera_under:
-				minimap_camera_under.rotation_degrees = Vector3(-90, 0, 0)
-				minimap_camera_under.near = 47.0
-				minimap_camera_under.far = 53.0
 			
 			if player_marker and minimap_camera:
 				var map_size = minimap_container.size
@@ -212,15 +200,9 @@ func _process(_delta: float) -> void:
 				screen_y = clamp(screen_y, 4, map_size.y - 12)
 				
 				player_marker.position = Vector2(screen_x, screen_y) - player_marker.size / 2.0
-				var is_underground = _is_underground_cached
-				if is_underground and minimap_container_under:
-					if player_marker.get_parent() != minimap_container_under:
-						player_marker.get_parent().remove_child(player_marker)
-						minimap_container_under.add_child(player_marker)
-				elif not is_underground and minimap_container:
-					if player_marker.get_parent() != minimap_container:
-						player_marker.get_parent().remove_child(player_marker)
-						minimap_container.add_child(player_marker)
+				if player_marker.get_parent() != minimap_container:
+					player_marker.get_parent().remove_child(player_marker)
+					minimap_container.add_child(player_marker)
 
 # ==============================
 # HUD（常時表示UI）
@@ -525,34 +507,6 @@ func _setup_minimap() -> void:
 	minimap_container.add_child(player_marker)
 	
 	# Under minimap setup
-	minimap_container_under = SubViewportContainer.new()
-	minimap_container_under.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 20)
-	minimap_container_under.size = Vector2(256, 256)
-	minimap_container_under.position = Vector2(20, get_viewport().get_visible_rect().size.y - 276)
-	minimap_container_under.modulate = Color(1, 1, 1, 1.0)
-	
-	var minimap_viewport_under = SubViewport.new()
-	minimap_viewport_under.name = "MapViewportUnder"
-	minimap_viewport_under.size = Vector2i(256, 256)
-	minimap_viewport_under.transparent_bg = true
-	
-	minimap_camera_under = Camera3D.new()
-	minimap_camera_under.projection = Camera3D.PROJECTION_ORTHOGONAL
-	minimap_camera_under.size = 150.0
-	minimap_camera_under.current = false
-	minimap_camera_under.cull_mask = 0xFFFFFFFF
-	
-	var map_env_under = Environment.new()
-	map_env_under.background_mode = Environment.BG_COLOR
-	map_env_under.background_color = Color(0, 0, 0, 0)
-	map_env_under.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	map_env_under.ambient_light_color = Color(1, 1, 1)
-	map_env_under.fog_enabled = false
-	minimap_camera_under.environment = map_env_under
-	
-	minimap_viewport_under.add_child(minimap_camera_under)
-	minimap_container_under.add_child(minimap_viewport_under)
-	minimap_container_under.hide()
 	
 	if hud_layer:
 		hud_layer.add_child(minimap_container)
@@ -585,12 +539,7 @@ func _update_map_mode() -> void:
 			if border: border.size = Vector2(264, 264)
 			if solid_bg: solid_bg.size = Vector2(256, 256)
 			if vp: vp.size = Vector2i(256, 256)
-			if minimap_camera: minimap_camera.size = 150.0 # 半径75マス程度
-			if minimap_container_under:
-				minimap_container_under.size = minimap_container.size
-				minimap_container_under.position = minimap_container.position
-				var vp_under = minimap_container_under.get_node_or_null("MapViewportUnder")
-				if vp_under: vp_under.size = Vector2i(256, 256)
+			if minimap_camera: minimap_camera.size = 150.0
 		1: # 全体マップ (中央)
 			minimap_container.show()
 			var map_size = min(viewport_size.x, viewport_size.y) - 80
@@ -600,11 +549,70 @@ func _update_map_mode() -> void:
 			if solid_bg: solid_bg.size = Vector2(map_size, map_size)
 			if vp: vp.size = Vector2i(int(map_size), int(map_size))
 			# worldw = 1028 をカバーするには size = 1050 程度必要
-			if minimap_camera: minimap_camera.size = 1100.0 
-			if minimap_container_under:
-				minimap_container_under.size = minimap_container.size
-				minimap_container_under.position = minimap_container.position
-				var vp_under = minimap_container_under.get_node_or_null("MapViewportUnder")
-				if vp_under: vp_under.size = Vector2i(int(map_size), int(map_size))
+			if minimap_camera: minimap_camera.size = 1100.0
 		2: # 非表示
 			minimap_container.hide()
+
+func _update_underground_map():
+	var terrain_node = get_node_or_null("terrain")
+	if not terrain_node or not terrain_node.has_method("get_map3dnum"): return
+	
+	var start_time = Time.get_ticks_usec()
+	var radius = 48
+	var size = radius * 2 + 1
+	if not underground_image:
+		underground_image = Image.create(size, size, false, Image.FORMAT_RGBA8)
+	else:
+		underground_image.fill(Color(0,0,0,0))
+		
+	var ppos = player_node.global_position
+	var px = int(round(ppos.x))
+	var pz = int(round(ppos.z))
+	
+	var path_color = Color(0.8, 0.8, 0.5, 1.0)
+	var wall_color = Color(0.1, 0.05, 0.05, 0.9)
+	var mid_color = Color(0.5, 0.4, 0.3, 0.8)
+	
+	var path_count = 0
+	var wall_count = 0
+	var mid_count = 0
+	
+	for dx in range(-radius, radius + 1):
+		for dz in range(-radius, radius + 1):
+			var wx = px + dx
+			var wz = pz + dz
+			
+			var found_empty = false
+			# 0~25まで上から下へ走査し、空洞を探す (海の真下、天井より下の範囲)
+			for y in range(25, -1, -1):
+				var cell = terrain_node.get_map3dnum(wx, y, wz)
+				if cell == -1:
+					var cell_up = terrain_node.get_map3dnum(wx, y+1, wz)
+					if cell_up != -1:
+						found_empty = true
+						break
+			
+			var px_img = dx + radius
+			var pz_img = dz + radius
+			
+			if found_empty:
+				underground_image.set_pixel(px_img, pz_img, path_color)
+				path_count += 1
+			else:
+				underground_image.set_pixel(px_img, pz_img, wall_color)
+				wall_count += 1
+				
+	underground_image.set_pixel(radius, radius, Color.RED)
+	underground_image.set_pixel(radius+1, radius, Color.RED)
+	underground_image.set_pixel(radius-1, radius, Color.RED)
+	underground_image.set_pixel(radius, radius+1, Color.RED)
+	underground_image.set_pixel(radius, radius-1, Color.RED)
+	
+	if not underground_tex:
+		underground_tex = ImageTexture.create_from_image(underground_image)
+		if underground_texture_rect: underground_texture_rect.texture = underground_tex
+	else:
+		underground_tex.update(underground_image)
+		
+	var elapsed = Time.get_ticks_usec() - start_time
+	print("Underground map updated in ", elapsed, " usec. Path: ", path_count, " Wall: ", wall_count)
