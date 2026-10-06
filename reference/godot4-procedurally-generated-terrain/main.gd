@@ -163,8 +163,17 @@ func _process(_delta: float) -> void:
 				
 				if _is_underground_cached:
 					minimap_container.modulate.a = 0.3
+					if underground_texture_rect:
+						underground_texture_rect.visible = true
+						underground_texture_rect.modulate = Color(1.5, 1.5, 1.5, 3.333)
+					_underground_update_timer -= _delta
+					if _underground_update_timer <= 0:
+						_underground_update_timer = 0.4
+						_update_underground_map()
 				else:
 					minimap_container.modulate.a = 1.0
+					if underground_texture_rect:
+						underground_texture_rect.visible = false
 					
 		if minimap_camera and minimap_container.visible:
 			if map_mode == 1:
@@ -174,6 +183,22 @@ func _process(_delta: float) -> void:
 			else:
 				minimap_camera.global_position = player_node.global_position + Vector3(0, 80, 0)
 			minimap_camera.rotation_degrees = Vector3(-90, 0, 0)
+			
+			if underground_texture_rect and underground_texture_rect.visible:
+				var radius = 75
+				var scale_factor = minimap_container.size.y / minimap_camera.size
+				var rect_size = (radius * 2 + 1) * scale_factor
+				underground_texture_rect.size = Vector2(rect_size, rect_size)
+				
+				var px = int(round(player_node.global_position.x))
+				var pz = int(round(player_node.global_position.z))
+				var diff_x = px - minimap_camera.global_position.x
+				var diff_z = pz - minimap_camera.global_position.z
+				
+				var center = minimap_container.size / 2.0
+				var offset_x = diff_x * scale_factor
+				var offset_y = diff_z * scale_factor
+				underground_texture_rect.position = minimap_container.position + center + Vector2(offset_x, offset_y) - underground_texture_rect.size / 2.0
 			
 			if player_marker and minimap_camera:
 				var map_size = minimap_container.size
@@ -505,12 +530,18 @@ func _setup_minimap() -> void:
 	# player_marker moved to under if active
 	minimap_container.add_child(player_marker)
 	
-	# Under minimap setup
+	underground_texture_rect = TextureRect.new()
+	underground_texture_rect.name = "UndergroundTextureRect"
+	underground_texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	underground_texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	# We will add it later after hud_layer decides where minimap_container goes
 	
 	if hud_layer:
 		hud_layer.add_child(minimap_container)
+		hud_layer.add_child(underground_texture_rect)
 	else:
 		add_child(minimap_container)
+		add_child(underground_texture_rect)
 
 	_update_map_mode()
 
@@ -555,7 +586,7 @@ func _update_underground_map():
 	if not terrain_node or not terrain_node.has_method("get_map3dnum"): return
 	
 	var start_time = Time.get_ticks_usec()
-	var radius = 48
+	var radius = 75
 	var size = radius * 2 + 1
 	if not underground_image:
 		underground_image = Image.create(size, size, false, Image.FORMAT_RGBA8)
