@@ -588,53 +588,81 @@ func _update_underground_map():
 	var start_time = Time.get_ticks_usec()
 	var radius = 75
 	var size = radius * 2 + 1
-	if not underground_image:
-		underground_image = Image.create(size, size, false, Image.FORMAT_RGBA8)
-	else:
-		underground_image.fill(Color(0,0,0,0))
-		
+	
 	var ppos = player_node.global_position
 	var px = int(round(ppos.x))
 	var pz = int(round(ppos.z))
 	
-	var path_color = Color(0.8, 0.8, 0.5, 1.0)
-	var wall_color = Color(0.1, 0.05, 0.05, 0.9)
-	var mid_color = Color(0.5, 0.4, 0.3, 0.8)
+	# Skip update if player hasn't moved on X/Z since last update
+	if has_meta("_last_map_px") and get_meta("_last_map_px") == px and get_meta("_last_map_pz") == pz:
+		return
+	set_meta("_last_map_px", px)
+	set_meta("_last_map_pz", pz)
+	
+	var path_color_r = 204 # 0.8
+	var path_color_g = 204 # 0.8
+	var path_color_b = 127 # 0.5
+	var path_color_a = 255 # 1.0
+	
+	var map_array = terrain_node._map3dnum_flat
+	var worldh = terrain_node.worldh
+	var worldw = terrain_node.worldw
+	var wh_ww = worldh * worldw
+	var max_y = terrain_node.d - 1
+	
+	var start_y = 32
+	if start_y > max_y - 1: start_y = max_y - 1
+	
+	var data = PackedByteArray()
+	data.resize(size * size * 4)
+	data.fill(0) # Initialize with transparent (wall color is now completely transparent)
 	
 	var path_count = 0
-	var wall_count = 0
-	var mid_count = 0
 	
-	for dx in range(-radius, radius + 1):
-		for dz in range(-radius, radius + 1):
+	var py_idx_offset = start_y * wh_ww
+	
+	for dz in range(-radius, radius + 1):
+		var wz = pz + dz
+		var pz_img = dz + radius
+		var pz_base_idx = pz_img * size * 4
+		for dx in range(-radius, radius + 1):
 			var wx = px + dx
-			var wz = pz + dz
+			var px_img = dx + radius
 			
+			if wx < 0 or wx >= worldh or wz < 0 or wz >= worldw:
+				continue
+				
+			var idx = py_idx_offset + wx * worldw + wz
 			var found_empty = false
-			# 0~25まで上から下へ走査し、空洞を探す (海の真下、天井より下の範囲)
-			for y in range(25, -1, -1):
-				var cell = terrain_node.get_map3dnum(wx, y, wz)
-				if cell == -1:
-					var cell_up = terrain_node.get_map3dnum(wx, y+1, wz)
-					if cell_up != -1:
+			
+			for y in range(start_y, -1, -1):
+				if map_array[idx] == -1:
+					var cup = map_array[idx + wh_ww]
+					if cup != -1 and cup != 1: 
 						found_empty = true
 						break
-			
-			var px_img = dx + radius
-			var pz_img = dz + radius
+				idx -= wh_ww
 			
 			if found_empty:
-				underground_image.set_pixel(px_img, pz_img, path_color)
+				var pixel_idx = pz_base_idx + px_img * 4
+				data[pixel_idx] = path_color_r
+				data[pixel_idx + 1] = path_color_g
+				data[pixel_idx + 2] = path_color_b
+				data[pixel_idx + 3] = path_color_a
 				path_count += 1
-			else:
-				underground_image.set_pixel(px_img, pz_img, wall_color)
-				wall_count += 1
 				
-	underground_image.set_pixel(radius, radius, Color.RED)
-	underground_image.set_pixel(radius+1, radius, Color.RED)
-	underground_image.set_pixel(radius-1, radius, Color.RED)
-	underground_image.set_pixel(radius, radius+1, Color.RED)
-	underground_image.set_pixel(radius, radius-1, Color.RED)
+	# Add red player marker
+	var center = radius
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			if abs(dx) + abs(dy) > 1: continue # draw cross
+			var pixel_idx = ((center + dy) * size + (center + dx)) * 4
+			data[pixel_idx] = 255
+			data[pixel_idx + 1] = 0
+			data[pixel_idx + 2] = 0
+			data[pixel_idx + 3] = 255
+	
+	underground_image = Image.create_from_data(size, size, false, Image.FORMAT_RGBA8, data)
 	
 	if not underground_tex:
 		underground_tex = ImageTexture.create_from_image(underground_image)
@@ -643,4 +671,4 @@ func _update_underground_map():
 		underground_tex.update(underground_image)
 		
 	var elapsed = Time.get_ticks_usec() - start_time
-	print("Underground map updated in ", elapsed, " usec. Path: ", path_count, " Wall: ", wall_count)
+	print("Underground map updated in ", elapsed, " usec. Path: ", path_count)
