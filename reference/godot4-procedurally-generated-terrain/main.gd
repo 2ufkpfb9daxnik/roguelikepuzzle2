@@ -221,10 +221,6 @@ func _process(_delta: float) -> void:
 					if player_marker.get_parent() != minimap_container:
 						player_marker.get_parent().remove_child(player_marker)
 						minimap_container.add_child(player_marker)
-						
-	if not _debug_capture_done and get_node_or_null("terrain") and not get_node("terrain").is_generating:
-		_debug_capture_done = true
-		_run_debug_capture()
 
 # ==============================
 # HUD（常時表示UI）
@@ -612,37 +608,3 @@ func _update_map_mode() -> void:
 				if vp_under: vp_under.size = Vector2i(int(map_size), int(map_size))
 		2: # 非表示
 			minimap_container.hide()
-
-var _debug_capture_done = false
-func _run_debug_capture():
-	print("Starting debug capture...")
-	var t = get_node("terrain")
-	var found = false
-	for y in range(10, 25):
-		if found: break
-		for x in range(t.worldh/2 - 50, t.worldh/2 + 50):
-			if found: break
-			for z in range(t.worldw/2 - 50, t.worldw/2 + 50):
-				var idx = y * t.worldh * t.worldw + x * t.worldw + z
-				if t._map3dnum_flat[idx] == -1:
-					var idx_down = (y-1) * t.worldh * t.worldw + x * t.worldw + z
-					if t._map3dnum_flat[idx_down] != -1:
-						player_node.global_position = Vector3(x, y + 1.0, z)
-						found = true
-						print("Warped to cave at: ", player_node.global_position)
-						break
-	
-	await get_tree().create_timer(2.0).timeout
-	await RenderingServer.frame_post_draw
-	
-	var dir = DirAccess.open("res://")
-	if not dir.dir_exists("debug"):
-		dir.make_dir("debug")
-		
-	if minimap_container and minimap_container.has_node("MapViewport"):
-		minimap_container.get_node("MapViewport").get_texture().get_image().save_png("res://debug/ground.png")
-	if minimap_container_under and minimap_container_under.has_node("MapViewportUnder"):
-		minimap_container_under.get_node("MapViewportUnder").get_texture().get_image().save_png("res://debug/under.png")
-		
-	print("Images saved. Quitting...")
-	get_tree().quit()
