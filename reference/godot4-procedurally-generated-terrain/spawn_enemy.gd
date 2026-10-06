@@ -1,54 +1,64 @@
 extends Node
-var h
-var w
-var d
-var plane_start_h
-var plane_start_w
-var desert_start_h
-var desert_start_w
-var cave_start_h
-var cave_start_w
-var castle_start_h
-var castle_start_w
-var plane_range_hl:int
-var plane_range_hr:int
-var plane_range_wl:int
-var plane_range_wr:int
-var plane_range_dl:int
-var plane_range_dr:int
-var desert_range_hl:int
-var desert_range_hr:int
-var desert_range_wl:int
-var desert_range_wr:int
-var desert_range_dl:int
-var desert_range_dr:int
-var cave_range_hl:int
-var cave_range_hr:int
-var cave_range_wl:int
-var cave_range_wr:int
-var cave_range_dl:int
-var cave_range_dr:int
-var snow_range_hl:int
-var snow_range_hr:int
-var snow_range_wl:int
-var snow_range_wr:int
-var snow_range_dl:int
-var snow_range_dr:int
-var castle_range_hl:int
-var castle_range_hr:int
-var castle_range_wl:int
-var castle_range_wr:int
-var castle_range_dl:int
-var castle_range_dr:int
-var enemy_data = {}
-var stage_enemy = [[],[],[],[],[]]
-var nearest_ground
-var isspawned
-var player:Node3D
-var spawn_range = 5
-var can_spawn = true
-var spawned_enemies = []
-var spawn_time = 0.0
+
+var h: int
+var w: int
+var d: int
+var plane_start_h: int
+var plane_start_w: int
+var desert_start_h: int
+var desert_start_w: int
+var cave_start_h: int
+var cave_start_w: int
+var castle_start_h: int
+var castle_start_w: int
+
+var plane_range_hl: int
+var plane_range_hr: int
+var plane_range_wl: int
+var plane_range_wr: int
+var plane_range_dl: int
+var plane_range_dr: int
+
+var desert_range_hl: int
+var desert_range_hr: int
+var desert_range_wl: int
+var desert_range_wr: int
+var desert_range_dl: int
+var desert_range_dr: int
+
+var cave_range_hl: int
+var cave_range_hr: int
+var cave_range_wl: int
+var cave_range_wr: int
+var cave_range_dl: int
+var cave_range_dr: int
+
+var snow_range_hl: int
+var snow_range_hr: int
+var snow_range_wl: int
+var snow_range_wr: int
+var snow_range_dl: int
+var snow_range_dr: int
+
+var castle_range_hl: int
+var castle_range_hr: int
+var castle_range_wl: int
+var castle_range_wr: int
+var castle_range_dl: int
+var castle_range_dr: int
+
+var enemy_data: Dictionary = {}
+var stage_enemy: Array = [[], [], [], [], []]
+var nearest_ground = []
+var isspawned: Dictionary = {}          # 巨大3次元配列から Dictionary に最適化
+var player: Node3D = null
+var terrain_node: Node3D = null
+var min_spawn_range: int = 40
+var max_spawn_range: int = 60
+var can_spawn: bool = true
+var spawned_enemies: Array = []
+var spawn_time: float = 0.0
+
 enum State {
 	IDLE,
 	MOVE,
@@ -61,135 +71,97 @@ enum State {
 	DOWN,
 	DEAD
 }
-func spawn_enemy(pos:Vector3): # Vector3iからVector3に変更
-	var enemy_key = ""
-	var biome_type
+
+func reset_spawn_state() -> void:
+	isspawned.clear()
+	spawn_time = 0.0
+
+func delete_enemy() -> void:
+	while spawned_enemies.size() > 0:
+		var enemy = spawned_enemies.pop_back()
+		if is_instance_valid(enemy):
+			enemy.queue_free()
+
+func spawn_enemy(pos: Vector3) -> void:
+	var enemy_key: String = ""
+	var biome_type: int = 0
 	var spawn_pos_int = Vector3i(round(pos.x), round(pos.y), round(pos.z))
 
-	# バイオーム判定 (posのVector3i版を使用)
+	# バイオーム判定
 	if spawn_pos_int.x >= plane_range_hl and spawn_pos_int.x <= plane_range_hr and spawn_pos_int.z >= plane_range_wl and spawn_pos_int.z <= plane_range_wr:
-		if spawn_pos_int.y >= plane_range_dl and spawn_pos_int.y <= plane_range_dr:
-			if stage_enemy[0].is_empty(): return
-			enemy_key = stage_enemy[0].pick_random()
-			biome_type =0
-	elif spawn_pos_int.x >= cave_range_hl and spawn_pos_int.x <= cave_range_hr and spawn_pos_int.z >= cave_range_wl and spawn_pos_int.z <= cave_range_wr:
-		if spawn_pos_int.y >= cave_range_dl and spawn_pos_int.y <= cave_range_dr:
-			if stage_enemy[1].is_empty(): return
-			enemy_key = stage_enemy[1].pick_random()
-			biome_type = 1
-	elif spawn_pos_int.x >= desert_range_hl and spawn_pos_int.x <= desert_range_hr and spawn_pos_int.z >= desert_range_wl and spawn_pos_int.z <= desert_range_wr:
-		if spawn_pos_int.y >= desert_range_dl and spawn_pos_int.y <= desert_range_dr:
-			if stage_enemy[2].is_empty(): return
-			enemy_key = stage_enemy[2].pick_random()
-			biome_type = 2
-	elif spawn_pos_int.x >= snow_range_hl and spawn_pos_int.x <= snow_range_hr and spawn_pos_int.z >= snow_range_wl and spawn_pos_int.z <= snow_range_wr:
-		if spawn_pos_int.y >= snow_range_dl and spawn_pos_int.y <= snow_range_dr:
-			if stage_enemy[3].is_empty(): return
+		var mat = 4
+		if is_instance_valid(terrain_node):
+			var check_y = spawn_pos_int.y
+			while check_y >= 0 and check_y < 90:
+				var m = terrain_node.get_map3dnum(spawn_pos_int.x, check_y, spawn_pos_int.z)
+				if m != -1:
+					mat = m
+					break
+				check_y -= 1
+		# マテリアル 3 は雪、それ以外 (4:草, 5:土, 2:岩) は草原
+		if mat == 3 and not stage_enemy[3].is_empty():
 			enemy_key = stage_enemy[3].pick_random()
 			biome_type = 3
+		else:
+			if stage_enemy[0].is_empty(): return
+			enemy_key = stage_enemy[0].pick_random()
+			biome_type = 0
+	elif spawn_pos_int.x >= cave_range_hl and spawn_pos_int.x <= cave_range_hr and spawn_pos_int.z >= cave_range_wl and spawn_pos_int.z <= cave_range_wr:
+		if stage_enemy[1].is_empty(): return
+		enemy_key = stage_enemy[1].pick_random()
+		biome_type = 1
+	elif spawn_pos_int.x >= desert_range_hl and spawn_pos_int.x <= desert_range_hr and spawn_pos_int.z >= desert_range_wl and spawn_pos_int.z <= desert_range_wr:
+		if stage_enemy[2].is_empty(): return
+		enemy_key = stage_enemy[2].pick_random()
+		biome_type = 2
 	elif spawn_pos_int.x >= castle_range_hl and spawn_pos_int.x <= castle_range_hr and spawn_pos_int.z >= castle_range_wl and spawn_pos_int.z <= castle_range_wr:
-		if spawn_pos_int.y >= castle_range_dl and spawn_pos_int.y <= castle_range_dr:
-			if stage_enemy[4].is_empty(): return
-			enemy_key = stage_enemy[4].pick_random()
-			biome_type = 4
+		if stage_enemy[4].is_empty(): return
+		enemy_key = stage_enemy[4].pick_random()
+		biome_type = 4
+
 	if enemy_key == "":
 		return
 
-	# ======= モデル情報取得 =======
 	var enemy_info = enemy_data.get(enemy_key)
 	if enemy_info == null:
-		push_warning("Enemy info not found for key: " + enemy_key)
 		return
 
-	var default_model_path = enemy_info[0]
-	var all_animation_model_paths = enemy_info[1]
-	
-	if not ResourceLoader.exists(default_model_path):
-		push_warning("Default enemy model file not found at path: " + default_model_path)
-		return
-	
-	# ======= モデル読み込み =======
-	var enemy_instance = CharacterBody3D.new()
+	var default_model_path: String = enemy_info[0]
+	var all_animation_model_paths: Array = enemy_info[1]
+
+	var enemy_instance = Enemy.new()
 	enemy_instance.name = enemy_key
-	var enemy_script_resource = load("res://enemy.gd")
-	if enemy_script_resource is GDScript:
-		enemy_instance.set_script(enemy_script_resource)
-	else:
-		push_error("Failed to load enemy.gd script at res://enemy.gd")
-		enemy_instance.queue_free()
-		return
-	var loaded_default_model_scene = load(default_model_path)
-	var visual_model_root_instance: Node3D = null
+	enemy_instance.global_position = pos
+	enemy_instance.health = 100
+	enemy_instance.max_health = 100
+	enemy_instance.speed = 5.0
+	enemy_instance.biome_type = biome_type
+	enemy_instance.state = State.IDLE
+	enemy_instance.enemy_name = enemy_key
 
-	if loaded_default_model_scene is PackedScene:
-		visual_model_root_instance = loaded_default_model_scene.instantiate()
-	elif loaded_default_model_scene is Mesh:
-		var mesh_inst = MeshInstance3D.new()
-		mesh_inst.mesh = loaded_default_model_scene
-		visual_model_root_instance = mesh_inst
-	else:
-		push_warning("Unsupported model resource type for default model: " + default_model_path)
-		enemy_instance.queue_free()
-		return
-
-	if visual_model_root_instance:
-		visual_model_root_instance.name = "VisualModelRoot" # 後で enemy.gd から参照しやすいように名前を付ける
-		enemy_instance.add_child(visual_model_root_instance)
-		# モデルのスケールや位置調整が必要な場合はここで行う
-		# visual_model_root_instance.scale = Vector3(0.01, 0.01, 0.01) # 例
-		# visual_model_root_instance.position = Vector3(0, -0.5, 0) # 例
-	
-	var collision = CollisionShape3D.new()
-	var shape = SphereShape3D.new()
-	shape.radius = 0.5 # モデルに合わせて調整してください
-	collision.shape = shape
-	collision.name = "CollisionShape3D" # enemy.gdから参照できるように名前を付ける
-	enemy_instance.add_child(collision)
-	var area_radius := 2.5
+	# Detection Area
 	var detection_area = Area3D.new()
 	detection_area.name = "DetectionArea"
 	detection_area.monitoring = true
 	detection_area.monitorable = true
 	var area_shape = CollisionShape3D.new()
 	var sphere = SphereShape3D.new()
-	sphere.radius = area_radius
+	sphere.radius = 2.5
 	area_shape.shape = sphere
 	detection_area.add_child(area_shape)
 	enemy_instance.add_child(detection_area)
-	# 安全に取得できない場合はデフォルト 2.5 を使う
-	# ======= enemy.gdに必要な情報を渡す =======
-	enemy_instance.global_position = pos
-	enemy_instance.health = 100
-	enemy_instance.speed = 5.0
-	enemy_instance.biome_type = biome_type
-	enemy_instance.state = State.IDLE
-	enemy_instance.enemy_name = enemy_key
-	# 全てのアニメーションモデルのパスを enemy.gd に渡す
-	# enemy_instance が `enemy.gd` スクリプトを持つインスタンスであることを確認
-	if enemy_instance.has_method("set_animation_model_paths"):
-		enemy_instance.set_animation_model_paths(all_animation_model_paths)
-	else:
-		push_warning("Enemy instance does not have 'set_animation_model_paths' method.")
 
-	# ======= シーンに追加 =======
+	enemy_instance.set_animation_model_paths(all_animation_model_paths)
+	enemy_instance.assign_battle_idle_anim()
+
 	get_tree().current_scene.add_child(enemy_instance)
+	enemy_instance.global_position = pos
 	spawned_enemies.append(enemy_instance)
-	if visual_model_root_instance:
-		visual_model_root_instance.name = "VisualModelRoot"
-		enemy_instance.add_child(visual_model_root_instance)
-		enemy_instance.current_visual_model_root = visual_model_root_instance
 
-	# 追加: 足元補正
-	if enemy_instance.has_method("adjust_model_to_ground"):
-		enemy_instance.adjust_model_to_ground()
-func delete_enemy():
-	while spawned_enemies.size() > 0:
-		spawned_enemies.back().queue_free()
-		spawned_enemies.pop_back()
-func list_enemy_in_folder(path: String):
+func list_enemy_in_folder(path: String) -> void:
 	var dir = DirAccess.open(path)
 	if dir == null:
-		push_error("Enemy Spawner Error: Directory not found at path: '" + path + "'.")
+		push_error("Enemy Spawner Error: Directory not found at: " + path)
 		return
 
 	dir.list_dir_begin()
@@ -200,105 +172,112 @@ func list_enemy_in_folder(path: String):
 			continue
 
 		var full_item_path = path.path_join(item_name)
-
-		if dir.current_is_dir(): # 敵の種類ごとのフォルダ（例: fantasy_wolf/）
+		if dir.current_is_dir():
 			var sub_dir = DirAccess.open(full_item_path)
 			if sub_dir:
-				var animation_model_paths_for_enemy = []
-				var default_model_path_for_enemy = "" # "idle.glb"など、初期表示用
-
+				var anim_paths = []
+				var def_model_path = ""
 				sub_dir.list_dir_begin()
 				var file_name = sub_dir.get_next()
 				while file_name != "":
 					if not sub_dir.current_is_dir():
-						var extension = file_name.get_extension().to_lower()
-						if extension in ["glb", "gltf", "tscn"]:
-							var model_file_path = full_item_path.path_join(file_name)
-							animation_model_paths_for_enemy.append(model_file_path)
-
-							# "idle"を含むファイルをデフォルトとする
-							if file_name.to_lower().contains("idle") and default_model_path_for_enemy == "":
-								default_model_path_for_enemy = model_file_path
+						var ext = file_name.get_extension().to_lower()
+						if ext in ["glb", "gltf", "tscn"]:
+							var model_file = full_item_path.path_join(file_name)
+							anim_paths.append(model_file)
+							if file_name.to_lower().contains("idle") and def_model_path == "":
+								def_model_path = model_file
 					file_name = sub_dir.get_next()
 				sub_dir.list_dir_end()
-				
-				# デフォルトモデルが設定されていない場合、最初に見つけたものを採用
-				if default_model_path_for_enemy == "" and not animation_model_paths_for_enemy.is_empty():
-					default_model_path_for_enemy = animation_model_paths_for_enemy[0]
 
-				if not animation_model_paths_for_enemy.is_empty():
-					# enemy_data の形式: [デフォルトモデルパス, 全アニメーションモデルパスのリスト, [ステージ番号]]
-					enemy_data[item_name] = [default_model_path_for_enemy, animation_model_paths_for_enemy, []]
-				else:
-					push_warning("No suitable model files found in enemy folder: " + full_item_path)
-			else:
-				push_warning("Could not open sub-directory: " + full_item_path)
-		
+				if def_model_path == "" and not anim_paths.is_empty():
+					def_model_path = anim_paths[0]
+
+				if not anim_paths.is_empty():
+					enemy_data[item_name] = [def_model_path, anim_paths, []]
 		item_name = dir.get_next()
 	dir.list_dir_end()
 
-	print("Found " + str(enemy_data.size()) + " enemy types.")
 	for key in enemy_data.keys():
-		print(("- Enemy: '%s', Default Model: '%s', Total Animations: %d") % [key, enemy_data[key][0], enemy_data[key][1].size()])
-
-	# ★キー（フォルダ名）でバイオームを割り当てる
-	for key in enemy_data.keys():
-		# enemy_data[key][2] がステージのリスト
-		if key=="fantasy_wolf" or key=="stone_guardian" or key=="swamp_guardian" or key=="bee":
+		if key in ["fantasy_wolf", "stone_guardian", "swamp_guardian", "bee", "wood_monster"]:
 			enemy_data[key][2].append(0) # Plane
-		elif key=="mushroom_man" or key=="mysterious_mummy" or key=="aquatic_guardian":
+		elif key in ["mushroom_man", "mysterious_mummy", "aquatic_guardian", "cave_dragon"]:
 			enemy_data[key][2].append(1) # Cave
-		elif key=="skeleton" or key=="enigmatic_sorcerer":
+		elif key in ["scorpion", "spider", "snake_head", "octopus"]:
+			enemy_data[key][2].append(2) # Desert
+		elif key in ["wolf", "blue_dragon", "kurione"]:
+			enemy_data[key][2].append(3) # Snow
+		elif key in ["skeleton", "enigmatic_sorcerer", "demon", "red_magician"]:
 			enemy_data[key][2].append(4) # Castle
-		# Desertは現在空だが、必要に応じて追加
-		# Snowは現在空だが、必要に応じて追加
-			
+
 	for key in enemy_data.keys():
-		for i in range(enemy_data[key][2].size()):
-			# stage_enemyにはフォルダ名（敵の名前）を追加する
-			stage_enemy[enemy_data[key][2][i]].append(key)
-			
-func _process(delta):
-	if not is_instance_valid(player) or nearest_ground == null or nearest_ground.is_empty():
+		for stage_idx in enemy_data[key][2]:
+			stage_enemy[stage_idx].append(key)
+
+var _spawn_queue: Array = []  # キュー: [Vector3] のリスト
+
+func _process(delta: float) -> void:
+	if not is_instance_valid(player) or nearest_ground.is_empty():
 		return
 	if not can_spawn:
 		return
+	if "isbattle" in player and player.isbattle:
+		return
+
+	# キューから1フレームに1体だけスポーン（フリーズ防止）
+	if not _spawn_queue.is_empty():
+		var pos = _spawn_queue.pop_front()
+		spawn_enemy(pos)
+		return  # スポーンしたフレームはスキャンしない
+
 	spawn_time += delta
-	if spawn_time >= 4.0:
+	if spawn_time >= 2.0:
+		spawn_time = 0.0
+		spawned_enemies = spawned_enemies.filter(func(e): return is_instance_valid(e))
 		var cur_pos = player.global_transform.origin
-		for i in range(-spawn_range,spawn_range+1):
-			for j in range(-spawn_range,spawn_range+1):
-				var check_x = int(cur_pos.x) - i
-				var check_y = int(cur_pos.y)
-				var check_z = int(cur_pos.z) - j
+		var ground_y_size = d
+		var ground_x_size = terrain_node.worldh
+		var ground_z_size = terrain_node.worldw
+		
+		
+
+		# 計算負荷（14000回ループによるカクつき）を無くすため、ランダムサンプリング方式に変更
+		var sample_count = 30
+		for _s in range(sample_count):
+			# ランダムな角度と距離でドーナツ状の範囲から座標を取得
+			var angle = randf() * PI * 2.0
+			var dist = randf_range(min_spawn_range, max_spawn_range)
+			var i = int(cos(angle) * dist)
+			var j = int(sin(angle) * dist)
+			
+			var check_x = int(cur_pos.x) + i
+			var check_y = int(cur_pos.y)
+			var check_z = int(cur_pos.z) + j
+
+			if check_y < 0 or check_y >= ground_y_size: continue
+			if check_x < 0 or check_x >= ground_x_size: continue
+			if check_z < 0 or check_z >= ground_z_size: continue
+
+			if check_x % 12 == 0 and check_z % 12 == 0:
+				var ground_y = nearest_ground[check_y][check_x][check_z]
+				if ground_y <= 30: continue
 				
-				if check_y < 0 or check_y >= nearest_ground.size(): continue
-				if check_x < 0 or check_x >= nearest_ground[0].size(): continue
-				if check_z < 0 or check_z >= nearest_ground[0][0].size(): continue
-				
-				if i*i + j*j <= spawn_range*spawn_range:
-					# スポーン頻度を調整する条件（例: 4マスごとに1体）
-					if check_x % 10 == 0 and check_z % 10 == 0: # Y座標のチェックは地形に依存するため、ここでは外す
-						var ground_y = nearest_ground[check_y][check_x][check_z]
-						if ground_y < 0: continue
-						if isspawned[ground_y][check_x][check_z] == 0:
-							# Y座標は地面の高さ+オフセットを使用
-							if ground_y < 0: continue # 地面がない場所にはスポーンしない
-							isspawned[ground_y][check_x][check_z] = 1 # スポーン済みにする
-							spawn_enemy(Vector3(float(check_x), ground_y + 1.0, float(check_z))) # 地面から1.0上のY座標
+				var spawn_coord = Vector3i(check_x, ground_y, check_z)
+				if not isspawned.has(spawn_coord):
+					isspawned[spawn_coord] = true
+					_spawn_queue.append(Vector3(float(check_x), float(ground_y) + 0.6, float(check_z)))
+					break # 1回のチェック処理で最大1体だけキューに入れる（分散させる）
+
 func _ready() -> void:
 	var parent = get_parent()
 	if not is_instance_valid(parent):
-		push_error("Spawner's parent is not ready.")
 		return
-		
-	player = parent.get_node_or_null("CharacterBody3D")
-	var terrain_node = parent.get_node_or_null("terrain")
 
+	player = parent.get_node_or_null("CharacterBody3D")
+	terrain_node = parent.get_node_or_null("terrain")
 	if not is_instance_valid(player) or not is_instance_valid(terrain_node):
-		push_error("Spawner could not find Player or Terrain node.")
 		return
-		
+
 	h = terrain_node.h
 	w = terrain_node.w
 	d = terrain_node.d
@@ -311,57 +290,83 @@ func _ready() -> void:
 	castle_start_h = terrain_node.castle_start_h
 	castle_start_w = terrain_node.castle_start_w
 	nearest_ground = terrain_node.nearest_ground
-	
-	if nearest_ground == null or nearest_ground.is_empty():
-		push_warning("Terrain has not generated 'nearest_ground' data yet.")
-		return
-		
-	var nearest_ground_y_size = nearest_ground.size()
-	var nearest_ground_x_size = 0
-	var nearest_ground_z_size = 0
 
-	if nearest_ground_y_size > 0:
-		nearest_ground_x_size = nearest_ground[0].size()
-	if nearest_ground_x_size > 0:
-		nearest_ground_z_size = nearest_ground[0][0].size()
-
-	isspawned = []
-	for k_y in range(nearest_ground_y_size): # Y軸 (最も外側の次元)
-		isspawned.append([])
-		for i_x in range(nearest_ground_x_size): # X軸 (2番目の次元)
-			isspawned[k_y].append([])
-			for j_z in range(nearest_ground_z_size): # Z軸 (最も内側の次元)
-				isspawned[k_y][i_x].append(0) # 0で初期化
+	isspawned.clear()
 
 	plane_range_hl = plane_start_h
-	plane_range_hr = plane_start_h+h-1
+	plane_range_hr = plane_start_h + h - 1
 	plane_range_wl = plane_start_w
-	plane_range_wr = plane_start_w+w-1
+	plane_range_wr = plane_start_w + w - 1
 	plane_range_dl = 31
 	plane_range_dr = 41
+
 	desert_range_hl = desert_start_h
-	desert_range_hr = desert_start_h+h-1
+	desert_range_hr = desert_start_h + h - 1
 	desert_range_wl = desert_start_w
-	desert_range_wr = desert_start_w+w-1
+	desert_range_wr = desert_start_w + w - 1
 	desert_range_dl = 31
 	desert_range_dr = 41
+
 	cave_range_hl = cave_start_h
-	cave_range_hr = cave_start_h+h-1
+	cave_range_hr = cave_start_h + h - 1
 	cave_range_wl = cave_start_w
-	cave_range_wr = cave_start_w+w-1
+	cave_range_wr = cave_start_w + w - 1
 	cave_range_dl = 0
 	cave_range_dr = 30
+
 	snow_range_hl = plane_start_h
-	snow_range_hr = plane_start_h+h-1
+	snow_range_hr = plane_start_h + h - 1
 	snow_range_wl = plane_start_w
-	snow_range_wr = plane_start_w+w-1
+	snow_range_wr = plane_start_w + w - 1
 	snow_range_dl = 42
-	snow_range_dr = d-1
+	snow_range_dr = d - 1
+
 	castle_range_hl = castle_start_h
-	castle_range_hr = castle_start_h+h-1
+	castle_range_hr = castle_start_h + h - 1
 	castle_range_wl = castle_start_w
-	castle_range_wr = castle_start_w+w-1
+	castle_range_wr = castle_start_w + w - 1
 	castle_range_dl = 31
-	castle_range_dr = d-1
-	
+	castle_range_dr = d - 1
+
 	list_enemy_in_folder("res://model/enemy/have_animation/")
+
+
+func spawn_boss(enemy_key: String, pos: Vector3, scale_mult: float = 3.0, biome: int = 4) -> Node3D:
+	if not enemy_data.has(enemy_key):
+		push_error("Boss enemy key not found: " + enemy_key)
+		return null
+		
+	var enemy_info = enemy_data[enemy_key]
+	var all_animation_model_paths: Array = enemy_info[1]
+
+	var enemy_instance = Enemy.new()
+	enemy_instance.name = enemy_key + "_Boss"
+	enemy_instance.is_boss = true
+	enemy_instance.global_position = pos
+	enemy_instance.health = 5000
+	enemy_instance.max_health = 5000
+	enemy_instance.speed = 3.0
+	enemy_instance.biome_type = biome
+	enemy_instance.state = 0 # IDLE
+	enemy_instance.enemy_name = enemy_key
+
+	# Detection Area (bigger for boss)
+	var detection_area = Area3D.new()
+	detection_area.name = "DetectionArea"
+	detection_area.monitoring = true
+	detection_area.monitorable = true
+	var area_shape = CollisionShape3D.new()
+	var sphere = SphereShape3D.new()
+	sphere.radius = 8.0 * scale_mult
+	area_shape.shape = sphere
+	detection_area.add_child(area_shape)
+	enemy_instance.add_child(detection_area)
+
+	enemy_instance.set_animation_model_paths(all_animation_model_paths)
+	enemy_instance.assign_battle_idle_anim()
+	enemy_instance.scale = Vector3(scale_mult, scale_mult, scale_mult)
+
+	get_tree().current_scene.add_child(enemy_instance)
+	enemy_instance.global_position = pos
+	spawned_enemies.append(enemy_instance)
+	return enemy_instance

@@ -195,6 +195,8 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 		elif biome_type == 3:
 			ally_instance.position = Vector3(snow_battle_pos.x+1,snow_battle_pos.y+0.6,snow_battle_pos.z+(i+1)*spacing1)
 		ally_instance.rotation = Vector3(0, deg_to_rad(90), 0)
+		if ally_instance.has_method("setup_hp_bar_for_battle"):
+			ally_instance.setup_hp_bar_for_battle()
 		allies_root.add_child(ally_instance)
 		spawned_allies.append(ally_instance)
 		allies_start_pos.append(ally_instance.position)
@@ -224,7 +226,17 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 			enemy_instance.queue_free()
 			continue
 		var enemy_info = enemy_data.get(name)
-		var loaded_default_model_scene = load(enemy_info[0])
+		var model_path = enemy_info[0]
+		
+		var loaded_default_model_scene = null
+		if UnitBase.packed_scene_cache.has(model_path):
+			loaded_default_model_scene = UnitBase.packed_scene_cache[model_path]
+		else:
+			if ResourceLoader.load_threaded_get_status(model_path) == ResourceLoader.THREAD_LOAD_LOADED:
+				loaded_default_model_scene = ResourceLoader.load_threaded_get(model_path)
+			else:
+				loaded_default_model_scene = load(model_path)
+		
 		var visual_model_root_instance: Node3D = null
 
 		if loaded_default_model_scene is PackedScene:
@@ -261,6 +273,8 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 		enemy_instance.state = State.BATTLE_IDLE
 		if enemy_instance.has_method("adjust_model_to_ground"):
 			enemy_instance.adjust_model_to_ground()
+		if enemy_instance.has_method("setup_hp_bar_for_battle"):
+			enemy_instance.setup_hp_bar_for_battle()
 		enemies_root.add_child(enemy_instance)
 		spawned_enemies.append(enemy_instance)
 		enemies_start_pos.append(enemy_instance.position)
@@ -305,7 +319,10 @@ func end_battle():
 	get_parent().allies_base_attack = []
 	get_parent().allies_base_defense = []
 	for i in range(spawned_allies.size()):
-		resallies_cur_health[i] = spawned_allies[i].hp
+		if is_instance_valid(spawned_allies[i]):
+			resallies_cur_health[i] = spawned_allies[i].hp
+		else:
+			resallies_cur_health[i] = 0
 	for i in range(spawned_allies.size()):
 		var ally = spawned_allies[i]
 		if ally != null:
@@ -331,14 +348,13 @@ func end_battle():
 
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	get_parent().money += money
-	var d = get_parent().get_node("spawn_enemy").isspawned.size()
-	var h = get_parent().get_node("spawn_enemy").isspawned[0].size()
-	var w = get_parent().get_node("spawn_enemy").isspawned[0][0].size()
-	for k in range(d):
-		for i in range(h):
-			for j in range(w):
-				get_parent().get_node("spawn_enemy").isspawned[k][i][j] = 0
-	get_parent().get_node("spawn_enemy").spawn_time = 0.0
+	var spawn_node = get_parent().get_node_or_null("spawn_enemy")
+	if spawn_node:
+		if spawn_node.has_method("reset_spawn_state"):
+			spawn_node.reset_spawn_state()
+		else:
+			spawn_node.isspawned.clear()
+			spawn_node.spawn_time = 0.0
 	# バトルシーン削除
 	queue_free()
 # --- バトルステートマシン本体 ---
@@ -353,7 +369,10 @@ func _process_battle_state():
 		BattleState.PLAYER_TURN_START:
 			# "Your Turn" UI表示
 			for i in range(spawned_allies.size()):
-				get_parent().allies_cur_health[i] = spawned_allies[i].hp
+				if is_instance_valid(spawned_allies[i]):
+					get_parent().allies_cur_health[i] = spawned_allies[i].hp
+				else:
+					get_parent().allies_cur_health[i] = 0
 			
 			await _show_label(your_turn_label, 1.0)
 			puzzle_board.canmove = true
@@ -373,8 +392,9 @@ func _process_battle_state():
 				for i in range(spawned_allies.size()):
 					var info = allies_to_spawn[i]
 					var ally = spawned_allies[i]
-					EffectManager.show_effect("shield", ally.position + Vector3(0, 1, 0))
-					ally.defense += info.defense*score[3]
+					if is_instance_valid(ally):
+						EffectManager.show_effect("shield", ally.position + Vector3(0, 1, 0))
+						ally.defense += info.defense*score[3]
 			money += score[1]
 			await get_tree().create_timer(1.0).timeout
 			battle_state = BattleState.PLAYER_ATTACK
@@ -590,7 +610,7 @@ func _move_to_start(actor: CharacterBody3D,cnt: int,team: int):
 func _player_turn_sequence(score: Array):
 	for i in range(spawned_allies.size()):
 		var ally = spawned_allies[i]
-		if not ally:
+		if not is_instance_valid(ally):
 			continue
 		if ally.state == ally.State.DEAD:
 			continue
@@ -638,7 +658,9 @@ func _player_turn_sequence(score: Array):
 		else:
 			await _player_all_attack(ally,effect,dmg)
 func _show_label(label: Control, duration: float):
-	await get_tree().create_timer(duration).timeout
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if puzzle_board:
+		puzzle_board.canmove = false
 	label.visible = true
 	await get_tree().create_timer(duration).timeout
 	label.visible = false
@@ -681,7 +703,7 @@ func _show_heal_number(amount: int,world_pos: Vector3,team: int):
 func _get_random_living_enemy() -> CharacterBody3D:
 	var living_enemies = []
 	for enemy in spawned_enemies:
-		if enemy and enemy.is_inside_tree() and enemy.state != enemy.State.DEAD:
+		if is_instance_valid(enemy) and enemy.is_inside_tree() and enemy.state != enemy.State.DEAD:
 			living_enemies.append(enemy)
 	
 	if living_enemies.is_empty():
@@ -691,7 +713,7 @@ func _get_random_living_enemy() -> CharacterBody3D:
 func _get_random_living_ally() -> CharacterBody3D:
 	var living_allies = []
 	for ally in spawned_allies:
-		if ally and ally.is_inside_tree() and ally.state != ally.State.DEAD:
+		if is_instance_valid(ally) and ally.is_inside_tree() and ally.state != ally.State.DEAD:
 			living_allies.append(ally)
 	
 	if living_allies.is_empty():

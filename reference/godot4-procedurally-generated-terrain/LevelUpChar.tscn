@@ -78,6 +78,7 @@ horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="hp" type="Label" parent="ColorRect"]
+layout_mode = 0
 offset_left = 260.0
 offset_top = 40.0
 offset_right = 420.0
@@ -85,6 +86,7 @@ offset_bottom = 63.0
 text = "HP:"
 
 [node name="atk" type="Label" parent="ColorRect"]
+layout_mode = 0
 offset_left = 260.0
 offset_top = 80.0
 offset_right = 340.0
@@ -92,6 +94,7 @@ offset_bottom = 103.0
 text = "ATK:"
 
 [node name="def" type="Label" parent="ColorRect"]
+layout_mode = 0
 offset_left = 340.0
 offset_top = 80.0
 offset_right = 420.0

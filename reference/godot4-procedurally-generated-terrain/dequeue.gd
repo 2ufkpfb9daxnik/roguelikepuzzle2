@@ -11,8 +11,7 @@ var count : int = 0
 func _init(initial_capacity: int = 1024) -> void:
 	capacity = initial_capacity
 	buffer = []
-	for i in range(capacity):
-		buffer.append(null)
+	buffer.resize(capacity)
 
 # --- ヘルパー ---
 func is_empty() -> bool:
@@ -27,8 +26,7 @@ func size() -> int:
 func _grow() -> void:
 	var new_capacity = capacity * 2
 	var new_buffer = []
-	for i in range(new_capacity):
-		new_buffer.append(null)
+	new_buffer.resize(new_capacity)
 	# 既存データをコピー
 	for i in range(count):
 		new_buffer[i] = buffer[(head + i) % capacity]
