@@ -3180,12 +3180,10 @@ var _last_yield_time: int = 0
 var is_generating = true
 var _yield_counter: int = 0
 func _conditional_yield():
-	_yield_counter += 1
-	if _yield_counter % 512 == 0:
-		var current_time = Time.get_ticks_msec()
-		if current_time - _last_yield_time > 50:
-			await get_tree().process_frame
-			_last_yield_time = Time.get_ticks_msec()
+	var current_time = Time.get_ticks_msec()
+	if current_time - _last_yield_time > 12:
+		await get_tree().process_frame
+		_last_yield_time = Time.get_ticks_msec()
 
 func _add_loading_progress(amount: float):
 	if loading_progress:
