@@ -160,8 +160,7 @@ func _process(_delta: float) -> void:
 					for dy in range(1, 20):
 						if py + dy >= terrain_node.d: break
 						var c = terrain_node.get_map3dnum(px, py + dy, pz)
-						# 0:Grass/Dirt, 2:Rock, 3:Snow, 4:Sand, 5:Wall
-						if c == 0 or c == 2 or c == 3 or c == 4 or c == 5:
+						if c == 0: # ONLY Dirt/Grass as requested
 							is_under = true
 							break
 				
@@ -613,8 +612,7 @@ func _update_underground_map():
 	var wh_ww = worldh * worldw
 	var max_y = terrain_node.d - 1
 	
-	var start_y = 32
-	if start_y > max_y - 1: start_y = max_y - 1
+	var start_y = max_y - 1
 	
 	var data = PackedByteArray()
 	data.resize(size * size * 4)
@@ -647,7 +645,7 @@ func _update_underground_map():
 				var cell = map_array[idx]
 				
 				if not found_ceiling:
-					if cell == 0 or cell == 2 or cell == 3 or cell == 4 or cell == 5:
+					if cell != -1 and cell != 1: # Any solid block constitutes a ceiling
 						found_ceiling = true
 						surface_y = y
 				elif not in_cave_air:
