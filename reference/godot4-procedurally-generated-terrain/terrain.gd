@@ -3864,19 +3864,16 @@ func _async_generate_terrain():
 	for i in range(worldh):
 		for j in range(worldw):
 			var dirt_found = false
-			# Calculate the true surface height at this column
-			var surface_y = int(floor(map[i][j] / 0.1))
-			
 			for k in range(d - 1, -1, -1):
 				var idx = k * worldh * worldw + i * worldw + j
 				var c = _map3dnum_flat[idx]
 				
-				# If we find ANY solid block (not air, not water) at or below the true surface height,
-				# it means we have reached the natural terrain cover (mountain, plain, etc).
-				# This safely ignores bridges and buildings which are built ABOVE the surface height.
-				if k <= surface_y and c != -1 and c != 1:
+				# 4 (Grass/Dirt) and 5 (Cave Wall/Castle) are the "dirt" blocks.
+				# We specifically exclude 2 (Rock) so bridges don't trigger the underground map,
+				# but 5 must be included everywhere so dungeons under the Demon Castle are correctly detected.
+				if c == 4 or c == 5:
 					dirt_found = true
-					
+				
 				if dirt_found:
 					has_dirt_above_flat[idx] = 1
 
