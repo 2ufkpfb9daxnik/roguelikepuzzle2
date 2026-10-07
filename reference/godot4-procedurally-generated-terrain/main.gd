@@ -132,11 +132,6 @@ func _ready() -> void:
 	
 	# メインカメラがマップ用マーカー(レイヤー2)を映さないようにする
 	if player_node:
-		if Engine.get_frames_drawn() == 100:
-			var worldh = get_node("terrain").worldh
-			var worldw = get_node("terrain").worldw
-			player_node.global_position = Vector3(worldh/2.0, 15.0, worldw/2.0)
-			print("[DEBUG] Teleported player to underground!")
 		var cam = player_node.get_node_or_null("Camera3D")
 		if cam:
 			cam.cull_mask &= ~2 # ビット1 (レイヤー2) を除外
@@ -145,11 +140,6 @@ func _process(_delta: float) -> void:
 	_update_hud()
 	
 	if player_node:
-		if Engine.get_frames_drawn() == 100:
-			var worldh = get_node("terrain").worldh
-			var worldw = get_node("terrain").worldw
-			player_node.global_position = Vector3(worldh/2.0, 15.0, worldw/2.0)
-			print("[DEBUG] Teleported player to underground!")
 		var in_battle = false
 		if "isbattle" in player_node:
 			in_battle = player_node.isbattle
@@ -176,8 +166,6 @@ func _process(_delta: float) -> void:
 							break
 				
 				_is_underground_cached = is_under
-				if Engine.get_frames_drawn() % 60 == 0:
-					print("[DEBUG] is_under:", is_under, " py:", py, " px:", px, " pz:", pz)
 				
 				if _is_underground_cached:
 					minimap_container.modulate.a = 0.3
@@ -201,11 +189,6 @@ func _process(_delta: float) -> void:
 			else:
 				minimap_camera.global_position = player_node.global_position + Vector3(0, 80, 0)
 			minimap_camera.rotation_degrees = Vector3(-90, 0, 0)
-			if Engine.get_frames_drawn() == 150:
-				if underground_image:
-					underground_image.save_png("res://debug_underground.png")
-					print("[DEBUG] Saved underground map to debug_underground.png")
-				get_tree().quit()
 			
 			if underground_texture_rect and underground_texture_rect.visible:
 				var radius = 75
