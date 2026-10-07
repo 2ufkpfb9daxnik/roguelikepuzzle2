@@ -150,16 +150,21 @@ func _process(_delta: float) -> void:
 			else:
 				minimap_container.visible = true
 				
-				if not has_meta("_last_ground_y"): set_meta("_last_ground_y", player_node.global_position.y)
-				var last_y = get_meta("_last_ground_y")
-				if player_node.is_on_floor():
-					last_y = player_node.global_position.y
-					set_meta("_last_ground_y", last_y)
-				elif abs(player_node.global_position.y - last_y) > 3.0:
-					last_y = player_node.global_position.y
-					set_meta("_last_ground_y", last_y)
-					
-				_is_underground_cached = last_y < 29.5
+				var is_under = false
+				var terrain_node = get_node_or_null("terrain")
+				if terrain_node and terrain_node.has_method("get_map3dnum"):
+					var px = int(round(player_node.global_position.x))
+					var pz = int(round(player_node.global_position.z))
+					var py = int(round(player_node.global_position.y))
+					# Check up to 20 blocks above the player for a ceiling
+					for dy in range(1, 20):
+						if py + dy >= terrain_node.d: break
+						var c = terrain_node.get_map3dnum(px, py + dy, pz)
+						if c != -1 and c != 1: # Not air and not water -> Ceiling found
+							is_under = true
+							break
+				
+				_is_underground_cached = is_under
 				
 				if _is_underground_cached:
 					minimap_container.modulate.a = 0.3
