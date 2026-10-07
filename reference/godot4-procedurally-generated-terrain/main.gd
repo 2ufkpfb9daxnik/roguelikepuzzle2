@@ -662,13 +662,7 @@ func _update_underground_map():
 			
 			var pixel_idx = pz_base_idx + px_img * 4
 			
-			var is_path = false
 			if floor_y != -1:
-				is_path = true
-			elif surface_y != -1 and abs(surface_y - py) <= 3:
-				is_path = true
-				
-			if is_path:
 				# 道 (茶色)
 				data[pixel_idx] = 153
 				data[pixel_idx + 1] = 102
