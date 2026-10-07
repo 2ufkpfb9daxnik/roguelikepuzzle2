@@ -635,18 +635,24 @@ func _update_underground_map():
 			var idx = py_idx_offset + wx * worldw + wz
 			var found_empty = false
 			
-			var in_air = false
+			var found_ceiling = false
+			var in_cave_air = false
 			var floor_y = -1
 			
 			for y in range(start_y, -1, -1):
 				var cell = map_array[idx]
-				if not in_air:
-					if cell == -1:
-						in_air = true
+				
+				if not found_ceiling:
+					if cell != -1 and cell != 1: # Find a solid block (ceiling)
+						found_ceiling = true
+				elif not in_cave_air:
+					if cell == -1: # Find air under the ceiling
+						in_cave_air = true
 				else:
-					if cell != -1:
+					if cell != -1: # Find solid block under the air (floor)
 						floor_y = y
 						break
+						
 				idx -= wh_ww
 			
 			if floor_y != -1:
