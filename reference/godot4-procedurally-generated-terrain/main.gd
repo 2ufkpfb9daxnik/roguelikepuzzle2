@@ -169,9 +169,9 @@ func _process(_delta: float) -> void:
 					# Check up to 20 blocks above the player for a ceiling
 					for y in range(py + 1, terrain_node.d):
 						var c = terrain_node.get_map3dnum(px, y, pz)
-						# Check for natural surface blocks (0:Grass, 2:Rock, 3:Snow, 4:Sand)
-						# EXCLUDE 5 (Wall) so walking inside the surface Demon Castle doesn't trigger underground map
-						if c == 0 or c == 2 or c == 3 or c == 4:
+						# STRICTLY ONLY Dirt/Grass (0) as explicitly requested by user
+						# This prevents bridges (made of rock=2) from triggering the underground map
+						if c == 0:
 							is_under = true
 							break
 				
