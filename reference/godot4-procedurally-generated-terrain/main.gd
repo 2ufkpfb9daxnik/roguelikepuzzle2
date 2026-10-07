@@ -674,12 +674,6 @@ func _update_underground_map():
 				data[pixel_idx + 1] = 51
 				data[pixel_idx + 2] = 25
 				data[pixel_idx + 3] = 200
-			else:
-				# 壁 (濃い茶色、半透明にして地上のマップが透けるように)
-				data[pixel_idx] = 76
-				data[pixel_idx + 1] = 51
-				data[pixel_idx + 2] = 25
-				data[pixel_idx + 3] = 200
 				
 	# Add red player marker
 	var center = radius
