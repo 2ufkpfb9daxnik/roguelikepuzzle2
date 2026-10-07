@@ -157,9 +157,8 @@ func _process(_delta: float) -> void:
 					var pz = int(round(player_node.global_position.z))
 					var py = int(round(player_node.global_position.y))
 					# Check up to 20 blocks above the player for a ceiling
-					for dy in range(1, 20):
-						if py + dy >= terrain_node.d: break
-						var c = terrain_node.get_map3dnum(px, py + dy, pz)
+					for y in range(py + 1, terrain_node.d):
+						var c = terrain_node.get_map3dnum(px, y, pz)
 						if c == 0: # ONLY Dirt/Grass as requested
 							is_under = true
 							break
