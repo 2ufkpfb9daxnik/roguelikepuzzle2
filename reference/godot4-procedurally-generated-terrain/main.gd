@@ -159,9 +159,9 @@ func _process(_delta: float) -> void:
 					# Check up to 20 blocks above the player for a ceiling
 					for y in range(py + 1, terrain_node.d):
 						var c = terrain_node.get_map3dnum(px, y, pz)
-						# STRICTLY ONLY Dirt/Grass (0) as explicitly requested by user
-						# This prevents bridges (made of rock=2) from triggering the underground map
-						if c == 0:
+						# Check for Dirt/Grass (0 and 4). 
+						# We EXCLUDE Rock (2), Snow (3) if not needed, and Wall/Castle (5) to prevent bridge/castle bugs.
+						if c == 0 or c == 4:
 							is_under = true
 							break
 				
@@ -668,6 +668,12 @@ func _update_underground_map():
 				data[pixel_idx + 2] = 51
 				data[pixel_idx + 3] = 255
 				path_count += 1
+			else:
+				# 壁 (濃い茶色、半透明)
+				data[pixel_idx] = 76
+				data[pixel_idx + 1] = 51
+				data[pixel_idx + 2] = 25
+				data[pixel_idx + 3] = 200
 			else:
 				# 壁 (濃い茶色、半透明にして地上のマップが透けるように)
 				data[pixel_idx] = 76
