@@ -3863,12 +3863,17 @@ func _async_generate_terrain():
 	has_dirt_above_flat.fill(0)
 	for i in range(worldh):
 		for j in range(worldw):
+			# Safe check for Demon Castle region (don't treat its roof as dirt)
+			var in_castle = (i >= castle_start_h and i < castle_start_h + h and j >= castle_start_w and j < castle_start_w + w)
 			var dirt_found = false
 			for k in range(d - 1, -1, -1):
 				var idx = k * worldh * worldw + i * worldw + j
 				var c = _map3dnum_flat[idx]
-				if c == 0 or c == 4:
+				if c == 4: # Grass/Dirt
 					dirt_found = true
+				elif c == 5 and not in_castle: # Cave wall/Surface mixed dirt
+					dirt_found = true
+				
 				if dirt_found:
 					has_dirt_above_flat[idx] = 1
 
