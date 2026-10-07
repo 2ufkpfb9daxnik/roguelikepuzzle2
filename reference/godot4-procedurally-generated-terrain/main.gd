@@ -635,19 +635,29 @@ func _update_underground_map():
 			var idx = py_idx_offset + wx * worldw + wz
 			var found_empty = false
 			
+			var in_air = false
+			var floor_y = -1
+			
 			for y in range(start_y, -1, -1):
-				if map_array[idx] == -1:
-					var cup = map_array[idx + wh_ww]
-					if cup != -1 and cup != 1: 
-						found_empty = true
+				var cell = map_array[idx]
+				if not in_air:
+					if cell == -1:
+						in_air = true
+				else:
+					if cell != -1:
+						floor_y = y
 						break
 				idx -= wh_ww
 			
-			if found_empty:
+			if floor_y != -1:
+				# Map floor_y (approx 10 to 30) to brightness (0.4 to 1.0)
+				var intensity = clamp((floor_y - 10.0) / 15.0, 0.0, 1.0)
+				var brightness = 0.4 + intensity * 0.6
+				
 				var pixel_idx = pz_base_idx + px_img * 4
-				data[pixel_idx] = path_color_r
-				data[pixel_idx + 1] = path_color_g
-				data[pixel_idx + 2] = path_color_b
+				data[pixel_idx] = int(path_color_r * brightness)
+				data[pixel_idx + 1] = int(path_color_g * brightness)
+				data[pixel_idx + 2] = int(path_color_b * brightness)
 				data[pixel_idx + 3] = path_color_a
 				path_count += 1
 				
