@@ -597,6 +597,7 @@ func _update_underground_map():
 	
 	var ppos = player_node.global_position
 	var px = int(round(ppos.x))
+	var py = int(round(ppos.y))
 	var pz = int(round(ppos.z))
 	
 	# Skip update if player hasn't moved on X/Z since last update
