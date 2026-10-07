@@ -599,10 +599,6 @@ func _update_underground_map():
 	set_meta("_last_map_px", px)
 	set_meta("_last_map_pz", pz)
 	
-	var path_color_r = 204 # 0.8
-	var path_color_g = 204 # 0.8
-	var path_color_b = 127 # 0.5
-	var path_color_a = 255 # 1.0
 	
 	var map_array = terrain_node._map3dnum_flat
 	var worldh = terrain_node.worldh
@@ -655,17 +651,20 @@ func _update_underground_map():
 						
 				idx -= wh_ww
 			
+			var pixel_idx = pz_base_idx + px_img * 4
 			if floor_y != -1:
-				# Map floor_y (approx 10 to 30) to brightness (0.4 to 1.0)
-				var intensity = clamp((floor_y - 10.0) / 15.0, 0.0, 1.0)
-				var brightness = 0.4 + intensity * 0.6
-				
-				var pixel_idx = pz_base_idx + px_img * 4
-				data[pixel_idx] = int(path_color_r * brightness)
-				data[pixel_idx + 1] = int(path_color_g * brightness)
-				data[pixel_idx + 2] = int(path_color_b * brightness)
-				data[pixel_idx + 3] = path_color_a
+				# 道 (茶色)
+				data[pixel_idx] = 153
+				data[pixel_idx + 1] = 102
+				data[pixel_idx + 2] = 51
+				data[pixel_idx + 3] = 255
 				path_count += 1
+			else:
+				# 壁 (濃い茶色、半透明にして地上のマップが透けるように)
+				data[pixel_idx] = 76
+				data[pixel_idx + 1] = 51
+				data[pixel_idx + 2] = 25
+				data[pixel_idx + 3] = 200
 				
 	# Add red player marker
 	var center = radius
