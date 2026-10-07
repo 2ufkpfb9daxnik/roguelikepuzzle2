@@ -160,7 +160,8 @@ func _process(_delta: float) -> void:
 					for dy in range(1, 20):
 						if py + dy >= terrain_node.d: break
 						var c = terrain_node.get_map3dnum(px, py + dy, pz)
-						if c != -1 and c != 1: # Not air and not water -> Ceiling found
+						# 0:Grass/Dirt, 2:Rock, 3:Snow, 4:Sand, 5:Wall
+						if c == 0 or c == 2 or c == 3 or c == 4 or c == 5:
 							is_under = true
 							break
 				
@@ -639,25 +640,34 @@ func _update_underground_map():
 			var found_ceiling = false
 			var in_cave_air = false
 			var floor_y = -1
+			var surface_y = -1
 			
 			for y in range(start_y, -1, -1):
 				var cell = map_array[idx]
 				
 				if not found_ceiling:
-					if cell != -1 and cell != 1: # Find a solid block (ceiling)
+					if cell == 0 or cell == 2 or cell == 3 or cell == 4 or cell == 5:
 						found_ceiling = true
+						surface_y = y
 				elif not in_cave_air:
-					if cell == -1: # Find air under the ceiling
+					if cell == -1:
 						in_cave_air = true
 				else:
-					if cell != -1: # Find solid block under the air (floor)
+					if cell != -1 and cell != 1:
 						floor_y = y
 						break
 						
 				idx -= wh_ww
 			
 			var pixel_idx = pz_base_idx + px_img * 4
+			
+			var is_path = false
 			if floor_y != -1:
+				is_path = true
+			elif surface_y != -1 and abs(surface_y - py) <= 3:
+				is_path = true
+				
+			if is_path:
 				# 道 (茶色)
 				data[pixel_idx] = 153
 				data[pixel_idx + 1] = 102
