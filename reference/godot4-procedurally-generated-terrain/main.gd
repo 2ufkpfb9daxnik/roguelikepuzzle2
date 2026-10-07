@@ -613,7 +613,8 @@ func _update_underground_map():
 	var wh_ww = worldh * worldw
 	var max_y = terrain_node.d - 1
 	
-	var start_y = max_y - 1
+	var start_y = 35
+	if start_y > max_y - 1: start_y = max_y - 1
 	
 	var data = PackedByteArray()
 	data.resize(size * size * 4)
@@ -637,31 +638,24 @@ func _update_underground_map():
 			var idx = py_idx_offset + wx * worldw + wz
 			var found_empty = false
 			
-			var found_ceiling = false
-			var in_cave_air = false
-			var floor_y = -1
-			var surface_y = -1
+			var state = 0 # 0: looking for surface, 1: looking for underground air
+			var is_path = false
 			
+			# Optimized single-pass, two-state state machine. Drastically reduces instructions per iteration.
 			for y in range(start_y, -1, -1):
 				var cell = map_array[idx]
-				
-				if not found_ceiling:
-					if cell != -1 and cell != 1: # Any solid block constitutes a ceiling
-						found_ceiling = true
-						surface_y = y
-				elif not in_cave_air:
-					if cell == -1:
-						in_cave_air = true
+				if state == 0:
+					if cell != -1 and cell != 1: # Found surface/ceiling
+						state = 1
 				else:
-					if cell != -1 and cell != 1:
-						floor_y = y
+					if cell == -1: # Found air UNDER the surface (cave/path)
+						is_path = true
 						break
-						
 				idx -= wh_ww
 			
 			var pixel_idx = pz_base_idx + px_img * 4
 			
-			if floor_y != -1:
+			if is_path:
 				# 道 (茶色)
 				data[pixel_idx] = 153
 				data[pixel_idx + 1] = 102
