@@ -52,6 +52,7 @@ var collisiondata = []
 var multimeshdata = []
 var chunk_calculated = []
 var _map3dnum_flat = PackedInt32Array()
+var has_dirt_above_flat = PackedByteArray()
 var map3dnum = []
 var nearest_ground = []
 var assignnum = []
@@ -3857,6 +3858,20 @@ func _async_generate_terrain():
 		var castle_boss_pos = Vector3(castle_start_h + h/2, int(floor(baseheightma/0.1)) + 5, castle_start_w + w/2)
 		spawner.spawn_boss("demon", castle_boss_pos, 5.0, 4)
 
+	await _set_loading_text("Phase 8: Precompute Dirt Above")
+	has_dirt_above_flat.resize(d * worldh * worldw)
+	has_dirt_above_flat.fill(0)
+	for i in range(worldh):
+		for j in range(worldw):
+			var dirt_found = false
+			for k in range(d - 1, -1, -1):
+				var idx = k * worldh * worldw + i * worldw + j
+				var c = _map3dnum_flat[idx]
+				if c == 0 or c == 4:
+					dirt_found = true
+				if dirt_found:
+					has_dirt_above_flat[idx] = 1
+
 	if loading_progress: loading_progress.value = 100.0
 	await get_tree().process_frame
 	loading_ui.visible = false
@@ -3880,3 +3895,12 @@ func get_map3dnum(x: int, y: int, z: int) -> int:
 	if idx < 0 or idx >= _map3dnum_flat.size():
 		return -1
 	return _map3dnum_flat[idx]
+
+
+func check_dirt_above(x: int, y: int, z: int) -> bool:
+	if x < 0 or x >= worldh or z < 0 or z >= worldw or y < 0 or y >= d:
+		return false
+	var idx = (y) * worldh * worldw + (x) * worldw + (z)
+	if idx < 0 or idx >= has_dirt_above_flat.size():
+		return false
+	return has_dirt_above_flat[idx] > 0
