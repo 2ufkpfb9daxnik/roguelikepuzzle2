@@ -638,24 +638,27 @@ func _update_underground_map():
 			var idx = py_idx_offset + wx * worldw + wz
 			var found_empty = false
 			
-			var state = 0 # 0: looking for surface, 1: looking for underground air
-			var is_path = false
+			var found_ceiling = false
+			var in_cave_air = false
+			var floor_y = -1
 			
-			# Optimized single-pass, two-state state machine. Drastically reduces instructions per iteration.
 			for y in range(start_y, -1, -1):
 				var cell = map_array[idx]
-				if state == 0:
-					if cell != -1 and cell != 1: # Found surface/ceiling
-						state = 1
+				if not found_ceiling:
+					if cell != -1 and cell != 1:
+						found_ceiling = true
+				elif not in_cave_air:
+					if cell == -1:
+						in_cave_air = true
 				else:
-					if cell == -1: # Found air UNDER the surface (cave/path)
-						is_path = true
+					if cell != -1 and cell != 1:
+						floor_y = y
 						break
 				idx -= wh_ww
 			
 			var pixel_idx = pz_base_idx + px_img * 4
 			
-			if is_path:
+			if floor_y != -1:
 				# 道 (茶色)
 				data[pixel_idx] = 153
 				data[pixel_idx + 1] = 102
