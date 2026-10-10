@@ -185,20 +185,22 @@ func _process(_delta: float) -> void:
 			minimap_camera.rotation_degrees = Vector3(-90, 0, 0)
 			
 			if underground_texture_rect and underground_texture_rect.visible:
-				var radius = 75
-				var scale_factor = minimap_container.size.y / minimap_camera.size
-				var rect_size = (radius * 2 + 1) * scale_factor
-				underground_texture_rect.size = Vector2(rect_size, rect_size)
-				
-				var px = int(round(player_node.global_position.x))
-				var pz = int(round(player_node.global_position.z))
-				var diff_x = px - minimap_camera.global_position.x
-				var diff_z = pz - minimap_camera.global_position.z
-				
-				var center = minimap_container.size / 2.0
-				var offset_x = diff_x * scale_factor
-				var offset_y = diff_z * scale_factor
-				underground_texture_rect.position = minimap_container.position + center + Vector2(offset_x, offset_y) - underground_texture_rect.size / 2.0
+				var terrain_node = get_node_or_null("terrain")
+				if terrain_node:
+					var scale_factor = minimap_container.size.y / minimap_camera.size
+					underground_texture_rect.size = Vector2(terrain_node.worldh, terrain_node.worldw) * scale_factor
+					
+					var diff_x = 0 - minimap_camera.global_position.x
+					var diff_z = 0 - minimap_camera.global_position.z
+					
+					var center = minimap_container.size / 2.0
+					var offset_x = diff_x * scale_factor
+					var offset_y = diff_z * scale_factor
+					
+					underground_texture_rect.position = minimap_container.position + center + Vector2(offset_x, offset_y)
+					
+					# Force generation if not done yet
+					_update_underground_map()
 			
 			if player_marker and minimap_camera:
 				var map_size = minimap_container.size
