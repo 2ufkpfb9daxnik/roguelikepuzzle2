@@ -667,4 +667,4 @@ func _update_underground_map():
 	
 	if underground_texture_rect:
 		underground_texture_rect.texture = tex
-		underground_texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		underground_texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR # Smooth edges to match 3D rendering
