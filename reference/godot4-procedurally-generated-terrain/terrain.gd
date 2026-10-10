@@ -3917,15 +3917,6 @@ func check_dirt_above(x: int, y: int, z: int) -> bool:
 	if x < 0 or x >= worldh or z < 0 or z >= worldw or y < 0 or y >= d:
 		return false
 		
-	# Unconditionally return true for the cave/dungeon area.
-	if z >= cave_start_w and z < cave_start_w + w:
-		return true
-		
-	# Unconditionally return true for the deep dungeon under the castle.
-	if z >= castle_start_w and z < castle_start_w + w:
-		if y < 15:
-			return true
-			
 	var idx = (y) * worldh * worldw + (x) * worldw + (z)
 	if idx < 0 or idx >= has_dirt_above_flat.size():
 		return false
