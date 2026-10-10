@@ -152,18 +152,12 @@ func _process(_delta: float) -> void:
 				
 				var is_under = false
 				var terrain_node = get_node_or_null("terrain")
-				if terrain_node and terrain_node.has_method("get_map3dnum"):
+				if terrain_node and terrain_node.has_method("check_dirt_above"):
 					var px = int(round(player_node.global_position.x))
 					var pz = int(round(player_node.global_position.z))
 					var py = int(round(player_node.global_position.y))
-					# Check up to 20 blocks above the player for a ceiling
-					for y in range(py + 1, terrain_node.d):
-						var c = terrain_node.get_map3dnum(px, y, pz)
-						# Check for Dirt/Grass (0 and 4). 
-						# We EXCLUDE Rock (2), Snow (3) if not needed, and Wall/Castle (5) to prevent bridge/castle bugs.
-						if c == 0 or c == 4:
-							is_under = true
-							break
+					# O(1) check using the precomputed underground map.
+					is_under = terrain_node.check_dirt_above(px, py, pz)
 				
 				_is_underground_cached = is_under
 				
