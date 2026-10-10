@@ -157,7 +157,7 @@ func _process(_delta: float) -> void:
 					var pz = int(round(player_node.global_position.z))
 					var py = int(round(player_node.global_position.y))
 					# O(1) check using the precomputed underground map.
-					is_under = terrain_node.check_dirt_above(px, py, pz)
+					is_under = terrain_node.check_dirt_above(px, py + 2, pz)
 				
 				_is_underground_cached = is_under
 				
@@ -187,6 +187,9 @@ func _process(_delta: float) -> void:
 			if underground_texture_rect and underground_texture_rect.visible:
 				var terrain_node = get_node_or_null("terrain")
 				if terrain_node:
+					if underground_texture_rect.texture == null and "underground_map_texture" in terrain_node:
+						underground_texture_rect.texture = terrain_node.underground_map_texture
+						
 					var scale_factor = minimap_container.size.y / minimap_camera.size
 					underground_texture_rect.size = Vector2(terrain_node.worldh, terrain_node.worldw) * scale_factor
 					
@@ -200,7 +203,8 @@ func _process(_delta: float) -> void:
 					var offset_x = diff_x * scale_factor
 					var offset_y = diff_z * scale_factor
 					
-					underground_texture_rect.position = minimap_container.position + center + Vector2(offset_x, offset_y)
+					# Since it's a child of minimap_container, position is relative to the container!
+					underground_texture_rect.position = center + Vector2(offset_x, offset_y)
 			
 			if player_marker and minimap_camera:
 				var map_size = minimap_container.size
@@ -225,12 +229,10 @@ func _process(_delta: float) -> void:
 				screen_x = clamp(screen_x, 4, map_size.x - 12)
 				screen_y = clamp(screen_y, 4, map_size.y - 12)
 				
-				var target_parent = hud_layer if hud_layer else get_parent()
-				# Adjust position if moving to a sibling of minimap_container
-				player_marker.position = minimap_container.position + Vector2(screen_x, screen_y) - player_marker.size / 2.0
-				if player_marker.get_parent() != target_parent:
-					player_marker.get_parent().remove_child(player_marker)
-					target_parent.add_child(player_marker)
+				# Since player_marker is now a child of minimap_container, just set local position
+				player_marker.position = Vector2(screen_x, screen_y) - player_marker.size / 2.0
+				# Make sure it is drawn on top of underground_texture_rect
+				player_marker.move_to_front()
 
 # ==============================
 # HUD（常時表示UI）
@@ -485,6 +487,7 @@ func _setup_minimap() -> void:
 	minimap_container.size = Vector2(256, 256)
 	minimap_container.position = Vector2(20, get_viewport().get_visible_rect().size.y - 276)
 	minimap_container.modulate = Color(1, 1, 1, 1.0)
+	minimap_container.clip_contents = true
 	
 
 	
@@ -527,25 +530,25 @@ func _setup_minimap() -> void:
 	minimap_viewport.add_child(minimap_camera)
 	minimap_container.add_child(minimap_viewport)
 	
-	player_marker = ColorRect.new()
-	player_marker.name = "PlayerMarker"
-	player_marker.color = Color(1.0, 0.2, 0.2, 1.0) # Red square
-	player_marker.size = Vector2(8, 8)
-	# player_marker moved to under if active
-	minimap_container.add_child(player_marker)
-	
 	underground_texture_rect = TextureRect.new()
 	underground_texture_rect.name = "UndergroundTextureRect"
 	underground_texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	underground_texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	# We will add it later after hud_layer decides where minimap_container goes
+	underground_texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	
+	# Add underground map INSIDE the minimap container so it clips to the bounds perfectly!
+	minimap_container.add_child(underground_texture_rect)
+	
+	player_marker = ColorRect.new()
+	player_marker.name = "PlayerMarker"
+	player_marker.color = Color(1.0, 0.2, 0.2, 1.0)
+	player_marker.size = Vector2(8, 8)
+	minimap_container.add_child(player_marker)
 	
 	if hud_layer:
 		hud_layer.add_child(minimap_container)
-		hud_layer.add_child(underground_texture_rect)
 	else:
 		add_child(minimap_container)
-		add_child(underground_texture_rect)
 
 	_update_map_mode()
 
@@ -586,85 +589,4 @@ func _update_map_mode() -> void:
 			minimap_container.hide()
 
 func _update_underground_map():
-	var terrain_node = get_node_or_null("terrain")
-	if not terrain_node or not terrain_node.has_method("get_map3dnum"): return
-	
-	if has_meta("full_underground_map_generated"): return
-	set_meta("full_underground_map_generated", true)
-	
-	var map_array = terrain_node._map3dnum_flat
-	if map_array.size() == 0: return
-	
-	var worldh = terrain_node.worldh
-	var worldw = terrain_node.worldw
-	var wh_ww = worldh * worldw
-	var start_y = terrain_node.d - 1
-	
-	var data = PackedByteArray()
-	data.resize(worldh * worldw * 4)
-	data.fill(0)
-	
-	var is_path = PackedByteArray()
-	is_path.resize(worldh * worldw)
-	is_path.fill(0)
-	
-	var has_dirt = terrain_node.has_dirt_above_flat
-	if has_dirt.size() == 0: return
-	
-	var world_d = terrain_node.d
-	
-	# 1st Pass: Find underground paths using has_dirt_above_flat
-	for wx in range(worldh):
-		for wz in range(worldw):
-			var is_path_col = false
-			for y in range(world_d - 1):
-				var idx_floor = y * wh_ww + wx * worldw + wz
-				var idx_air = (y + 1) * wh_ww + wx * worldw + wz
-				
-				var cell_floor = map_array[idx_floor]
-				var cell_air = map_array[idx_air]
-				var under = has_dirt[idx_air]
-				
-				if under > 0 and cell_air == -1 and (cell_floor != -1 and cell_floor != 1):
-					is_path_col = true
-					break
-					
-			if is_path_col:
-				is_path[wz * worldh + wx] = 1
-
-	# 2nd Pass: Draw paths and walls
-	for wz in range(worldw):
-		for wx in range(worldh):
-			var p_idx = wz * worldh + wx
-			var pixel_idx = p_idx * 4
-			
-			if is_path[p_idx] == 1:
-				data[pixel_idx] = 153     # Path
-				data[pixel_idx + 1] = 102 
-				data[pixel_idx + 2] = 51  
-				data[pixel_idx + 3] = 255 
-			else:
-				var is_wall = false
-				for dz in range(-2, 3):
-					for dx in range(-2, 3):
-						var nz = wz + dz
-						var nx = wx + dx
-						if nz >= 0 and nz < worldw and nx >= 0 and nx < worldh:
-							if is_path[nz * worldh + nx] == 1:
-								is_wall = true
-								break
-					if is_wall: break
-					
-				if is_wall:
-					data[pixel_idx] = 102    # Wall
-					data[pixel_idx + 1] = 51 
-					data[pixel_idx + 2] = 0  
-					data[pixel_idx + 3] = 200
-				# transparent otherwise!
-
-	var img = Image.create_from_data(worldh, worldw, false, Image.FORMAT_RGBA8, data)
-	var tex = ImageTexture.create_from_image(img)
-	
-	if underground_texture_rect:
-		underground_texture_rect.texture = tex
-		underground_texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR # Smooth edges to match 3D rendering
+	pass

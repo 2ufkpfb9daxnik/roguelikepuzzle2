@@ -3890,6 +3890,70 @@ func _async_generate_terrain():
 
 	if loading_progress: loading_progress.value = 100.0
 	await get_tree().process_frame
+		
+	await _set_loading_text("Phase 9: Generate Underground Map Image")
+	
+	var data = PackedByteArray()
+	data.resize(worldh * worldw * 4)
+	data.fill(0)
+	
+	var is_path = PackedByteArray()
+	is_path.resize(worldh * worldw)
+	is_path.fill(0)
+	
+	var wh_ww = worldh * worldw
+	# Chunked generation to prevent Godot from freezing the loading screen
+	var chunk_size = 20
+	for wx in range(worldh):
+		if wx % chunk_size == 0:
+			await get_tree().process_frame
+			
+		for wz in range(worldw):
+			var is_path_col = false
+			for y in range(d - 1):
+				var idx_floor = y * wh_ww + wx * worldw + wz
+				var idx_air = (y + 1) * wh_ww + wx * worldw + wz
+				var cell_floor = _map3dnum_flat[idx_floor]
+				var cell_air = _map3dnum_flat[idx_air]
+				var under = has_dirt_above_flat[idx_air]
+				if under > 0 and cell_air == -1 and (cell_floor != -1 and cell_floor != 1):
+					is_path_col = true
+					break
+			if is_path_col:
+				is_path[wz * worldh + wx] = 1
+
+	for wx in range(worldh):
+		if wx % chunk_size == 0:
+			await get_tree().process_frame
+			
+		for wz in range(worldw):
+			var p_idx = wz * worldh + wx
+			var pixel_idx = p_idx * 4
+			if is_path[p_idx] == 1:
+				data[pixel_idx] = 153
+				data[pixel_idx + 1] = 102
+				data[pixel_idx + 2] = 51
+				data[pixel_idx + 3] = 255
+			else:
+				var is_wall = false
+				for dz in range(-1, 2):
+					for dx in range(-1, 2):
+						var nz = wz + dz
+						var nx = wx + dx
+						if nz >= 0 and nz < worldw and nx >= 0 and nx < worldh:
+							if is_path[nz * worldh + nx] == 1:
+								is_wall = true
+								break
+					if is_wall: break
+				if is_wall:
+					data[pixel_idx] = 102
+					data[pixel_idx + 1] = 51
+					data[pixel_idx + 2] = 0
+					data[pixel_idx + 3] = 200
+
+	var img = Image.create_from_data(worldh, worldw, false, Image.FORMAT_RGBA8, data)
+	underground_map_texture = ImageTexture.create_from_image(img)
+	
 	loading_ui.visible = false
 	if player:
 		player.process_mode = Node.PROCESS_MODE_INHERIT
