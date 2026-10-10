@@ -3917,13 +3917,12 @@ func check_dirt_above(x: int, y: int, z: int) -> bool:
 	if x < 0 or x >= worldh or z < 0 or z >= worldw or y < 0 or y >= d:
 		return false
 		
-	# Cave Zone: The entire Cave zone is underground. This perfectly masks any holes in the procedurally generated ceiling.
+	# Unconditionally return true for the cave/dungeon area.
 	if z >= cave_start_w and z < cave_start_w + w:
 		return true
 		
-	# Demon Castle Zone: The castle is on the surface, but its dungeon is underground.
+	# Unconditionally return true for the deep dungeon under the castle.
 	if z >= castle_start_w and z < castle_start_w + w:
-		# Castle floor is at y=20 (baseheightma). Below 15 is definitively the dungeon.
 		if y < 15:
 			return true
 			
