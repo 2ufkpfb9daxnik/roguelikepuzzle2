@@ -585,53 +585,29 @@ func _update_underground_map():
 	var terrain_node = get_node_or_null("terrain")
 	if not terrain_node or not terrain_node.has_method("get_map3dnum"): return
 	
-	var start_time = Time.get_ticks_usec()
-	var radius = 75
-	var size = radius * 2 + 1
-	
-	var ppos = player_node.global_position
-	var px = int(round(ppos.x))
-	var py = int(round(ppos.y))
-	var pz = int(round(ppos.z))
-	
-	# Skip update if player hasn't moved on X/Z since last update
-	if has_meta("_last_map_px") and get_meta("_last_map_px") == px and get_meta("_last_map_pz") == pz:
-		return
-	set_meta("_last_map_px", px)
-	set_meta("_last_map_pz", pz)
-	
+	if has_meta("full_underground_map_generated"): return
+	set_meta("full_underground_map_generated", true)
 	
 	var map_array = terrain_node._map3dnum_flat
+	if map_array.size() == 0: return
+	
 	var worldh = terrain_node.worldh
 	var worldw = terrain_node.worldw
 	var wh_ww = worldh * worldw
-	var max_y = terrain_node.d - 1
-	
-	var start_y = 35
-	if start_y > max_y - 1: start_y = max_y - 1
+	var start_y = terrain_node.d - 1
 	
 	var data = PackedByteArray()
-	data.resize(size * size * 4)
-	data.fill(0) # Initialize with transparent (wall color is now completely transparent)
+	data.resize(worldh * worldw * 4)
+	data.fill(0)
 	
-	var path_count = 0
+	var is_path = PackedByteArray()
+	is_path.resize(worldh * worldw)
+	is_path.fill(0)
 	
-	var py_idx_offset = start_y * wh_ww
-	
-	for dz in range(-radius, radius + 1):
-		var wz = pz + dz
-		var pz_img = dz + radius
-		var pz_base_idx = pz_img * size * 4
-		for dx in range(-radius, radius + 1):
-			var wx = px + dx
-			var px_img = dx + radius
-			
-			if wx < 0 or wx >= worldh or wz < 0 or wz >= worldw:
-				continue
-				
-			var idx = py_idx_offset + wx * worldw + wz
-			var found_empty = false
-			
+	# 1st Pass: Find underground paths (ceiling -> air -> floor)
+	for wx in range(worldh):
+		for wz in range(worldw):
+			var idx = start_y * wh_ww + wx * worldw + wz
 			var found_ceiling = false
 			var in_cave_air = false
 			var floor_y = -1
@@ -639,51 +615,50 @@ func _update_underground_map():
 			for y in range(start_y, -1, -1):
 				var cell = map_array[idx]
 				if not found_ceiling:
-					if cell != -1 and cell != 1:
-						found_ceiling = true
+					if cell != -1 and cell != 1: found_ceiling = true
 				elif not in_cave_air:
-					if cell == -1:
-						in_cave_air = true
+					if cell == -1: in_cave_air = true
 				else:
 					if cell != -1 and cell != 1:
 						floor_y = y
 						break
 				idx -= wh_ww
 			
-			var pixel_idx = pz_base_idx + px_img * 4
-			
 			if floor_y != -1:
-				# 道 (茶色)
-				data[pixel_idx] = 153
-				data[pixel_idx + 1] = 102
-				data[pixel_idx + 2] = 51
-				data[pixel_idx + 3] = 255
-				path_count += 1
+				is_path[wz * worldh + wx] = 1
+
+	# 2nd Pass: Draw paths and walls
+	for wz in range(worldw):
+		for wx in range(worldh):
+			var p_idx = wz * worldh + wx
+			var pixel_idx = p_idx * 4
+			
+			if is_path[p_idx] == 1:
+				data[pixel_idx] = 153     # R (Path: Brown)
+				data[pixel_idx + 1] = 102 # G
+				data[pixel_idx + 2] = 51  # B
+				data[pixel_idx + 3] = 255 # A
 			else:
-				# 壁 (濃い茶色、半透明)
-				data[pixel_idx] = 76
-				data[pixel_idx + 1] = 51
-				data[pixel_idx + 2] = 25
-				data[pixel_idx + 3] = 200
-				
-	# Add red player marker
-	var center = radius
-	for dy in range(-1, 2):
-		for dx in range(-1, 2):
-			if abs(dx) + abs(dy) > 1: continue # draw cross
-			var pixel_idx = ((center + dy) * size + (center + dx)) * 4
-			data[pixel_idx] = 255
-			data[pixel_idx + 1] = 0
-			data[pixel_idx + 2] = 0
-			data[pixel_idx + 3] = 255
+				var is_wall = false
+				for dz in range(-2, 3):
+					for dx in range(-2, 3):
+						var nz = wz + dz
+						var nx = wx + dx
+						if nz >= 0 and nz < worldw and nx >= 0 and nx < worldh:
+							if is_path[nz * worldh + nx] == 1:
+								is_wall = true
+								break
+					if is_wall: break
+					
+				if is_wall:
+					data[pixel_idx] = 102    # R (Wall: Dark Brown)
+					data[pixel_idx + 1] = 51 # G
+					data[pixel_idx + 2] = 0  # B
+					data[pixel_idx + 3] = 200# A
+
+	var img = Image.create_from_data(worldh, worldw, false, Image.FORMAT_RGBA8, data)
+	var tex = ImageTexture.create_from_image(img)
 	
-	underground_image = Image.create_from_data(size, size, false, Image.FORMAT_RGBA8, data)
-	
-	if not underground_tex:
-		underground_tex = ImageTexture.create_from_image(underground_image)
-		if underground_texture_rect: underground_texture_rect.texture = underground_tex
-	else:
-		underground_tex.update(underground_image)
-		
-	var elapsed = Time.get_ticks_usec() - start_time
-	print("Underground map updated in ", elapsed, " usec. Path: ", path_count)
+	if underground_texture_rect:
+		underground_texture_rect.texture = tex
+		underground_texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
