@@ -3864,16 +3864,27 @@ func _async_generate_terrain():
 	for i in range(worldh):
 		for j in range(worldw):
 			var dirt_found = false
+			
+			# Include the plains as well. Bridges start around plane_start_w + w*0.8.
+			# So anything before castle_start_w (w*2.5) is mostly safe, except the bridge.
+			# Let's just simply exclude 2 (bridges) IF it's high up (k > 15), but accept 2 (rock) if it's low (k <= 15).
+			# And accept 4 and 5 everywhere (castle dungeon has unconditional return true in check_dirt_above, so we don't need to worry about its roof here).
 			for k in range(d - 1, -1, -1):
 				var idx = k * worldh * worldw + i * worldw + j
 				var c = _map3dnum_flat[idx]
 				
-				# 4 (Grass/Dirt) and 5 (Cave Wall/Castle) are the "dirt" blocks.
-				# We specifically exclude 2 (Rock) so bridges don't trigger the underground map,
-				# but 5 must be included everywhere so dungeons under the Demon Castle are correctly detected.
 				if c == 4 or c == 5:
 					dirt_found = true
-				
+				elif c == 2 or c == 3:
+					# Rock and snow are surface covers. 
+					# To prevent high bridges from triggering, we only count them if they are part of the solid ground (e.g. they have blocks immediately below them).
+					# A bridge has air below it. A mountain does not.
+					# Actually, a much safer way is to just accept 2 and 3 if we are outside the bridge area.
+					# The bridge area is roughly between plane_start_w + w*0.8 and castle_start_w + w*0.2.
+					var is_bridge_area = (j > plane_start_w + int(w * 0.7) and j < castle_start_w + int(w * 0.3))
+					if not is_bridge_area:
+						dirt_found = true
+						
 				if dirt_found:
 					has_dirt_above_flat[idx] = 1
 
@@ -3905,6 +3916,17 @@ func get_map3dnum(x: int, y: int, z: int) -> int:
 func check_dirt_above(x: int, y: int, z: int) -> bool:
 	if x < 0 or x >= worldh or z < 0 or z >= worldw or y < 0 or y >= d:
 		return false
+		
+	# Cave Zone: The entire Cave zone is underground. This perfectly masks any holes in the procedurally generated ceiling.
+	if z >= cave_start_w and z < cave_start_w + w:
+		return true
+		
+	# Demon Castle Zone: The castle is on the surface, but its dungeon is underground.
+	if z >= castle_start_w and z < castle_start_w + w:
+		# Castle floor is at y=20 (baseheightma). Below 15 is definitively the dungeon.
+		if y < 15:
+			return true
+			
 	var idx = (y) * worldh * worldw + (x) * worldw + (z)
 	if idx < 0 or idx >= has_dirt_above_flat.size():
 		return false
