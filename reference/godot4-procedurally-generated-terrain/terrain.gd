@@ -53,6 +53,7 @@ var multimeshdata = []
 var chunk_calculated = []
 var _map3dnum_flat = PackedInt32Array()
 var has_dirt_above_flat = PackedByteArray()
+var underground_map_texture: ImageTexture
 var map3dnum = []
 var nearest_ground = []
 var assignnum = []
