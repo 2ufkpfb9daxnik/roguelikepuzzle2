@@ -185,20 +185,22 @@ func _process(_delta: float) -> void:
 			minimap_camera.rotation_degrees = Vector3(-90, 0, 0)
 			
 			if underground_texture_rect and underground_texture_rect.visible:
-				var radius = 40
-				var scale_factor = minimap_container.size.y / minimap_camera.size
-				var rect_size = (radius * 2 + 1) * scale_factor
-				underground_texture_rect.size = Vector2(rect_size, rect_size)
-				
-				var px = int(round(player_node.global_position.x))
-				var pz = int(round(player_node.global_position.z))
-				var diff_x = px - minimap_camera.global_position.x
-				var diff_z = pz - minimap_camera.global_position.z
-				
-				var center = minimap_container.size / 2.0
-				var offset_x = diff_x * scale_factor
-				var offset_y = diff_z * scale_factor
-				underground_texture_rect.position = minimap_container.position + center + Vector2(offset_x, offset_y) - underground_texture_rect.size / 2.0
+				var terrain_node = get_node_or_null("terrain")
+				if terrain_node:
+					var scale_factor = minimap_container.size.y / minimap_camera.size
+					underground_texture_rect.size = Vector2(terrain_node.worldh, terrain_node.worldw) * scale_factor
+					
+					var cam_x = minimap_camera.global_position.x
+					var cam_z = minimap_camera.global_position.z
+					
+					var diff_x = 0.0 - cam_x
+					var diff_z = 0.0 - cam_z
+					
+					var center = minimap_container.size / 2.0
+					var offset_x = diff_x * scale_factor
+					var offset_y = diff_z * scale_factor
+					
+					underground_texture_rect.position = minimap_container.position + center + Vector2(offset_x, offset_y)
 			
 			if player_marker and minimap_camera:
 				var map_size = minimap_container.size
@@ -223,10 +225,12 @@ func _process(_delta: float) -> void:
 				screen_x = clamp(screen_x, 4, map_size.x - 12)
 				screen_y = clamp(screen_y, 4, map_size.y - 12)
 				
-				player_marker.position = Vector2(screen_x, screen_y) - player_marker.size / 2.0
-				if player_marker.get_parent() != minimap_container:
+				var target_parent = hud_layer if hud_layer else get_parent()
+				# Adjust position if moving to a sibling of minimap_container
+				player_marker.position = minimap_container.position + Vector2(screen_x, screen_y) - player_marker.size / 2.0
+				if player_marker.get_parent() != target_parent:
 					player_marker.get_parent().remove_child(player_marker)
-					minimap_container.add_child(player_marker)
+					target_parent.add_child(player_marker)
 
 # ==============================
 # HUD（常時表示UI）
@@ -604,27 +608,28 @@ func _update_underground_map():
 	is_path.resize(worldh * worldw)
 	is_path.fill(0)
 	
-	# 1st Pass: Find underground paths (ceiling -> air -> floor)
+	var has_dirt = terrain_node.has_dirt_above_flat
+	if has_dirt.size() == 0: return
+	
+	var world_d = terrain_node.d
+	
+	# 1st Pass: Find underground paths using has_dirt_above_flat
 	for wx in range(worldh):
 		for wz in range(worldw):
-			var idx = start_y * wh_ww + wx * worldw + wz
-			var found_ceiling = false
-			var in_cave_air = false
-			var floor_y = -1
-			
-			for y in range(start_y, -1, -1):
-				var cell = map_array[idx]
-				if not found_ceiling:
-					if cell != -1 and cell != 1: found_ceiling = true
-				elif not in_cave_air:
-					if cell == -1: in_cave_air = true
-				else:
-					if cell != -1 and cell != 1:
-						floor_y = y
-						break
-				idx -= wh_ww
-			
-			if floor_y != -1:
+			var is_path_col = false
+			for y in range(world_d - 1):
+				var idx_floor = y * wh_ww + wx * worldw + wz
+				var idx_air = (y + 1) * wh_ww + wx * worldw + wz
+				
+				var cell_floor = map_array[idx_floor]
+				var cell_air = map_array[idx_air]
+				var under = has_dirt[idx_air]
+				
+				if under > 0 and cell_air == -1 and (cell_floor != -1 and cell_floor != 1):
+					is_path_col = true
+					break
+					
+			if is_path_col:
 				is_path[wz * worldh + wx] = 1
 
 	# 2nd Pass: Draw paths and walls
@@ -634,10 +639,10 @@ func _update_underground_map():
 			var pixel_idx = p_idx * 4
 			
 			if is_path[p_idx] == 1:
-				data[pixel_idx] = 153     # R (Path: Brown)
-				data[pixel_idx + 1] = 102 # G
-				data[pixel_idx + 2] = 51  # B
-				data[pixel_idx + 3] = 255 # A
+				data[pixel_idx] = 153     # Path
+				data[pixel_idx + 1] = 102 
+				data[pixel_idx + 2] = 51  
+				data[pixel_idx + 3] = 255 
 			else:
 				var is_wall = false
 				for dz in range(-2, 3):
@@ -651,10 +656,11 @@ func _update_underground_map():
 					if is_wall: break
 					
 				if is_wall:
-					data[pixel_idx] = 102    # R (Wall: Dark Brown)
-					data[pixel_idx + 1] = 51 # G
-					data[pixel_idx + 2] = 0  # B
-					data[pixel_idx + 3] = 200# A
+					data[pixel_idx] = 102    # Wall
+					data[pixel_idx + 1] = 51 
+					data[pixel_idx + 2] = 0  
+					data[pixel_idx + 3] = 200
+				# transparent otherwise!
 
 	var img = Image.create_from_data(worldh, worldw, false, Image.FORMAT_RGBA8, data)
 	var tex = ImageTexture.create_from_image(img)
