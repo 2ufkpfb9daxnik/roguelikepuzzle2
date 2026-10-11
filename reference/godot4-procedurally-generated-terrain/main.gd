@@ -164,6 +164,7 @@ func _ready() -> void:
 					minimap_container.modulate.a = 1.0
 					if underground_texture_rect:
 						underground_texture_rect.visible = false
+	underground_texture_rect.flip_v = true
 					
 		if minimap_camera and minimap_root and minimap_root.visible:
 			if map_mode == 1:
@@ -189,11 +190,14 @@ func _ready() -> void:
 					var cam_z = minimap_camera.global_position.z
 					
 					var diff_x = 0.0 - cam_x
-					var diff_z = 0.0 - cam_z
+					# In Godot, Camera3D looking down (-90,0,0) has Up vector along +Z.
+					# Therefore Screen Y goes down as 3D Z goes down.
+					# With flip_v=true, top of texture is worldw, bottom is 0.
+					var diff_z = float(terrain_node.worldw) - cam_z
 					
 					var center = current_map_size / 2.0
 					var offset_x = diff_x * current_scale_factor
-					var offset_y = diff_z * current_scale_factor
+					var offset_y = -diff_z * current_scale_factor
 					
 					underground_texture_rect.position = center + Vector2(offset_x, offset_y)
 			
@@ -207,7 +211,8 @@ func _ready() -> void:
 				var center = current_map_size / 2.0
 				
 				var screen_x = center.x + (diff_x * current_scale_factor)
-				var screen_y = center.y + (diff_z * current_scale_factor)
+				# Subtract diff_z because 3D +Z corresponds to 2D Screen UP (-Y)!
+				var screen_y = center.y - (diff_z * current_scale_factor)
 				
 				screen_x = clamp(screen_x, 4, current_map_size.x - 12)
 				screen_y = clamp(screen_y, 4, current_map_size.y - 12)
@@ -473,7 +478,6 @@ func _setup_minimap() -> void:
 	border.size = Vector2(264, 264)
 	border.position = Vector2(-4, -4)
 	border.show_behind_parent = true
-	minimap_root.add_child(border)
 	
 	var solid_bg = ColorRect.new()
 	solid_bg.name = "SolidBG"
@@ -517,6 +521,7 @@ func _setup_minimap() -> void:
 	underground_texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	underground_texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	underground_texture_rect.visible = false
+	underground_texture_rect.flip_v = true
 	minimap_root.add_child(underground_texture_rect)
 	
 	player_marker = ColorRect.new()
