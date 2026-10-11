@@ -213,6 +213,14 @@ func _ready() -> void:
 				screen_y = clamp(screen_y, 4, current_map_size.y - 12)
 				
 				player_marker.position = Vector2(screen_x, screen_y) - player_marker.size / 2.0
+# ==============================
+# HUD
+# ==============================
+var hud_layer: CanvasLayer = null
+var hud_money_label: Label = null
+var hud_biome_label: Label = null
+var hud_guide_panel: PanelContainer = null
+
 func _setup_hud() -> void:
 	hud_layer = CanvasLayer.new()
 	hud_layer.name = "HUDLayer"
