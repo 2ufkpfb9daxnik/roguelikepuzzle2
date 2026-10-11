@@ -164,7 +164,6 @@ func _ready() -> void:
 					minimap_container.modulate.a = 1.0
 					if underground_texture_rect:
 						underground_texture_rect.visible = false
-	underground_texture_rect.flip_v = true
 					
 		if minimap_camera and minimap_root and minimap_root.visible:
 			if map_mode == 1:
