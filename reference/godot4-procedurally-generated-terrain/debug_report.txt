@@ -3,10 +3,10 @@
 - Desert Bounding Box: X(64-192) Z(64-192) Y(30-54)
 - Snow Bounding Box: X(64-177) Z(215-306) Y(34-51)
 - Castle Bounding Box: X(64-192) Z(322-442) Y(53-76)
-- Bridge A Start: (116.0, 46.0, 144.0) (ID: 5)
+- Bridge A Start: (120.0, 40.0, 192.0) (ID: 2)
 - Bridge A End: (128.0, 44.0, 214.0) (ID: 2)
-- Bridge B Start: (119.0, 49.0, 286.0) (ID: 2)
-- Bridge B End: (98.0, 55.0, 337.0) (ID: 2)
-- Horizontal Distance A_end to B_start: 72.5603179931641
-- Bridge B Horizontal Distance: 55.1543273925781
-- Bridge B Height Difference: 6.0
+- Bridge B Start: (142.0, 44.0, 306.0) (ID: 2)
+- Bridge B End: (132.0, 54.0, 322.0) (ID: 2)
+- Horizontal Distance A_end to B_start: 93.0591201782227
+- Bridge B Horizontal Distance: 18.8679618835449
+- Bridge B Height Difference: 10.0

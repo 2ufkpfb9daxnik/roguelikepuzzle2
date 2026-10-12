@@ -2816,31 +2816,10 @@ func make_castle():
 		if i-1 >= 0 and j-1 >= 0 :
 			sum += land_acc[i-1][j-1]
 		if sum >= (castle_height_length+1)*(castle_width_length+1)-20:
-			var mesh_node = find_mesh_instance(castle_instance)
-			# Do not modify the model's scale, keep it at (1,1,1) or its default.
-			# castle_instance.scale = Vector3(1, 1, 1) removed to preserve original scale
-			
-			if mesh_node and mesh_node.mesh:
-				var aabb = mesh_node.mesh.get_aabb()
-				# Calculate internal voxel dimensions based on the actual model size
-				# Assume 1 unit = 1 voxel block
-				castle_width_length = int(floor(aabb.size.z))
-				castle_height_length = int(floor(aabb.size.x))
-				# Make sure it's at least 20 to avoid negative inner sizes
-				castle_width_length = max(castle_width_length, 25)
-				castle_height_length = max(castle_height_length, 25)
-			else:
-				castle_width_length = 48
-				castle_height_length = 48
-				
-			castle_instance.position = Vector3(i+castle_height_length/2+castle_start_h, int(floor((baseheightma)/0.1))-1, j+int(castle_width_length/2)+castle_start_w)
+			castle_instance.position = Vector3(i+castle_height_length/2+castle_start_h, int(floor((baseheightma)/0.1))+int(int(h/4*3)/2)-2, j+int(castle_width_length/2)+castle_start_w)
+			castle_instance.scale = Vector3(castle_height_length, int(h/4*3), castle_width_length)
 			castle_instance.rotation_degrees = Vector3(0, 180, 0)
 			add_child(castle_instance)
-			
-			# Removed create_trimesh_collision() entirely.
-			# The AI generated castle model may not have a physical hole for the entrance,
-			# and the internal castle walls/floors are already generated using map3dnum voxels.
-			# Giving the model a collision mesh prevents the player from walking inside the voxel structure.
 			sth = i+h/2
 			stw = j+w*5/2
 			break
@@ -3056,7 +3035,7 @@ func make_castle():
 			var nx = cx + dir[1]
 			var key = str(ny) + "," + str(nx)
 			if ny >= 0 and ny < height and nx >= 0 and nx < width:
-				if not visited.has(key) and castle[0][ny][nx] == 0:
+				if not visited.has(key) and (castle[0][ny][nx] == -1 or castle[0][ny][nx] == 0):
 					visited[key] = 1
 					q.append([ny, nx])
 					
