@@ -3813,12 +3813,29 @@ func _async_generate_terrain():
 
 	_end_phase("Phase 4: Demon Castle", map, floor, ceiling, desert, map3dnum)
 	_start_phase("Phase 5: Bridges")
-	# Bridge B: Snow to Castle
-	var snow_z_search_b = plane_start_w + int(w * 0.8)
-	var castle_z_search = castle_start_w + int(w * 0.2)
+	# Bridge B: Snow to Castle (From Snow Mountain Edge to Demon Castle Edge)
+	var snow_edge_z_start_b = plane_start_w + w - 1
+	var snow_edge_z_end_b = plane_start_w
+	# Must start from Snow Mountain (required_block = 3), at the edge facing Castle
+	var anchor_c = find_edge_anchor(safe_x_min, safe_x_max, snow_edge_z_start_b, snow_edge_z_end_b, -1, 31, 3)
+	if anchor_c == Vector3.ZERO:
+		anchor_c = find_edge_anchor(safe_x_min, safe_x_max, snow_edge_z_start_b, snow_edge_z_end_b, -1, 31)
 	
-	var anchor_c = find_highest_anchor_in_rect(safe_x_min, safe_x_max, snow_z_search_b - 10, snow_z_search_b + 10, 3) # Require snow
-	var anchor_d = find_highest_anchor_in_rect(safe_x_min, safe_x_max, castle_z_search - 10, castle_z_search + 10, 2) # Require rock
+	var castle_x_min = safe_x_min
+	var castle_x_max = safe_x_max
+	if anchor_c != Vector3.ZERO:
+		castle_x_min = max(safe_x_min, int(anchor_c.x) - 10)
+		castle_x_max = min(safe_x_max, int(anchor_c.x) + 10)
+		
+	var castle_edge_z_start = castle_start_w
+	var castle_edge_z_end = castle_start_w + w - 1
+	var anchor_d = find_edge_anchor(castle_x_min, castle_x_max, castle_edge_z_start, castle_edge_z_end, 1, 31, 2)
+	if anchor_d == Vector3.ZERO:
+		anchor_d = find_edge_anchor(castle_x_min, castle_x_max, castle_edge_z_start, castle_edge_z_end, 1, 31)
+	if anchor_d == Vector3.ZERO:
+		anchor_d = find_edge_anchor(safe_x_min, safe_x_max, castle_edge_z_start, castle_edge_z_end, 1, 31)
+	if anchor_d == Vector3.ZERO:
+		anchor_d = find_edge_anchor(safe_x_min, safe_x_max, castle_edge_z_start, castle_edge_z_end, 1, 1)
 	
 	if anchor_c != Vector3.ZERO and anchor_d != Vector3.ZERO:
 		build_bridge(anchor_c, anchor_d)
