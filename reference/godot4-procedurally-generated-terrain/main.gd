@@ -176,6 +176,7 @@ func _ready() -> void:
 			
 			var current_map_size = minimap_root.size
 			var current_scale_factor = current_map_size.y / minimap_camera.size
+			var center = current_map_size / 2.0
 			
 			if underground_texture_rect and underground_texture_rect.visible:
 				var terrain_node = get_node_or_null("terrain")
@@ -189,14 +190,10 @@ func _ready() -> void:
 					var cam_z = minimap_camera.global_position.z
 					
 					var diff_x = 0.0 - cam_x
-					# In Godot, Camera3D looking down (-90,0,0) has Up vector along +Z.
-					# Therefore Screen Y goes down as 3D Z goes down.
-					# With flip_v=true, top of texture is worldw, bottom is 0.
-					var diff_z = float(terrain_node.worldw) - cam_z
+					var diff_z = 0.0 - cam_z
 					
-					var center = current_map_size / 2.0
 					var offset_x = diff_x * current_scale_factor
-					var offset_y = -diff_z * current_scale_factor
+					var offset_y = diff_z * current_scale_factor
 					
 					underground_texture_rect.position = center + Vector2(offset_x, offset_y)
 			
@@ -207,11 +204,8 @@ func _ready() -> void:
 				var diff_x = player_pos.x - cam_pos.x
 				var diff_z = player_pos.z - cam_pos.z
 				
-				var center = current_map_size / 2.0
-				
 				var screen_x = center.x + (diff_x * current_scale_factor)
-				# Subtract diff_z because 3D +Z corresponds to 2D Screen UP (-Y)!
-				var screen_y = center.y - (diff_z * current_scale_factor)
+				var screen_y = center.y + (diff_z * current_scale_factor)
 				
 				screen_x = clamp(screen_x, 4, current_map_size.x - 12)
 				screen_y = clamp(screen_y, 4, current_map_size.y - 12)
@@ -469,27 +463,33 @@ func _setup_minimap() -> void:
 	minimap_root.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 20)
 	minimap_root.size = Vector2(256, 256)
 	minimap_root.position = Vector2(20, get_viewport().get_visible_rect().size.y - 276)
-	minimap_root.clip_contents = true
 	
 	var border = ColorRect.new()
 	border.name = "Border"
 	border.color = Color(0.2, 0.2, 0.2, 1.0)
 	border.size = Vector2(264, 264)
 	border.position = Vector2(-4, -4)
-	border.show_behind_parent = true
+	minimap_root.add_child(border)
 	
 	var solid_bg = ColorRect.new()
 	solid_bg.name = "SolidBG"
 	solid_bg.color = Color(0.05, 0.1, 0.15, 1.0)
 	solid_bg.size = Vector2(256, 256)
 	solid_bg.position = Vector2(0, 0)
-	solid_bg.show_behind_parent = true
 	minimap_root.add_child(solid_bg)
+	
+	var map_clip = Control.new()
+	map_clip.name = "MapClip"
+	map_clip.size = Vector2(256, 256)
+	map_clip.position = Vector2(0, 0)
+	map_clip.clip_contents = true
+	minimap_root.add_child(map_clip)
 	
 	minimap_container = SubViewportContainer.new()
 	minimap_container.name = "MinimapContainer"
 	minimap_container.size = Vector2(256, 256)
 	minimap_container.position = Vector2(0, 0)
+	minimap_container.stretch = true
 	
 	var minimap_viewport = SubViewport.new()
 	minimap_viewport.name = "MapViewport"
@@ -512,7 +512,7 @@ func _setup_minimap() -> void:
 	
 	minimap_viewport.add_child(minimap_camera)
 	minimap_container.add_child(minimap_viewport)
-	minimap_root.add_child(minimap_container)
+	map_clip.add_child(minimap_container)
 	
 	underground_texture_rect = TextureRect.new()
 	underground_texture_rect.name = "UndergroundTextureRect"
@@ -520,14 +520,13 @@ func _setup_minimap() -> void:
 	underground_texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	underground_texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	underground_texture_rect.visible = false
-	underground_texture_rect.flip_v = true
-	minimap_root.add_child(underground_texture_rect)
+	map_clip.add_child(underground_texture_rect)
 	
 	player_marker = ColorRect.new()
 	player_marker.name = "PlayerMarker"
 	player_marker.color = Color(1.0, 0.2, 0.2, 1.0)
 	player_marker.size = Vector2(8, 8)
-	minimap_root.add_child(player_marker)
+	map_clip.add_child(player_marker)
 	
 	if hud_layer:
 		hud_layer.add_child(minimap_root)
@@ -547,27 +546,27 @@ func _update_map_mode() -> void:
 	var viewport_size = get_viewport().get_visible_rect().size
 	var border = minimap_root.get_node_or_null("Border")
 	var solid_bg = minimap_root.get_node_or_null("SolidBG")
-	var vp = minimap_container.get_node_or_null("MapViewport") if minimap_container else null
+	var map_clip = minimap_root.get_node_or_null("MapClip")
 	
 	match map_mode:
 		0:
 			minimap_root.show()
 			minimap_root.size = Vector2(256, 256)
 			minimap_root.position = Vector2(20, viewport_size.y - 276)
-			if minimap_container: minimap_container.size = Vector2(256, 256)
 			if border: border.size = Vector2(264, 264)
 			if solid_bg: solid_bg.size = Vector2(256, 256)
-			if vp: vp.size = Vector2i(256, 256)
+			if map_clip: map_clip.size = Vector2(256, 256)
+			if minimap_container: minimap_container.size = Vector2(256, 256)
 			if minimap_camera: minimap_camera.size = 150.0
 		1:
 			minimap_root.show()
 			var map_size = min(viewport_size.x, viewport_size.y) - 80
 			minimap_root.size = Vector2(map_size, map_size)
 			minimap_root.position = (viewport_size - Vector2(map_size, map_size)) / 2.0
-			if minimap_container: minimap_container.size = Vector2(map_size, map_size)
-			if border: border.size = Vector2(map_size+8, map_size+8)
+			if border: border.size = Vector2(map_size + 8, map_size + 8)
 			if solid_bg: solid_bg.size = Vector2(map_size, map_size)
-			if vp: vp.size = Vector2i(int(map_size), int(map_size))
+			if map_clip: map_clip.size = Vector2(map_size, map_size)
+			if minimap_container: minimap_container.size = Vector2(map_size, map_size)
 			if minimap_camera: minimap_camera.size = 1100.0
 		2:
 			minimap_root.hide()
