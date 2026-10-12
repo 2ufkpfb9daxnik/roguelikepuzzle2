@@ -130,6 +130,9 @@ func _ready() -> void:
 	_setup_pause_menu()
 	_setup_loading_screen()
 	_setup_minimap()
+
+func _process(_delta: float) -> void:
+	_update_hud()
 	
 	# メインカメラがマップ用マーカー(レイヤー2)を映さないようにする
 	if player_node:
