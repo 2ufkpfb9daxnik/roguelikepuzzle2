@@ -1646,6 +1646,25 @@ func find_highest_anchor_in_rect(x_min: int, x_max: int, z_min: int, z_max: int,
 					break
 	return best_pos
 
+func find_edge_anchor(x_min: int, x_max: int, z_start: int, z_end: int, z_step: int, min_y: int = 31, required_block: int = -99) -> Vector3:
+	var z = z_start
+	while (z <= z_end if z_step > 0 else z >= z_end):
+		var best_pos = Vector3.ZERO
+		var best_y = -1
+		for x in range(x_min, x_max):
+			for y in range(d - 2, min_y - 1, -1):
+				var block = _map3dnum_flat[(y) * worldh * worldw + (x) * worldw + (z)]
+				if block != -1 and block != 1 and _map3dnum_flat[(y+1) * worldh * worldw + (x) * worldw + (z)] == -1:
+					if required_block == -99 or block == required_block:
+						if y > best_y:
+							best_y = y
+							best_pos = Vector3(x, y, z)
+					break
+		if best_pos != Vector3.ZERO:
+			return best_pos
+		z += z_step
+	return Vector3.ZERO
+
 func build_bridge(p0: Vector3, p3: Vector3):
 	var steps = int(p0.distance_to(p3) * 5)
 	var width = 2
@@ -1669,14 +1688,16 @@ func build_bridge(p0: Vector3, p3: Vector3):
 					var cur_block = _map3dnum_flat[(y) * worldh * worldw + (worldpos.x) * worldw + (worldpos.z)]
 					# Force overwrite anything in the path to build the bridge, cutting through floating islands.
 					# But don't overwrite castle walls (5)
-					if cur_block != 5:
+					var is_castle_wall = (worldpos.z >= castle_start_w and cur_block == 5)
+					if not is_castle_wall:
 						_map3dnum_flat[(y) * worldh * worldw + (worldpos.x) * worldw + (worldpos.z)] = 2 # Stone bridge
 			for k in range(1, 6): # Clear air above bridge
 				var y = worldpos.y + k
 				if y >= 0 and y < d:
 					var cur_block = _map3dnum_flat[(y) * worldh * worldw + (worldpos.x) * worldw + (worldpos.z)]
 					# Force clear air, cutting through floating islands. Don't cut through castle walls (5).
-					if cur_block != 5:
+					var is_castle_wall = (worldpos.z >= castle_start_w and cur_block == 5)
+					if not is_castle_wall:
 						_map3dnum_flat[(y) * worldh * worldw + (worldpos.x) * worldw + (worldpos.z)] = -1
 
 func make_tunnel(caveentrance:Array,mazeentrance:Array):
@@ -3760,12 +3781,27 @@ func _async_generate_terrain():
 	var safe_x_min = desert_start_h + int(h/2) - 30
 	var safe_x_max = desert_start_h + int(h/2) + 30
 	
-	# Bridge A: Desert to Snow
-	var desert_z_search = desert_start_w + int(w * 0.7) 
-	var snow_z_search_a = plane_start_w + int(w * 0.1)  
+	# Bridge A: Desert to Snow (From Desert Edge to Snow Mountain Edge)
+	var snow_edge_z_start = plane_start_w
+	var snow_edge_z_end = plane_start_w + w - 1
+	# Must land on Snow Mountain (required_block = 3), at the edge facing Desert
+	var anchor_b = find_edge_anchor(safe_x_min, safe_x_max, snow_edge_z_start, snow_edge_z_end, 1, 31, 3)
+	if anchor_b == Vector3.ZERO:
+		anchor_b = find_edge_anchor(safe_x_min, safe_x_max, snow_edge_z_start, snow_edge_z_end, 1, 31)
 	
-	var anchor_a = find_highest_anchor_in_rect(safe_x_min, safe_x_max, desert_z_search - 10, desert_z_search + 10)
-	var anchor_b = find_highest_anchor_in_rect(safe_x_min, safe_x_max, snow_z_search_a - 10, snow_z_search_a + 10, 3) # Require snow
+	var desert_x_min = safe_x_min
+	var desert_x_max = safe_x_max
+	if anchor_b != Vector3.ZERO:
+		desert_x_min = max(safe_x_min, int(anchor_b.x) - 10)
+		desert_x_max = min(safe_x_max, int(anchor_b.x) + 10)
+		
+	var desert_edge_z_start = desert_start_w + w - 1
+	var desert_edge_z_end = desert_start_w
+	var anchor_a = find_edge_anchor(desert_x_min, desert_x_max, desert_edge_z_start, desert_edge_z_end, -1, 31)
+	if anchor_a == Vector3.ZERO:
+		anchor_a = find_edge_anchor(safe_x_min, safe_x_max, desert_edge_z_start, desert_edge_z_end, -1, 31)
+	if anchor_a == Vector3.ZERO:
+		anchor_a = find_edge_anchor(safe_x_min, safe_x_max, desert_edge_z_start, desert_edge_z_end, -1, 1)
 	
 	if anchor_a != Vector3.ZERO and anchor_b != Vector3.ZERO:
 		build_bridge(anchor_a, anchor_b)
