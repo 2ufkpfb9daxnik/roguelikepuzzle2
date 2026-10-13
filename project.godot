@@ -9,7 +9,12 @@
 config_version=5
 
 [application]
+run/main_scene="res://reference/godot4-procedurally-generated-terrain/title_screen.tscn"
 
 config/name="新しいゲームプロジェクト"
 config/features=PackedStringArray("4.4", "Forward Plus")
 config/icon="res://icon.svg"
+
+[autoload]
+
+GlobalSettings="*res://reference/godot4-procedurally-generated-terrain/GlobalSettings.gd"

@@ -217,7 +217,9 @@ func list_enemy_in_folder(path: String) -> void:
 var _spawn_queue: Array = []  # キュー: [Vector3] のリスト
 
 func _process(delta: float) -> void:
-	if not is_instance_valid(player) or nearest_ground.is_empty():
+	if not is_instance_valid(player) or not is_instance_valid(terrain_node):
+		return
+	if terrain_node.is_generating:
 		return
 	if not can_spawn:
 		return
@@ -259,7 +261,7 @@ func _process(delta: float) -> void:
 			if check_z < 0 or check_z >= ground_z_size: continue
 
 			if check_x % 12 == 0 and check_z % 12 == 0:
-				var ground_y = nearest_ground[check_y][check_x][check_z]
+				var ground_y = terrain_node.get_ground_y(check_x, check_y, check_z)
 				if ground_y <= 30: continue
 				
 				var spawn_coord = Vector3i(check_x, ground_y, check_z)
@@ -350,14 +352,14 @@ func spawn_boss(enemy_key: String, pos: Vector3, scale_mult: float = 3.0, biome:
 	enemy_instance.state = 0 # IDLE
 	enemy_instance.enemy_name = enemy_key
 
-	# Detection Area (bigger for boss)
+	# Detection Area (boss has scale_mult applied to node, so 3.5 becomes 10.5m~17.5m in world space)
 	var detection_area = Area3D.new()
 	detection_area.name = "DetectionArea"
 	detection_area.monitoring = true
 	detection_area.monitorable = true
 	var area_shape = CollisionShape3D.new()
 	var sphere = SphereShape3D.new()
-	sphere.radius = 8.0 * scale_mult
+	sphere.radius = 3.5
 	area_shape.shape = sphere
 	detection_area.add_child(area_shape)
 	enemy_instance.add_child(detection_area)
@@ -366,7 +368,9 @@ func spawn_boss(enemy_key: String, pos: Vector3, scale_mult: float = 3.0, biome:
 	enemy_instance.assign_battle_idle_anim()
 	enemy_instance.scale = Vector3(scale_mult, scale_mult, scale_mult)
 
-	get_tree().current_scene.add_child(enemy_instance)
+	var target_scene = get_tree().current_scene if (get_tree() and get_tree().current_scene) else get_parent()
+	if target_scene:
+		target_scene.add_child(enemy_instance)
 	enemy_instance.global_position = pos
 	spawned_enemies.append(enemy_instance)
 	return enemy_instance

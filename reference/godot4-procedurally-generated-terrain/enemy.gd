@@ -61,11 +61,23 @@ func _ready() -> void:
 	_play_best_anim(["Idle", "Animation_Idle_withSkin"])
 
 func _physics_process(delta: float) -> void:
-	# 探索モード時、プレイヤーから一定距離（60m）以上離れたら自動デスポーンして負荷軽減
-	if player and state in [State.IDLE, State.MOVE, State.DETECT, State.CHASE]:
+	var parent = get_parent()
+	if parent:
+		var terrain_node = parent.get_node_or_null("terrain")
+		if terrain_node and "is_generating" in terrain_node and terrain_node.is_generating:
+			velocity = Vector3.ZERO
+			return
+
+	# 探索モード時、プレイヤーから一定距離（60m）以上離れたら自動デスポーンして負荷軽減（ボスは除外）
+	if player and not is_boss and state in [State.IDLE, State.MOVE, State.DETECT, State.CHASE]:
 		if global_position.distance_to(player.global_position) > 60.0:
 			queue_free()
 			return
+
+	if is_boss:
+		# ボスは指定座標で待機（地形チャンク未読み込みによる落下を防ぐ）
+		velocity = Vector3.ZERO
+		return
 
 	if not is_on_floor():
 		velocity.y -= gravity * delta
@@ -328,12 +340,35 @@ func _update_exclamation(delta: float) -> void:
 # ===============================
 func _on_body_entered(body: Node3D) -> void:
 	if body and body.name == "CharacterBody3D":
+		var parent = get_parent()
+		if parent:
+			var terrain_node = parent.get_node_or_null("terrain")
+			if terrain_node and "is_generating" in terrain_node and terrain_node.is_generating:
+				return
+			var player_node = parent.get_node_or_null("CharacterBody3D")
+			if player_node and "isbattle" in player_node and player_node.isbattle:
+				return
+			if parent.has_node("battle_scene"):
+				return
 		print("Player touched enemy in biome:", biome_type)
 		await _transition_to_battle(biome_type, enemy_name)
 
 func _transition_to_battle(biome: int, encountered_enemy: String) -> void:
 	var parent = get_parent()
-	if parent and "isshoping" in parent and parent.isshoping:
+	if not parent:
+		return
+	if "isshoping" in parent and parent.isshoping:
+		return
+
+	var terrain_node = parent.get_node_or_null("terrain")
+	if terrain_node and "is_generating" in terrain_node and terrain_node.is_generating:
+		return
+
+	var player_node = parent.get_node_or_null("CharacterBody3D")
+	if player_node and "isbattle" in player_node and player_node.isbattle:
+		return
+
+	if parent.has_node("battle_scene"):
 		return
 
 	var battle_scene_res = load("res://battle_scene.tscn")
@@ -350,7 +385,6 @@ func _transition_to_battle(biome: int, encountered_enemy: String) -> void:
 			battle_scene.enemy_data = spawn_node.enemy_data
 			battle_scene.stage_enemy = spawn_node.stage_enemy
 
-		var terrain_node = parent.get_node_or_null("terrain")
 		if terrain_node:
 			battle_scene.plane_battle_pos = terrain_node.plane_battle_pos
 			battle_scene.cave_battle_pos = terrain_node.cave_battle_pos
@@ -366,7 +400,8 @@ func _transition_to_battle(biome: int, encountered_enemy: String) -> void:
 		parent.add_child(battle_scene)
 		await get_tree().process_frame
 
-		var player_node = parent.get_node_or_null("CharacterBody3D")
+		if not player_node:
+			player_node = parent.get_node_or_null("CharacterBody3D")
 		var existing_enemies: Array = []
 		if spawn_node:
 			existing_enemies = spawn_node.spawned_enemies

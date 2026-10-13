@@ -1,12 +1,12 @@
 ========== TERRAIN GENERATION DEBUG REPORT ==========
 - Tunnel Exit: (119.0, 19.0, 25.0)
-- Desert Bounding Box: X(64-192) Z(64-192) Y(30-54)
-- Snow Bounding Box: X(64-177) Z(215-306) Y(34-51)
-- Castle Bounding Box: X(64-192) Z(322-442) Y(53-76)
-- Bridge A Start: (120.0, 40.0, 192.0) (ID: 2)
-- Bridge A End: (128.0, 44.0, 214.0) (ID: 2)
-- Bridge B Start: (142.0, 44.0, 306.0) (ID: 2)
-- Bridge B End: (132.0, 54.0, 322.0) (ID: 2)
-- Horizontal Distance A_end to B_start: 93.0591201782227
-- Bridge B Horizontal Distance: 18.8679618835449
+- Desert Bounding Box: X(72-186) Z(70-192) Y(30-54)
+- Snow Bounding Box: X(74-175) Z(218-304) Y(33-51)
+- Castle Bounding Box: X(64-188) Z(322-446) Y(54-76)
+- Bridge A Start: (126.0, 34.0, 184.0) (ID: 2)
+- Bridge A End: (125.0, 45.0, 218.0) (ID: 2)
+- Bridge B Start: (140.0, 45.0, 304.0) (ID: 2)
+- Bridge B End: (130.0, 55.0, 322.0) (ID: 2)
+- Horizontal Distance A_end to B_start: 87.29833984375
+- Bridge B Horizontal Distance: 20.5912609100342
 - Bridge B Height Difference: 10.0

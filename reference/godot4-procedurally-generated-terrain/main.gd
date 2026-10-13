@@ -12,12 +12,16 @@ var money: int = 0
 var minimap_root: Control
 var minimap_container: SubViewportContainer
 var minimap_camera: Camera3D
+var minimap_local_zoom: float = 55.0
+var minimap_big_zoom_mult: float = 1.05
 var _is_underground_cached: bool = false
 var underground_texture_rect: TextureRect
 var underground_image: Image
 var underground_tex: ImageTexture
-var _underground_update_timer: float = 0.0
 var player_marker: ColorRect
+var castle_texture_rect: TextureRect
+var poi_container: Control
+var poi_marker_nodes: Dictionary = {}
 
 # 全キャラクターのマスター定義
 # [base_hp, base_atk, base_def, type, model_path, price]
@@ -147,19 +151,34 @@ func _process(_delta: float) -> void:
 				minimap_root.visible = true
 				
 				var is_under = false
+				var is_castle = false
+				var castle_floor = 0
 				var terrain_node = get_node_or_null("terrain")
-				if terrain_node and terrain_node.has_method("check_dirt_above"):
-					var px = int(round(player_node.global_position.x))
-					var pz = int(round(player_node.global_position.z))
-					var py = int(round(player_node.global_position.y))
-					# O(1) check using the precomputed underground map.
-					is_under = terrain_node.check_dirt_above(px, py + 2, pz)
+				if terrain_node:
+					if terrain_node.has_method("is_player_in_castle"):
+						is_castle = terrain_node.is_player_in_castle(player_node.global_position)
+						if is_castle:
+							castle_floor = terrain_node.get_castle_floor(player_node.global_position)
+					if not is_castle and terrain_node.has_method("check_dirt_above"):
+						var px = int(round(player_node.global_position.x))
+						var pz = int(round(player_node.global_position.z))
+						var py = int(round(player_node.global_position.y))
+						is_under = terrain_node.check_dirt_above(px, py + 2, pz)
 				
 				_is_underground_cached = is_under
 				
-				if _is_underground_cached:
-					# Fade surface map only. Player marker stays solid and bright!
+				if is_castle:
 					minimap_container.modulate.a = 0.3
+					if underground_texture_rect:
+						underground_texture_rect.visible = false
+					if castle_texture_rect:
+						castle_texture_rect.visible = true
+						if "castle_map_textures" in terrain_node and castle_floor < terrain_node.castle_map_textures.size():
+							castle_texture_rect.texture = terrain_node.castle_map_textures[castle_floor]
+				elif _is_underground_cached:
+					minimap_container.modulate.a = 0.3
+					if castle_texture_rect:
+						castle_texture_rect.visible = false
 					if underground_texture_rect:
 						underground_texture_rect.visible = true
 						underground_texture_rect.modulate = Color(1.0, 1.0, 1.0, 1.0)
@@ -167,6 +186,8 @@ func _process(_delta: float) -> void:
 					minimap_container.modulate.a = 1.0
 					if underground_texture_rect:
 						underground_texture_rect.visible = false
+					if castle_texture_rect:
+						castle_texture_rect.visible = false
 					
 		if minimap_camera and minimap_root and minimap_root.visible:
 			if map_mode == 1:
@@ -180,6 +201,13 @@ func _process(_delta: float) -> void:
 			var current_map_size = minimap_root.size
 			var current_scale_factor = current_map_size.y / minimap_camera.size
 			var center = current_map_size / 2.0
+			var cam_pos = minimap_camera.global_position
+			var cam_x = cam_pos.x
+			var cam_z = cam_pos.z
+			var diff_x = 0.0 - cam_x
+			var diff_z = 0.0 - cam_z
+			var offset_x = diff_x * current_scale_factor
+			var offset_y = diff_z * current_scale_factor
 			
 			if underground_texture_rect and underground_texture_rect.visible:
 				var terrain_node = get_node_or_null("terrain")
@@ -188,27 +216,33 @@ func _process(_delta: float) -> void:
 						underground_texture_rect.texture = terrain_node.underground_map_texture
 						
 					underground_texture_rect.size = Vector2(terrain_node.worldh, terrain_node.worldw) * current_scale_factor
-					
-					var cam_x = minimap_camera.global_position.x
-					var cam_z = minimap_camera.global_position.z
-					
-					var diff_x = 0.0 - cam_x
-					var diff_z = 0.0 - cam_z
-					
-					var offset_x = diff_x * current_scale_factor
-					var offset_y = diff_z * current_scale_factor
-					
 					underground_texture_rect.position = center + Vector2(offset_x, offset_y)
+
+			if castle_texture_rect and castle_texture_rect.visible:
+				var terrain_node = get_node_or_null("terrain")
+				if terrain_node:
+					castle_texture_rect.size = Vector2(terrain_node.worldh, terrain_node.worldw) * current_scale_factor
+					castle_texture_rect.position = center + Vector2(offset_x, offset_y)
+			
+			# Check castle state for POI filtering
+			var is_castle_now = false
+			var castle_floor_now = 0
+			var terrain_node_poi = get_node_or_null("terrain")
+			if terrain_node_poi and terrain_node_poi.has_method("is_player_in_castle"):
+				is_castle_now = terrain_node_poi.is_player_in_castle(player_node.global_position)
+				if is_castle_now:
+					castle_floor_now = terrain_node_poi.get_castle_floor(player_node.global_position)
+
+			_update_poi_markers(cam_pos, center, current_scale_factor, current_map_size, is_castle_now, castle_floor_now)
 			
 			if player_marker and minimap_camera:
-				var cam_pos = minimap_camera.global_position
 				var player_pos = player_node.global_position
 				
-				var diff_x = player_pos.x - cam_pos.x
-				var diff_z = player_pos.z - cam_pos.z
+				var p_diff_x = player_pos.x - cam_pos.x
+				var p_diff_z = player_pos.z - cam_pos.z
 				
-				var screen_x = center.x + (diff_x * current_scale_factor)
-				var screen_y = center.y + (diff_z * current_scale_factor)
+				var screen_x = center.x + (p_diff_x * current_scale_factor)
+				var screen_y = center.y + (p_diff_z * current_scale_factor)
 				
 				screen_x = clamp(screen_x, 4, current_map_size.x - 12)
 				screen_y = clamp(screen_y, 4, current_map_size.y - 12)
@@ -290,13 +324,17 @@ func _update_hud() -> void:
 		var ppos = player_node.global_position
 		var biome_str = "📍 平原 (Plains)"
 		var terrain_node = get_node_or_null("terrain")
-		if terrain_node:
+		if terrain_node and "desert_start_h" in terrain_node:
 			if ppos.x >= terrain_node.desert_start_h and ppos.x <= terrain_node.desert_start_h + terrain_node.h and ppos.z >= terrain_node.desert_start_w and ppos.z <= terrain_node.desert_start_w + terrain_node.w:
 				biome_str = "📍 砂漠 (Desert)"
 			elif ppos.x >= terrain_node.cave_start_h and ppos.x <= terrain_node.cave_start_h + terrain_node.h and ppos.z >= terrain_node.cave_start_w and ppos.z <= terrain_node.cave_start_w + terrain_node.w:
 				biome_str = "📍 洞窟 (Cave)"
 			elif ppos.x >= terrain_node.castle_start_h and ppos.x <= terrain_node.castle_start_h + terrain_node.h and ppos.z >= terrain_node.castle_start_w and ppos.z <= terrain_node.castle_start_w + terrain_node.w:
-				biome_str = "📍 城 (Castle)"
+				if terrain_node.has_method("is_player_in_castle") and terrain_node.is_player_in_castle(ppos):
+					var flr = terrain_node.get_castle_floor(ppos) + 1
+					biome_str = "📍 魔王城 %dF (Demon Castle %dF)" % [flr, flr]
+				else:
+					biome_str = "📍 魔王城 (Castle)"
 		hud_biome_label.text = biome_str
 
 # ==============================
@@ -524,6 +562,19 @@ func _setup_minimap() -> void:
 	underground_texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	underground_texture_rect.visible = false
 	map_clip.add_child(underground_texture_rect)
+
+	castle_texture_rect = TextureRect.new()
+	castle_texture_rect.name = "CastleTextureRect"
+	castle_texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	castle_texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	castle_texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	castle_texture_rect.visible = false
+	map_clip.add_child(castle_texture_rect)
+
+	poi_container = Control.new()
+	poi_container.name = "POIContainer"
+	poi_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	map_clip.add_child(poi_container)
 	
 	player_marker = ColorRect.new()
 	player_marker.name = "PlayerMarker"
@@ -542,6 +593,24 @@ func _input(event: InputEvent) -> void:
 		if event.keycode == KEY_M:
 			map_mode = (map_mode + 1) % 3
 			_update_map_mode()
+		elif event.keycode == KEY_EQUAL or event.keycode == KEY_PLUS or event.keycode == KEY_KP_ADD:
+			_zoom_map(-1.0)
+		elif event.keycode == KEY_MINUS or event.keycode == KEY_KP_SUBTRACT:
+			_zoom_map(1.0)
+	elif event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_zoom_map(-1.0)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_zoom_map(1.0)
+
+func _zoom_map(direction: float) -> void:
+	if map_mode == 0:
+		minimap_local_zoom = clamp(minimap_local_zoom + direction * 5.0, 25.0, 120.0)
+		if minimap_camera:
+			minimap_camera.size = minimap_local_zoom
+	elif map_mode == 1:
+		minimap_big_zoom_mult = clamp(minimap_big_zoom_mult + direction * 0.08, 0.35, 1.8)
+		_update_map_mode()
 
 func _update_map_mode() -> void:
 	if not minimap_root: return
@@ -553,25 +622,177 @@ func _update_map_mode() -> void:
 	
 	match map_mode:
 		0:
+			# Enlarged, zoomed-in local minimap for close navigation
 			minimap_root.show()
-			minimap_root.size = Vector2(256, 256)
-			minimap_root.position = Vector2(20, viewport_size.y - 276)
-			if border: border.size = Vector2(264, 264)
-			if solid_bg: solid_bg.size = Vector2(256, 256)
-			if map_clip: map_clip.size = Vector2(256, 256)
-			if minimap_container: minimap_container.size = Vector2(256, 256)
-			if minimap_camera: minimap_camera.size = 150.0
+			var m_size = Vector2(288, 288)
+			minimap_root.size = m_size
+			minimap_root.position = Vector2(20, viewport_size.y - 308)
+			if border: border.size = m_size + Vector2(8, 8)
+			if solid_bg: solid_bg.size = m_size
+			if map_clip: map_clip.size = m_size
+			if minimap_container:
+				minimap_container.size = m_size
+				var vp = minimap_container.get_node_or_null("MapViewport")
+				if vp: vp.size = Vector2i(int(m_size.x), int(m_size.y))
+			if minimap_camera: minimap_camera.size = minimap_local_zoom
 		1:
+			# Grand full-screen Big Map fitting world dimensions perfectly
 			minimap_root.show()
-			var map_size = min(viewport_size.x, viewport_size.y) - 80
-			minimap_root.size = Vector2(map_size, map_size)
-			minimap_root.position = (viewport_size - Vector2(map_size, map_size)) / 2.0
-			if border: border.size = Vector2(map_size + 8, map_size + 8)
-			if solid_bg: solid_bg.size = Vector2(map_size, map_size)
-			if map_clip: map_clip.size = Vector2(map_size, map_size)
-			if minimap_container: minimap_container.size = Vector2(map_size, map_size)
-			if minimap_camera: minimap_camera.size = 1100.0
+			var max_w = viewport_size.x - 40.0
+			var max_h = viewport_size.y - 40.0
+			var map_w = min(max_w, max_h * 1.25)
+			var map_h = max_h
+			var map_size = Vector2(map_w, map_h)
+			minimap_root.size = map_size
+			minimap_root.position = (viewport_size - map_size) / 2.0
+			if border: border.size = map_size + Vector2(8, 8)
+			if solid_bg: solid_bg.size = map_size
+			if map_clip: map_clip.size = map_size
+			if minimap_container:
+				minimap_container.size = map_size
+				var vp = minimap_container.get_node_or_null("MapViewport")
+				if vp: vp.size = Vector2i(int(map_size.x), int(map_size.y))
+			
+			var terrain_node = get_node_or_null("terrain")
+			var world_h = 258.0
+			var world_w = 516.0
+			if terrain_node:
+				world_h = float(terrain_node.worldh)
+				world_w = float(terrain_node.worldw)
+			var aspect = map_w / map_h
+			var req_cam_v = world_w * 1.05
+			var req_cam_h = (world_h * 1.05) / aspect
+			var fit_cam_size = max(req_cam_v, req_cam_h)
+			if minimap_camera:
+				minimap_camera.size = fit_cam_size * minimap_big_zoom_mult
 		2:
 			minimap_root.hide()
 func _update_underground_map():
 	pass
+
+func _update_poi_markers(cam_pos: Vector3, center: Vector2, current_scale_factor: float, current_map_size: Vector2, is_castle: bool, castle_floor: int) -> void:
+	if not poi_container:
+		return
+	var terrain_node = get_node_or_null("terrain")
+	if not terrain_node or not ("poi_data" in terrain_node) or terrain_node.poi_data.size() == 0:
+		return
+
+	var current_context = "surface"
+	if is_castle:
+		current_context = "castle_" + str(castle_floor)
+	elif _is_underground_cached:
+		current_context = "underground"
+
+	var active_ids = {}
+
+	for poi in terrain_node.poi_data:
+		var p_id = poi.get("id", "")
+		var p_context = poi.get("context", "surface")
+		
+		# Context filtering
+		if map_mode == 0:
+			# Local minimap: strictly show POIs corresponding to the current environment
+			if p_context != current_context:
+				continue
+		elif map_mode == 1:
+			# Full map view
+			if is_castle:
+				if p_context != current_context:
+					continue
+			else:
+				if p_context != "surface" and p_context != "underground":
+					continue
+
+		var pos: Vector3 = poi.get("pos", Vector3.ZERO)
+		var diff_x = pos.x - cam_pos.x
+		var diff_z = pos.z - cam_pos.z
+		var screen_x = center.x + (diff_x * current_scale_factor)
+		var screen_y = center.y + (diff_z * current_scale_factor)
+
+		# Screen boundary check
+		if screen_x < -20 or screen_x > current_map_size.x + 20 or screen_y < -20 or screen_y > current_map_size.y + 20:
+			continue
+
+		active_ids[p_id] = true
+
+		var marker: Control = poi_marker_nodes.get(p_id)
+		if not marker:
+			marker = _create_poi_marker(poi)
+			poi_marker_nodes[p_id] = marker
+			poi_container.add_child(marker)
+
+		marker.visible = true
+		marker.position = Vector2(screen_x, screen_y) - marker.size / 2.0
+
+		# Name tag visibility based on map mode
+		var name_tag = marker.get_node_or_null("NameTag")
+		if name_tag:
+			name_tag.visible = (map_mode == 1)
+
+		# Pulsing animation for Boss and Stairs
+		var p_type = poi.get("type", "")
+		if p_type == "boss" or p_type == "stair_up" or p_type == "stair_down":
+			var pulse = 1.0 + 0.15 * sin(Time.get_ticks_msec() * 0.006)
+			marker.scale = Vector2(pulse, pulse)
+			marker.pivot_offset = marker.size / 2.0
+		else:
+			marker.scale = Vector2.ONE
+
+	# Hide markers that are currently filtered out
+	for id in poi_marker_nodes.keys():
+		if not active_ids.has(id):
+			poi_marker_nodes[id].visible = false
+
+func _create_poi_marker(poi: Dictionary) -> Control:
+	var m = Control.new()
+	m.name = "POI_" + str(poi.get("id", "marker"))
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sz = Vector2(18, 18)
+	m.size = sz
+
+	var bg = ColorRect.new()
+	bg.name = "BG"
+	bg.size = sz
+	bg.color = poi.get("color", Color.WHITE)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	m.add_child(bg)
+
+	var border = ReferenceRect.new()
+	border.name = "Border"
+	border.size = sz
+	border.border_color = Color(0, 0, 0, 0.9)
+	border.border_width = 1.5
+	border.editor_only = false
+	border.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	m.add_child(border)
+
+	var lbl = Label.new()
+	lbl.name = "Symbol"
+	lbl.text = poi.get("symbol", "•")
+	lbl.size = sz
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.add_theme_color_override("font_color", Color.WHITE)
+	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
+	lbl.add_theme_constant_override("shadow_offset_x", 1)
+	lbl.add_theme_constant_override("shadow_offset_y", 1)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	m.add_child(lbl)
+
+	var name_lbl = Label.new()
+	name_lbl.name = "NameTag"
+	name_lbl.text = poi.get("name", "")
+	name_lbl.position = Vector2(-30, 19)
+	name_lbl.size = Vector2(78, 14)
+	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_lbl.add_theme_font_size_override("font_size", 9)
+	name_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.95))
+	name_lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.95))
+	name_lbl.add_theme_constant_override("shadow_offset_x", 1)
+	name_lbl.add_theme_constant_override("shadow_offset_y", 1)
+	name_lbl.visible = false
+	name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	m.add_child(name_lbl)
+
+	return m

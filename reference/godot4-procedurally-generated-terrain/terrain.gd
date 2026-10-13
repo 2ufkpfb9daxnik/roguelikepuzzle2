@@ -35,8 +35,18 @@ var entrance_width_radius: float = 3.0
 var entrance_height_radius: float = 3.0
 var castle_width_length = 48
 var castle_height_length = 48
-
-
+var castle_instance: Node3D = null
+var castle_sth: int = 0
+var castle_stw: int = 0
+var castle_map_textures: Array[ImageTexture] = []
+var poi_data: Array = []
+var castle_shop_pos: Vector3 = Vector3.ZERO
+var stair_0_pos_1f: Vector3 = Vector3.ZERO
+var stair_0_pos_2f: Vector3 = Vector3.ZERO
+var stair_1_pos_2f: Vector3 = Vector3.ZERO
+var stair_1_pos_3f: Vector3 = Vector3.ZERO
+var stair: Array = []
+var castle: Array = []
 var battle_height = 10
 var battle_width = 10
 var shop_height = 4
@@ -726,8 +736,43 @@ func print_stats():
 		file.store_string(text)
 		file.close()
 
+func is_player_in_castle(pos: Vector3) -> bool:
+	if castle_instance == null:
+		return false
+	var base_y = int(floor(baseheightma / 0.1))
+	return (
+		pos.x >= castle_sth + 8 and pos.x <= castle_sth + castle_height_length - 8 and
+		pos.z >= castle_stw + 9 and pos.z <= castle_stw + castle_width_length - 8 and
+		pos.y >= base_y + 2 and pos.y <= base_y + 25
+	)
+
+func get_castle_floor(pos: Vector3) -> int:
+	var base_y = int(floor(baseheightma / 0.1))
+	if pos.y < base_y + 9:
+		return 0 # 1F
+	elif pos.y < base_y + 15:
+		return 1 # 2F
+	else:
+		return 2 # 3F
+
+func get_ground_y(x: int, start_y: int, z: int) -> int:
+	if x < 0 or x >= worldh or z < 0 or z >= worldw or _map3dnum_flat.is_empty():
+		return -1
+	var max_y = clamp(start_y, 0, d - 1)
+	var wh_ww = worldh * worldw
+	for y in range(max_y, -1, -1):
+		var v = _map3dnum_flat[y * wh_ww + x * worldw + z]
+		if v != -1 and v != 1:
+			return y
+	return -1
+
 func _exit_tree():
 	print_stats()
+	for task in chunk_queue:
+		if task.size() > 7 and task[4] == 1:
+			var task_id = task[7]
+			if not WorkerThreadPool.is_task_completed(task_id):
+				WorkerThreadPool.wait_for_task_completion(task_id)
 func _process(delta):
 	var start_process = Time.get_ticks_usec()
 
@@ -744,6 +789,9 @@ func _process(delta):
 				is_player_frozen_for_chunk = true
 				player.process_mode = Node.PROCESS_MODE_DISABLED
 		playerpos = cur_pos
+		
+	if castle_instance != null and player != null:
+		castle_instance.visible = not is_player_in_castle(cur_pos)
 		
 	if not is_generating:
 		_queue_chunks_around(px, pz)
@@ -856,13 +904,7 @@ func _step_generate_chunk(task: Array) -> bool:
 				multimesh.transform_format = MultiMesh.TRANSFORM_3D
 				multimesh.mesh = template_mesh
 				multimesh.instance_count = count
-				
-				var b_idx = 0
-				for k in range(count):
-					var t = Transform3D()
-					t.origin = Vector3(buf[b_idx+9], buf[b_idx+10], buf[b_idx+11])
-					multimesh.set_instance_transform(k, t)
-					b_idx += 12
+				multimesh.buffer = buf
 				
 				var multimeshinstance = MultiMeshInstance3D.new()
 				multimeshinstance.multimesh = multimesh
@@ -1156,6 +1198,8 @@ func _debug_verify_chunk(i1: int, j1: int, new_multi: Array, new_col: Array):
 	print(msg)
 
 func _thread_calculate_chunk_data(i1: int, j1: int, result_container: Array):
+	if _map3dnum_flat.is_empty():
+		return
 	var local_multi = []
 	var local_col = []
 	
@@ -1249,12 +1293,9 @@ func _thread_calculate_chunk_data(i1: int, j1: int, result_container: Array):
 		var b_idx = 0
 		for k in range(count):
 			var blockt = group[k]
-			buf[b_idx+0] = 1.0; buf[b_idx+1] = 0.0; buf[b_idx+2] = 0.0
-			buf[b_idx+3] = 0.0; buf[b_idx+4] = 1.0; buf[b_idx+5] = 0.0
-			buf[b_idx+6] = 0.0; buf[b_idx+7] = 0.0; buf[b_idx+8] = 1.0
-			buf[b_idx+9] = float(blockt[0])
-			buf[b_idx+10] = float(blockt[2])
-			buf[b_idx+11] = float(blockt[1])
+			buf[b_idx+0] = 1.0; buf[b_idx+1] = 0.0; buf[b_idx+2] = 0.0; buf[b_idx+3] = float(blockt[0])
+			buf[b_idx+4] = 0.0; buf[b_idx+5] = 1.0; buf[b_idx+6] = 0.0; buf[b_idx+7] = float(blockt[2])
+			buf[b_idx+8] = 0.0; buf[b_idx+9] = 0.0; buf[b_idx+10] = 1.0; buf[b_idx+11] = float(blockt[1])
 			b_idx += 12
 		local_multi.append([buf, count, group[0]])
 
@@ -1262,6 +1303,9 @@ func _thread_calculate_chunk_data(i1: int, j1: int, result_container: Array):
 	_chunk_mask_flat.resize(max_k * rh * rw)
 	_chunk_mask_flat.fill(0)
 	
+	if _map3dnum_flat.is_empty():
+		return
+		
 	for k in range(max_k):
 		var k_wh_ww = k * wh_ww
 		var c_k_rh_rw = k * (rh * rw)
@@ -1364,7 +1408,8 @@ func bezie_curve(p0:Vector3,p1:Vector3,p2:Vector3,p3:Vector3,t:float)->Vector3:
 	point += t3*p3
 	return point
 func carve_tunnel(p0:Vector3,p1:Vector3,p2:Vector3,p3:Vector3):
-	var steps = 15000
+	var dist = p0.distance_to(p3)
+	var steps = max(200, int(dist * 6))
 	var widthr = entrance_width_radius
 	var heightr = entrance_height_radius
 	var dirt_pad = 1
@@ -1746,6 +1791,36 @@ func sea(map:Array, n:int = 4, progress_weight: float = 0.0):
 	
 	var seablocksum = 0
 	return [map, seablocksum]
+
+func apply_surrounding_sea_coastline(height_map: Array, assign_map: Array, offset_x: float, offset_z: float, margin: int = 12) -> void:
+	for i in range(h):
+		for j in range(w):
+			var edge_dist = min(i, min(h - 1 - i, min(j, w - 1 - j)))
+			# Interior terrain is 100% PRESERVED exactly as procedurally generated
+			if edge_dist >= margin:
+				continue
+				
+			# Natural multi-octave coastline noise where the surrounding ocean meets the island
+			var n1 = noise.get_noise_2d(float(i + offset_x) * 1.8, float(j + offset_z) * 1.8) * 0.35
+			var n2 = noise.get_noise_2d(float(i + offset_x) * 4.0, float(j + offset_z) * 4.0) * 0.15
+			var n = n1 + n2
+			var t = clamp((float(edge_dist) / float(margin)) + n, 0.0, 1.0)
+			var coast_factor = t * t * (3.0 - 2.0 * t)
+			
+			if coast_factor < 0.28:
+				# Outer submerged zone: natural ocean water (ID 1) at sea level (Y=30)
+				height_map[i][j] = 0.0
+				assign_map[i][j] = 1
+			else:
+				# Smooth coastal slope into sea level
+				height_map[i][j] *= coast_factor
+				if height_map[i][j] < 0.05:
+					height_map[i][j] = 0.0
+					assign_map[i][j] = 1
+				elif height_map[i][j] < 0.35 and assign_map[i][j] != 1:
+					# Natural sandy beach transition where land meets water
+					assign_map[i][j] = 5
+
 func snow_leveling(map:Array):
 	await get_tree().process_frame
 	var sum = []
@@ -2618,7 +2693,7 @@ func find_mesh_instance(node: Node) -> MeshInstance3D:
 func make_castle():
 	await get_tree().process_frame
 	var castle_scene = load(castle_path)
-	var castle_instance:Node3D = castle_scene.instantiate()
+	castle_instance = castle_scene.instantiate()
 	var base = []
 	var baseheightmin = []
 	await _add_loading_progress(0.29411764705882354)
@@ -2686,65 +2761,74 @@ func make_castle():
 			var diff = height-around
 			for k in range(diff+1):
 				_map3dnum_flat[(height-k) * worldh * worldw + (i+castle_start_h) * worldw + (j+castle_start_w)] = 2
-	await _add_loading_progress(0.29411764705882354)
-	for i in range(h):
-		var height = int(floor(base[i][0]/0.1))
-		var around = int(floor(baseheightma/0.1))
-		var diff = around-height
-		for k in range(diff+1):
-			_map3dnum_flat[(around-k) * worldh * worldw + (i+castle_start_h) * worldw + (castle_start_w)] = 2
-	await _add_loading_progress(0.29411764705882354)
-	for i in range(h):
-		var height = int(floor(base[i][w-1]/0.1))
-		var around = int(floor(baseheightma/0.1))
-		var diff = around-height
-		for k in range(diff+1):
-			_map3dnum_flat[(around-k) * worldh * worldw + (i+castle_start_h) * worldw + (w-1+castle_start_w)] = 2
-	for i in range(w):
-		var height = int(floor(base[h-1][i]/0.1))
-		var around = int(floor(baseheightma/0.1))
-		var diff = around-height
-		for k in range(diff+1):
-			_map3dnum_flat[(around-k) * worldh * worldw + (h-1+castle_start_h) * worldw + (i+castle_start_w)] = 2
-	for i in range(w):
-		var height = int(floor(base[h-1][i]/0.1))
-		var around = int(floor(baseheightma/0.1))
-		var diff = around-height
-		for k in range(diff+1):
-			_map3dnum_flat[(around-k) * worldh * worldw + (h-1+castle_start_h) * worldw + (i+castle_start_w)] = 2
 	var land = []
 	var dist = []
-	await _add_loading_progress(0.29411764705882354)
-	for i in range(h):
-		var arrw = []
-		arrw.resize(w)
-		arrw.fill(-1)
-		land.append(arrw)
-	await _add_loading_progress(0.29411764705882354)
-	for i in range(h):
-		var arrw = []
-		arrw.resize(w)
-		arrw.fill(1e9)
-		dist.append(arrw)
 	var land_acc = []
-	await _add_loading_progress(0.29411764705882354)
 	for i in range(h):
-		var arrw = []
-		arrw.resize(w)
-		arrw.fill(0)
-		land_acc.append(arrw)
-	await _add_loading_progress(0.29411764705882354)
+		var arr_land = []
+		arr_land.resize(w)
+		arr_land.fill(-1)
+		land.append(arr_land)
+		
+		var arr_dist = []
+		arr_dist.resize(w)
+		arr_dist.fill(1e9)
+		dist.append(arr_dist)
+		
+		var arr_acc = []
+		arr_acc.resize(w)
+		arr_acc.fill(0)
+		land_acc.append(arr_acc)
+
+	var cash = castle_height_length
+	var casw = castle_width_length
+	var base_y_plateau = int(floor(baseheightma / 0.1))
+
+	# Build organic rocky island supporting castle, stairs approach, and natural craggy cliffs
+	var c_margin = 8
+	var c_ci = (h - 1) / 2.0
+	var c_cj = (w - 1) / 2.0
 	for i in range(h):
 		for j in range(w):
+			# Ocean seabed and water level
+			_map3dnum_flat[(28) * worldh * worldw + (i+castle_start_h) * worldw + (j+castle_start_w)] = 2
+			_map3dnum_flat[(29) * worldh * worldw + (i+castle_start_h) * worldw + (j+castle_start_w)] = 2
 			_map3dnum_flat[(30) * worldh * worldw + (i+castle_start_h) * worldw + (j+castle_start_w)] = 1
-			if i-1 >= 0 and i+1 < h and j-1 >= 0 and j+1 < w:
-				if base[i-1][j] != 0.0 and base[i+1][j] != 0.0 and base[i][j-1] != 0.0 and base[i][j+1] != 0.0:
-					land_acc[i][j] = 1
-			if _map3dnum_flat[(int(floor(baseheightma/0.1))) * worldh * worldw + (i+castle_start_h) * worldw + (j+castle_start_w)] == 2:
-				_map3dnum_flat[(int(floor(baseheightma/0.1))) * worldh * worldw + (i+castle_start_h) * worldw + (j+castle_start_w)] = -1
-			else:
-				_map3dnum_flat[(int(floor(baseheightma/0.1))) * worldh * worldw + (i+castle_start_h) * worldw + (j+castle_start_w)] = 2
+			
+			# Castle structure zone: guarantee solid ground for castle footprint and entrance stairs
+			var is_castle_zone = (i >= 0 and i < cash + 4 and j >= 0 and j < casw + 4)
+			
+			# Organic island boundary surrounding castle with natural cliffs
+			var di = (float(i) - c_ci) / (c_ci * 0.95)
+			var dj = (float(j) - c_cj) / (c_cj * 0.95)
+			var c_dist = sqrt(di * di + dj * dj)
+			var angle = atan2(di, dj)
+			var wobble = sin(angle * 3.0 + 1.2) * 0.12 + cos(angle * 5.0 - 0.7) * 0.08
+			var edge_dist = min(i, min(h - 1 - i, min(j, w - 1 - j)))
+			var is_organic_island = (c_dist + wobble < 1.05 and edge_dist > 3)
+			
+			if is_castle_zone or is_organic_island:
 				land[i][j] = 2
+				land_acc[i][j] = 1
+				_map3dnum_flat[base_y_plateau * worldh * worldw + (i+castle_start_h) * worldw + (j+castle_start_w)] = 2
+			else:
+				land[i][j] = -1
+				land_acc[i][j] = 0
+				for y in range(31, d):
+					_map3dnum_flat[y * worldh * worldw + (i+castle_start_h) * worldw + (j+castle_start_w)] = -1
+
+	# Form rocky cliff walls from plateau edges down to ocean (Y=30)
+	for i in range(h):
+		for j in range(w):
+			if land[i][j] == 2:
+				var is_edge = false
+				if i == 0 or i == h - 1 or j == 0 or j == w - 1:
+					is_edge = true
+				elif land[i-1][j] == -1 or land[i+1][j] == -1 or land[i][j-1] == -1 or land[i][j+1] == -1:
+					is_edge = true
+				if is_edge:
+					for y in range(30, base_y_plateau):
+						_map3dnum_flat[y * worldh * worldw + (i+castle_start_h) * worldw + (j+castle_start_w)] = 2
 	await _add_loading_progress(0.29411764705882354)
 	for i in range(h):
 		for j in range(w-1):
@@ -2803,8 +2887,8 @@ func make_castle():
 			continue
 		var i = curc[1]/w
 		var j = curc[1]%w
-		var cash = castle_height_length
-		var casw = castle_width_length
+		cash = castle_height_length
+		casw = castle_width_length
 		var sum = 0
 		if cash+i >= h or casw+j >= w:
 			continue
@@ -2816,18 +2900,32 @@ func make_castle():
 		if i-1 >= 0 and j-1 >= 0 :
 			sum += land_acc[i-1][j-1]
 		if sum >= (castle_height_length+1)*(castle_width_length+1)-20:
-			castle_instance.position = Vector3(i+castle_height_length/2+castle_start_h, int(floor((baseheightma)/0.1))+int(int(h/4*3)/2)-2, j+int(castle_width_length/2)+castle_start_w)
-			castle_instance.scale = Vector3(castle_height_length, int(h/4*3), castle_width_length)
-			castle_instance.rotation_degrees = Vector3(0, 180, 0)
-			add_child(castle_instance)
 			sth = i+h/2
 			stw = j+w*5/2
+			castle_sth = sth
+			castle_stw = stw
+			var base_y_val = int(floor((baseheightma)/0.1))
+			var door_x = sth + 10 + int((castle_height_length - 19 - 4) / 2) + 2
+			var c_scale_x = float(castle_height_length)
+			var c_scale_y = float(castle_height_length)
+			var c_scale_z = float(castle_width_length)
+			
+			# Align model terrace with entrance doorway (door_x, base_y + 3, stw + 7)
+			# Local terrace is at (0, -0.393, 0.380). With rotation (0, 180, 0), this maps precisely to (door_x, base_y + 3, stw + 7).
+			var c_pos_x = float(door_x)
+			var c_pos_y = float(base_y_val + 3.0) + 0.393 * c_scale_y
+			var c_pos_z = float(stw + 7.0) + 0.380 * c_scale_z
+			
+			castle_instance.position = Vector3(c_pos_x, c_pos_y, c_pos_z)
+			castle_instance.scale = Vector3(c_scale_x, c_scale_y, c_scale_z)
+			castle_instance.rotation_degrees = Vector3(0, 180, 0)
+			add_child(castle_instance)
 			break
 	for k in range(1,4):
 		for i in range(6,castle_height_length-5):
 			for j in range(6,castle_width_length-5):
 				_map3dnum_flat[(int(floor((baseheightma)/0.1))+k) * worldh * worldw + (sth+i) * worldw + (stw+j)] = 5
-	var castle = []
+	castle = []
 	var height = castle_height_length-19
 	var width = castle_width_length-19
 	for k in range(3):
@@ -2853,6 +2951,18 @@ func make_castle():
 			for x in range(0, 8):
 				if y >= 0 and y < height and x >= 0 and x < width:
 					castlemap[y][x] = 0 # 0 is open floor space
+
+		# On 3F (k == 2), add Central Boss Room into the dungeon network
+		if k == 2:
+			var center_y = int(height / 2)
+			var center_x = int(width / 2)
+			var boss_radius = min(16, int((min(height, width) - 10) / 2))
+			var boss_r = rectangle.new(center_x - boss_radius, center_y - boss_radius, boss_radius * 2 + 1, boss_radius * 2 + 1)
+			rooms.append(boss_r)
+			for by in range(center_y - boss_radius, center_y + boss_radius + 1):
+				for bx in range(center_x - boss_radius, center_x + boss_radius + 1):
+					if by >= 0 and by < height and bx >= 0 and bx < width:
+						castlemap[by][bx] = 0
 
 		var edges = []
 		for i in range(rooms.size()):
@@ -2910,7 +3020,57 @@ func make_castle():
 			for x in range(width):
 				if y == 0 or x == 0 or y == height-1 or x == width-1:
 					castle[k][y][x] = 5
-	var stair = []
+
+		# 3F Boss Room architecture: outer walls, open hall, 4 cardinal gates & connecting corridors
+		if k == 2:
+			var center_y = int(height / 2)
+			var center_x = int(width / 2)
+			var boss_radius = min(16, int((min(height, width) - 10) / 2))
+			# Enforce Boss Room perimeter walls and interior floor
+			for by in range(center_y - boss_radius, center_y + boss_radius + 1):
+				for bx in range(center_x - boss_radius, center_x + boss_radius + 1):
+					if by >= 0 and by < height and bx >= 0 and bx < width:
+						if by == center_y - boss_radius or by == center_y + boss_radius or bx == center_x - boss_radius or bx == center_x + boss_radius:
+							castle[k][by][bx] = 5
+						else:
+							castle[k][by][bx] = -1
+
+			# South gateway (5 blocks wide) & connecting corridor
+			for gx in range(center_x - 2, center_x + 3):
+				if center_y - boss_radius >= 0 and gx >= 0 and gx < width:
+					castle[k][center_y - boss_radius][gx] = -1
+			for corr_y in range(max(1, center_y - boss_radius - 8), center_y - boss_radius):
+				for gx in range(center_x - 2, center_x + 3):
+					if corr_y >= 0 and corr_y < height and gx >= 0 and gx < width:
+						castle[k][corr_y][gx] = -1
+
+			# North gateway (5 blocks wide) & connecting corridor
+			for gx in range(center_x - 2, center_x + 3):
+				if center_y + boss_radius < height and gx >= 0 and gx < width:
+					castle[k][center_y + boss_radius][gx] = -1
+			for corr_y in range(center_y + boss_radius + 1, min(height - 1, center_y + boss_radius + 9)):
+				for gx in range(center_x - 2, center_x + 3):
+					if corr_y >= 0 and corr_y < height and gx >= 0 and gx < width:
+						castle[k][corr_y][gx] = -1
+
+			# West gateway (5 blocks wide) & connecting corridor
+			for gy in range(center_y - 2, center_y + 3):
+				if center_x - boss_radius >= 0 and gy >= 0 and gy < height:
+					castle[k][gy][center_x - boss_radius] = -1
+			for corr_x in range(max(1, center_x - boss_radius - 8), center_x - boss_radius):
+				for gy in range(center_y - 2, center_y + 3):
+					if gy >= 0 and gy < height and corr_x >= 0 and corr_x < width:
+						castle[k][gy][corr_x] = -1
+
+			# East gateway (5 blocks wide) & connecting corridor
+			for gy in range(center_y - 2, center_y + 3):
+				if center_x + boss_radius < width and gy >= 0 and gy < height:
+					castle[k][gy][center_x + boss_radius] = -1
+			for corr_x in range(center_x + boss_radius + 1, min(width - 1, center_x + boss_radius + 9)):
+				for gy in range(center_y - 2, center_y + 3):
+					if gy >= 0 and gy < height and corr_x >= 0 and corr_x < width:
+						castle[k][gy][corr_x] = -1
+	stair = []
 	var castle_acc = []
 	for k in range(3):
 		var arrhw = []
@@ -2927,56 +3087,101 @@ func make_castle():
 						castle_acc[k][i][j] = 1
 	for k in range(2):
 		var stair_candidate = []
+		var boss_r_stair = min(16, int((min(height, width) - 10) / 2))
 		for i in range(height):
 			for j in range(width):
-				if i+2 >= height or j+2 >= width:
+				if i < 4 or i >= height - 8 or j < 4 or j >= width - 8:
 					continue
 				var sum1 = 0
 				for i1 in range(3):
 					for j1 in range(3):
 						if castle_acc[k][i+i1][j+j1] == 1:
 							sum1 += 1
-				if i+6 < height:
-					var sum2 = 0
-					for i1 in range(3):
-						for j1 in range(3):
-							if castle_acc[k+1][i+i1+4][j+j1] == 1:
-								sum2 += 1
-					if sum1 == 9 and sum2 == 9:
-						# Prevent stairs in front of entrance (i is center, j is small)
-						var is_entrance_clearance = (i >= int((height-4)/2) and i <= int((height-4)/2)+4 and j < 8)
-						if not is_entrance_clearance:
-							stair_candidate.append([i,j,i+4,j])
-				if j+6 < width:
-					var sum2 = 0
-					for i1 in range(3):
-						for j1 in range(3):
-							if castle_acc[k+1][i+i1][j+j1+4] == 1:
-								sum2 += 1
-					if sum1 == 9 and sum2 == 9:
-						var is_entrance_clearance = (i >= int((height-4)/2) and i <= int((height-4)/2)+4 and j < 8)
-						if not is_entrance_clearance:
-							stair_candidate.append([i,j,i,j+4])
-				if i-4 >= 0:
-					var sum2 = 0
-					for i1 in range(3):
-						for j1 in range(3):
-							if castle_acc[k+1][i+i1-4][j+j1] == 1:
-								sum2 += 1
-					if sum1 == 9 and sum2 == 9:
-						var is_entrance_clearance = (i >= int((height-4)/2) and i <= int((height-4)/2)+4 and j < 8)
-						if not is_entrance_clearance:
-							stair_candidate.append([i,j,i-4,j])
-				if j-4 >= 0:
-					var sum2 = 0
-					for i1 in range(3):
-						for j1 in range(3):
-							if castle_acc[k+1][i+i1][j+j1-4] == 1:
-								sum2 += 1
-					if sum1 == 9 and sum2 == 9:
-						var is_entrance_clearance = (i >= int((height-4)/2) and i <= int((height-4)/2)+4 and j < 8)
-						if not is_entrance_clearance:
-							stair_candidate.append([i,j,i,j-4])
+				if sum1 != 9:
+					continue
+
+				# Check all 4 potential stair orientations: [target_i_offset, target_j_offset, di, dj]
+				var dirs = [
+					[4, 0, 1, 0],   # i+4, j (di=1, dj=0)
+					[0, 4, 0, 1],   # i, j+4 (di=0, dj=1)
+					[-4, 0, -1, 0], # i-4, j (di=-1, dj=0)
+					[0, -4, 0, -1]  # i, j-4 (di=0, dj=-1)
+				]
+
+				for d_info in dirs:
+					var target_i = i + d_info[0]
+					var target_j = j + d_info[1]
+					var di = d_info[2]
+					var dj = d_info[3]
+					var wi = 1 if di == 0 else 0
+					var wj = 1 if dj == 0 else 0
+
+					# Perimeter outer wall margin: from start through landing (target + di * 2) must remain >= 4 blocks inside outer walls
+					var end_landing_i = target_i + di * 2
+					var end_landing_j = target_j + dj * 2
+					if min(i, end_landing_i) < 4 or max(i, end_landing_i) + wi * 2 >= height - 4:
+						continue
+					if min(j, end_landing_j) < 4 or max(j, end_landing_j) + wj * 2 >= width - 4:
+						continue
+
+					# 1F entrance clearance protection
+					var is_entrance_cl = (min(i, end_landing_i) <= int((height-4)/2)+5 and max(i, end_landing_i) >= int((height-4)/2) and min(j, end_landing_j) < 9)
+					if is_entrance_cl:
+						continue
+
+					# 3F Boss room protection (2F->3F stairs must not touch boss room perimeter or interior)
+					if k == 1:
+						var touches_boss = false
+						for step_chk in range(7):
+							var ci = i + di * step_chk
+							var cj = j + dj * step_chk
+							if abs(ci - int(height/2)) <= boss_r_stair + 2 and abs(cj - int(width/2)) <= boss_r_stair + 2:
+								touches_boss = true
+								break
+						if touches_boss:
+							continue
+
+					# Upper floor (k+1): target, landing (target+di, target+2*di) MUST all be open floor (-1 or 0) on floor k+1.
+					# They must NEVER hit or carve into walls (5)!
+					var upper_clear = true
+					for extra_chk in range(0, 3):
+						var ci_base = target_i + di * extra_chk
+						var cj_base = target_j + dj * extra_chk
+						for w in range(3):
+							var ci = ci_base + wi * w
+							var cj = cj_base + wj * w
+							if ci < 0 or ci >= height or cj < 0 or cj >= width:
+								upper_clear = false
+								break
+							if castle[k+1][ci][cj] != -1 and castle[k+1][ci][cj] != 0:
+								upper_clear = false
+								break
+						if not upper_clear:
+							break
+					if not upper_clear:
+						continue
+
+					# Lower floor (k): stair ascent path must be open floor (-1 or 0)
+					var lower_clear = true
+					for step_chk in range(5):
+						var ci_base = i + di * step_chk
+						var cj_base = j + dj * step_chk
+						for w in range(3):
+							var ci = ci_base + wi * w
+							var cj = cj_base + wj * w
+							if ci < 0 or ci >= height or cj < 0 or cj >= width:
+								lower_clear = false
+								break
+							if castle[k][ci][cj] != -1 and castle[k][ci][cj] != 0:
+								lower_clear = false
+								break
+						if not lower_clear:
+							break
+					if not lower_clear:
+						continue
+
+					# Candidate has clear headroom and clear forward landing on upper floor!
+					stair_candidate.append([i, j, target_i, target_j])
 		if stair_candidate.size() == 0:
 			# Fallback if no valid stairs were found (e.g. all blocked by clearance)
 			stair_candidate.append([height-8, width-8, height-4, width-8])
@@ -2989,8 +3194,11 @@ func make_castle():
 			for j in range(stair.back()[3],stair.back()[3]+2):
 				castle_acc[k+1][i][j] = 0
 	for k in range(3):
+		var boss_r_val = min(16, int((min(height, width) - 10) / 2))
 		for i in range(height):
 			for j in range(width):
+				var is_boss_interior = (k == 2 and abs(i - int(height/2)) < boss_r_val and abs(j - int(width/2)) < boss_r_val and castle[2][i][j] == -1)
+				var is_boss_wall = (k == 2 and (abs(i - int(height/2)) == boss_r_val or abs(j - int(width/2)) == boss_r_val) and abs(i - int(height/2)) <= boss_r_val and abs(j - int(width/2)) <= boss_r_val and castle[2][i][j] == 5)
 				for l in range(5):
 					if k == 0 and i >= int((height-4)/2)+1 and j < width-5 and i <= int((height-4)/2)+3:
 						_map3dnum_flat[(int(floor((baseheightma)/0.1))+4+k*5+l+k) * worldh * worldw + (sth+i+10) * worldw + (stw+j+10)] = -1
@@ -3008,6 +3216,7 @@ func make_castle():
 					_map3dnum_flat[(int(floor((baseheightma)/0.1))+4+k*5+k) * worldh * worldw + (sth+i+10) * worldw + (stw+8)] = 5
 					_map3dnum_flat[(int(floor((baseheightma)/0.1))+4+k*5+k) * worldh * worldw + (sth+i+10) * worldw + (stw+9)] = 5
 					
+				# All castle floors (1F, 2F, 3F) have uniform 5-block room height and solid stone ceiling slab (5)
 				_map3dnum_flat[(int(floor((baseheightma)/0.1))+4+k*5+5+k) * worldh * worldw + (sth+i+10) * worldw + (stw+j+10)] = 5
 	# --- BFS Validation for Castle Entrance Path ---
 	var q = []
@@ -3050,32 +3259,314 @@ func make_castle():
 		var stj1 = stair[k][1]
 		var sti2 = stair[k][2]
 		var stj2 = stair[k][3]
-		if sti1 == sti2:
-			if stj2 >= stj1:
-				for j in range(stj2-stj1+1):
-					for i in range(3):
-						_map3dnum_flat[(int(floor((baseheightma)/0.1))+4+k*5+k+j) * worldh * worldw + (sth+sti1+i+10) * worldw + (stw+j+stj1+2+10)] = 5
-						for t in range(5):
-							_map3dnum_flat[(int(floor((baseheightma)/0.1))+4+k*5+k+min(5,j+t+1)) * worldh * worldw + (sth+sti1+i+10) * worldw + (stw+j+stj1+2+10)] = -1
+		var di = 0
+		var dj = 0
+		if sti2 > sti1: di = 1
+		elif sti2 < sti1: di = -1
+		if stj2 > stj1: dj = 1
+		elif stj2 < stj1: dj = -1
+		
+		var num_steps = max(abs(sti2 - sti1), abs(stj2 - stj1))
+		var wi = 1 if di == 0 else 0
+		var wj = 1 if dj == 0 else 0
+		
+		var base_floor_y = int(floor(baseheightma / 0.1)) + 4 + 6 * k
+		
+		# Build steps 0 to num_steps along the stair corridor, each rising exactly 1 block
+		for step in range(num_steps + 1):
+			var step_y = base_floor_y + step
+			var cur_i_base = sti1 + di * step
+			var cur_j_base = stj1 + dj * step
+			
+			for w in range(3):
+				var cur_i = cur_i_base + wi * w
+				var cur_j = cur_j_base + wj * w
+				var wx = sth + 10 + cur_i
+				var wz = stw + 10 + cur_j
+				
+				if wx >= 0 and wx < worldh and wz >= 0 and wz < worldw:
+					if step_y >= 0 and step_y < d:
+						_map3dnum_flat[step_y * worldh * worldw + wx * worldw + wz] = 5
+					
+					if step < 2:
+						# Steps 0 & 1: Lower floor headroom; lower ceiling (base_floor_y + 5) stays intact stone
+						for air_y in range(step_y + 1, base_floor_y + 5):
+							if air_y >= 0 and air_y < d:
+								_map3dnum_flat[air_y * worldh * worldw + wx * worldw + wz] = -1
+						var lower_ceil_y = base_floor_y + 5
+						if lower_ceil_y >= 0 and lower_ceil_y < d:
+							_map3dnum_flat[lower_ceil_y * worldh * worldw + wx * worldw + wz] = 5
+					else:
+						# Steps 2+: Carve hatch opening completely through upper floor slab (base_floor_y + 5) into upper floor room!
+						# This MUST be air so the player can smoothly step up onto the next floor without hitting the ceiling/floor!
+						for air_y in range(step_y + 1, base_floor_y + 11):
+							if air_y >= 0 and air_y < d:
+								_map3dnum_flat[air_y * worldh * worldw + wx * worldw + wz] = -1
+						var upper_ceil_y = base_floor_y + 11
+						if upper_ceil_y >= 0 and upper_ceil_y < d:
+							_map3dnum_flat[upper_ceil_y * worldh * worldw + wx * worldw + wz] = 5
+
+		# Landing onto upper floor: top step reaches upper floor slab
+		var landing_step_y = base_floor_y + 5
+		for extra in range(1, 2):
+			var cur_i_base = sti2 + di * extra
+			var cur_j_base = stj2 + dj * extra
+			for w in range(3):
+				var cur_i = cur_i_base + wi * w
+				var cur_j = cur_j_base + wj * w
+				var wx = sth + 10 + cur_i
+				var wz = stw + 10 + cur_j
+				if wx >= 0 and wx < worldh and wz >= 0 and wz < worldw:
+					if landing_step_y >= 0 and landing_step_y < d:
+						_map3dnum_flat[landing_step_y * worldh * worldw + wx * worldw + wz] = 5
+					# Clear upper room space up to (excluding) upper ceiling
+					for air_y in range(landing_step_y + 1, base_floor_y + 11):
+						if air_y >= 0 and air_y < d:
+							_map3dnum_flat[air_y * worldh * worldw + wx * worldw + wz] = -1
+					var upper_ceil_y = base_floor_y + 11
+					if upper_ceil_y >= 0 and upper_ceil_y < d:
+						_map3dnum_flat[upper_ceil_y * worldh * worldw + wx * worldw + wz] = 5
+
+	# Position castle_shop if node exists
+	var c_shop = get_parent().get_node_or_null("castle_shop")
+	var base_y_int = int(floor(baseheightma / 0.1))
+	if c_shop:
+		castle_shop_pos = Vector3(sth + 18, base_y_int + 4 + shop_height / 2, stw + 14)
+		c_shop.position = castle_shop_pos
+		c_shop.scale *= shop_height
+		var c_shop_col = c_shop.get_node_or_null("Area3D/CollisionShape3D")
+		if c_shop_col:
+			c_shop_col.scale *= shop_height
+
+	# Record stair world positions
+	if stair.size() > 0:
+		var wi0 = 1 if stair[0][0] == stair[0][2] else 0
+		var wj0 = 1 if stair[0][1] == stair[0][3] else 0
+		stair_0_pos_1f = Vector3(sth + 10 + stair[0][0] + wi0, base_y_int + 4, stw + 10 + stair[0][1] + wj0)
+		stair_0_pos_2f = Vector3(sth + 10 + stair[0][2] + wi0, base_y_int + 10, stw + 10 + stair[0][3] + wj0)
+	if stair.size() > 1:
+		var wi1 = 1 if stair[1][0] == stair[1][2] else 0
+		var wj1 = 1 if stair[1][1] == stair[1][3] else 0
+		stair_1_pos_2f = Vector3(sth + 10 + stair[1][0] + wi1, base_y_int + 10, stw + 10 + stair[1][1] + wj1)
+		stair_1_pos_3f = Vector3(sth + 10 + stair[1][2] + wi1, base_y_int + 16, stw + 10 + stair[1][3] + wj1)
+
+	# Generate 3-floor map textures for the castle dungeon
+	_generate_castle_map_textures(castle, stair, height, width, sth, stw)
+
+	# Place blocks matching the castle model's entrance stairs and gateway
+	build_castle_entrance_stairs(sth, stw, base_y_int, height)
+
+func _generate_castle_map_textures(castle: Array, stair: Array, height: int, width: int, sth: int, stw: int):
+	castle_map_textures.clear()
+	var door_center_x = sth + 10 + int((height - 4) / 2) + 2
+	var stair_x_min = door_center_x - 4
+	var stair_x_max = door_center_x + 4
+
+	for k in range(3):
+		var data = PackedByteArray()
+		data.resize(worldh * worldw * 4)
+		data.fill(0)
+
+		# 1. Draw dungeon rooms and corridors for floor k
+		for y in range(height):
+			for x in range(width):
+				var wx = sth + 10 + y
+				var wz = stw + 10 + x
+				if wx < 0 or wx >= worldh or wz < 0 or wz >= worldw:
+					continue
+				var p_idx = (wz * worldh + wx) * 4
+				if castle[k][y][x] == -1 or castle[k][y][x] == 0:
+					# Floor
+					data[p_idx] = 190
+					data[p_idx + 1] = 185
+					data[p_idx + 2] = 180
+					data[p_idx + 3] = 230
+				elif castle[k][y][x] == 5:
+					# Wall adjacent to walkable floor
+					var is_wall = false
+					for dy in range(-1, 2):
+						for dx in range(-1, 2):
+							var ny = y + dy
+							var nx = x + dx
+							if ny >= 0 and ny < height and nx >= 0 and nx < width:
+								if castle[k][ny][nx] == -1 or castle[k][ny][nx] == 0:
+									is_wall = true
+									break
+						if is_wall: break
+					if is_wall:
+						data[p_idx] = 60
+						data[p_idx + 1] = 55
+						data[p_idx + 2] = 65
+						data[p_idx + 3] = 240
+
+		# 2. Floor 1 (k = 0): Draw entrance corridor, doorway, outdoor steps
+		if k == 0:
+			for y in range(int((height - 4) / 2) + 1, int((height - 4) / 2) + 4):
+				for x in range(0, width - 5):
+					var wx = sth + 10 + y
+					var wz = stw + 10 + x
+					if wx >= 0 and wx < worldh and wz >= 0 and wz < worldw:
+						var p_idx = (wz * worldh + wx) * 4
+						data[p_idx] = 190
+						data[p_idx + 1] = 185
+						data[p_idx + 2] = 180
+						data[p_idx + 3] = 230
+			# Gateway passage
+			for x in range(door_center_x - 1, door_center_x + 2):
+				for z in range(stw + 8, stw + 11):
+					if x >= 0 and x < worldh and z >= 0 and z < worldw:
+						var p_idx = (z * worldh + x) * 4
+						data[p_idx] = 190
+						data[p_idx + 1] = 185
+						data[p_idx + 2] = 180
+						data[p_idx + 3] = 230
+			# Gateway walls
+			for x in range(stair_x_min, stair_x_max + 1):
+				if x < door_center_x - 1 or x > door_center_x + 1:
+					for z in range(stw + 8, stw + 11):
+						if x >= 0 and x < worldh and z >= 0 and z < worldw:
+							var p_idx = (z * worldh + x) * 4
+							data[p_idx] = 60
+							data[p_idx + 1] = 55
+							data[p_idx + 2] = 65
+							data[p_idx + 3] = 240
+			# Outdoor steps and terrace
+			for x in range(stair_x_min, stair_x_max + 1):
+				for z in range(stw, stw + 8):
+					if x >= 0 and x < worldh and z >= 0 and z < worldw:
+						var p_idx = (z * worldh + x) * 4
+						data[p_idx] = 160
+						data[p_idx + 1] = 155
+						data[p_idx + 2] = 150
+						data[p_idx + 3] = 210
+
+		# 3. Highlight stairs on map textures!
+		if k == 0 and stair.size() > 0:
+			# 1F: Up stairs to 2F (Gold highlight)
+			_paint_stair_on_texture(data, sth, stw, stair[0], Color8(255, 215, 0, 255), Color8(255, 255, 180, 255))
+		elif k == 1 and stair.size() > 1:
+			# 2F: Down stairs to 1F (Cyan highlight)
+			_paint_stair_on_texture(data, sth, stw, [stair[0][2], stair[0][3], stair[0][0], stair[0][1]], Color8(0, 210, 255, 255), Color8(180, 240, 255, 255))
+			# 2F: Up stairs to 3F (Gold highlight)
+			_paint_stair_on_texture(data, sth, stw, stair[1], Color8(255, 215, 0, 255), Color8(255, 255, 180, 255))
+		elif k == 2 and stair.size() > 1:
+			# 3F: Down stairs to 2F (Cyan highlight)
+			_paint_stair_on_texture(data, sth, stw, [stair[1][2], stair[1][3], stair[1][0], stair[1][1]], Color8(0, 210, 255, 255), Color8(180, 240, 255, 255))
+			# 3F: Demon Boss room highlight (Crimson with gold core)
+			var center_x = sth + int(castle_height_length / 2)
+			var center_z = stw + int(castle_width_length / 2)
+			var b_rad = min(16, int((min(height, width) - 10) / 2))
+			for dx in range(-b_rad + 1, b_rad):
+				for dz in range(-b_rad + 1, b_rad):
+					var bx = center_x + dx
+					var bz = center_z + dz
+					if bx >= 0 and bx < worldh and bz >= 0 and bz < worldw:
+						var p_idx = (bz * worldh + bx) * 4
+						var is_core = (abs(dx) <= 3 and abs(dz) <= 3)
+						data[p_idx] = 255 if is_core else 200
+						data[p_idx + 1] = 50 if is_core else 30
+						data[p_idx + 2] = 50 if is_core else 30
+						data[p_idx + 3] = 255
+
+		var img = Image.create_from_data(worldh, worldw, false, Image.FORMAT_RGBA8, data)
+		castle_map_textures.append(ImageTexture.create_from_image(img))
+
+func _paint_stair_on_texture(data: PackedByteArray, sth: int, stw: int, st: Array, fill_col: Color, border_col: Color):
+	var sti1 = st[0]
+	var stj1 = st[1]
+	var sti2 = st[2]
+	var stj2 = st[3]
+	var min_i = min(sti1, sti2)
+	var max_i = max(sti1, sti2) + 2
+	var min_j = min(stj1, stj2)
+	var max_j = max(stj1, stj2) + 2
+	for i in range(min_i, max_i + 1):
+		for j in range(min_j, max_j + 1):
+			var wx = sth + 10 + i
+			var wz = stw + 10 + j
+			if wx >= 0 and wx < worldh and wz >= 0 and wz < worldw:
+				var p_idx = (wz * worldh + wx) * 4
+				var is_edge = (i == min_i or i == max_i or j == min_j or j == max_j)
+				var col = border_col if is_edge else fill_col
+				data[p_idx] = col.r8
+				data[p_idx + 1] = col.g8
+				data[p_idx + 2] = col.b8
+				data[p_idx + 3] = 255
+
+func build_castle_entrance_stairs(sth: int, stw: int, base_y: int, height: int):
+	var door_center_x = sth + 10 + int((height - 4) / 2) + 2
+	var stair_x_min = door_center_x - 4
+	var stair_x_max = door_center_x + 4
+	
+	# 1. Smooth approach from plateau in front of the stairs (z = stw - 6 to stw - 1)
+	for x in range(stair_x_min, stair_x_max + 1):
+		for z in range(stw - 6, stw):
+			if x >= 0 and x < worldh and z >= 0 and z < worldw:
+				if base_y >= 0 and base_y < d:
+					_map3dnum_flat[base_y * worldh * worldw + x * worldw + z] = 2
+				for y in range(base_y + 1, base_y + 7):
+					if y >= 0 and y < d:
+						_map3dnum_flat[y * worldh * worldw + x * worldw + z] = -1
+
+	# 2. Main staircase steps matching castle.glb visual stairs (z = stw + 0 to stw + 7)
+	var step_configs = [
+		[0, 1, base_y + 1],
+		[2, 3, base_y + 2],
+		[4, 5, base_y + 3],
+		[6, 7, base_y + 3],
+	]
+	
+	for cfg in step_configs:
+		var z_start = stw + cfg[0]
+		var z_end = stw + cfg[1]
+		var step_top_y = cfg[2]
+		for x in range(stair_x_min, stair_x_max + 1):
+			for z in range(z_start, z_end + 1):
+				if x < 0 or x >= worldh or z < 0 or z >= worldw:
+					continue
+				for y in range(base_y, step_top_y + 1):
+					if y >= 0 and y < d:
+						_map3dnum_flat[y * worldh * worldw + x * worldw + z] = 5
+				for y in range(step_top_y + 1, base_y + 9):
+					if y >= 0 and y < d:
+						_map3dnum_flat[y * worldh * worldw + x * worldw + z] = -1
+
+	# 3. Side stone balustrades flanking the staircase
+	for cfg in step_configs:
+		var z_start = stw + cfg[0]
+		var z_end = stw + cfg[1]
+		var railing_y = cfg[2] + 1
+		for side_x in [stair_x_min - 1, stair_x_max + 1]:
+			if side_x < 0 or side_x >= worldh:
+				continue
+			for z in range(z_start, z_end + 1):
+				if z < 0 or z >= worldw:
+					continue
+				for y in range(base_y, railing_y + 1):
+					if y >= 0 and y < d:
+						_map3dnum_flat[y * worldh * worldw + side_x * worldw + z] = 5
+
+	# 4. Gateway entrance passage floor and clear archway from stw + 8 through stw + 10 into the dungeon
+	# Also build solid front wall to left and right so player cannot clip into castle model
+	for x in range(stair_x_min - 2, stair_x_max + 3):
+		if x < 0 or x >= worldh:
+			continue
+		for z in range(stw + 8, stw + 11):
+			if z < 0 or z >= worldw:
+				continue
+			if x >= door_center_x - 1 and x <= door_center_x + 1:
+				for y in range(base_y, base_y + 4):
+					if y >= 0 and y < d:
+						_map3dnum_flat[y * worldh * worldw + x * worldw + z] = 5
+				for y in range(base_y + 4, base_y + 9):
+					if y >= 0 and y < d:
+						_map3dnum_flat[y * worldh * worldw + x * worldw + z] = -1
+				if base_y + 9 < d:
+					_map3dnum_flat[(base_y + 9) * worldh * worldw + x * worldw + z] = 5
 			else:
-				for j in range(stj1-stj2+1):
-					for i in range(3):
-						_map3dnum_flat[(int(floor((baseheightma)/0.1))+4+k*5+k+5-j) * worldh * worldw + (sth+sti1+i+10) * worldw + (stw+j+stj2+1+10)] = 5
-						for t in range(5):
-							_map3dnum_flat[(int(floor((baseheightma)/0.1))+4+k*5+k+min(5,4-j+t+1)) * worldh * worldw + (sth+sti1+i+10) * worldw + (stw+j+stj2+10)] = -1
-		else:
-			if sti2 >= sti1:
-				for i in range(sti2-sti1+1):
-					for j in range(3):
-						_map3dnum_flat[(int(floor((baseheightma)/0.1))+4+k*5+k+i) * worldh * worldw + (sth+sti1+i+2+10) * worldw + (stw+j+stj1+10)] = 5
-						for t in range(5):
-							_map3dnum_flat[(int(floor((baseheightma)/0.1))+4+k*5+k+min(5,i+t+1)) * worldh * worldw + (sth+sti1+i+2+10) * worldw + (stw+j+stj1+10)] = -1
-			else:
-				for i in range(sti1-sti2+1):
-					for j in range(3):
-						_map3dnum_flat[(int(floor((baseheightma)/0.1))+4+k*5+k+5-i) * worldh * worldw + (sth+sti2+i+1+10) * worldw + (stw+j+stj1+10)] = 5
-						for t in range(5):
-							_map3dnum_flat[(int(floor((baseheightma)/0.1))+4+k*5+k+min(5,4-i+t+1)) * worldh * worldw + (sth+sti2+i+10) * worldw + (stw+j+stj1+10)] = -1
+				for y in range(base_y, base_y + 10):
+					if y >= 0 and y < d:
+						_map3dnum_flat[y * worldh * worldw + x * worldw + z] = 5
 
 
 var loading_ui = null
@@ -3172,30 +3663,29 @@ func _ready():
 	_async_generate_terrain()
 
 
-func _set_loading_text(text: String):
-	if loading_label:
-		loading_label.text = text
-	await get_tree().process_frame
-
-
 var _last_yield_time: int = 0
 var is_generating = true
 var _yield_counter: int = 0
 func _conditional_yield():
 	var current_time = Time.get_ticks_msec()
-	if current_time - _last_yield_time > 12:
+	if current_time - _last_yield_time > 16:
 		await get_tree().process_frame
 		_last_yield_time = Time.get_ticks_msec()
+
+func _set_loading_text(text: String):
+	if loading_label:
+		loading_label.text = text
+	await _conditional_yield()
 
 func _add_loading_progress(amount: float):
 	if loading_progress:
 		loading_progress.value += amount
-	await get_tree().process_frame
+	await _conditional_yield()
 
 func _update_progress_only(progress: float):
 	if loading_progress:
 		loading_progress.value = progress
-	await get_tree().process_frame
+	await _conditional_yield()
 
 func _update_loading(text: String, progress: float):
 	if loading_label:
@@ -3204,7 +3694,7 @@ func _update_loading(text: String, progress: float):
 		if loading_tween:
 			loading_tween.kill()
 		loading_progress.value = progress
-	await get_tree().process_frame
+	await _conditional_yield()
 
 func _setup_beautiful_environment():
 	var env = WorldEnvironment.new()
@@ -3346,20 +3836,6 @@ func _async_generate_terrain():
 	await _set_loading_text("Allocating Memory (map3dnum)...")
 	_map3dnum_flat.resize(d * worldh * worldw)
 	_map3dnum_flat.fill(-1)
-	await _update_loading("Allocating Memory (nearest_ground)...", 6)
-	await _add_loading_progress(2.0)
-	await _set_loading_text("Allocating Memory (nearest_ground)...")
-	nearest_ground.resize(d)
-	for k in range(d):
-		var z_level_map = []
-		z_level_map.resize(worldh)
-		for i in range(worldh):
-			var row_for_z = []
-			row_for_z.resize(worldw)
-			row_for_z.fill(-1)
-			z_level_map[i] = row_for_z
-		nearest_ground[k] = z_level_map
-		if k % 10 == 0: await get_tree().process_frame
 		
 	await _update_loading("Allocating Memory (map3d)...", 8)
 	await _add_loading_progress(2.0)
@@ -3445,13 +3921,10 @@ func _async_generate_terrain():
 
 	var snow_threshold: float = 0.0
 	var land_heights = PackedFloat32Array()
-	land_heights.resize(h * w - seablocksum)
-	var l_idx = 0
 	for i in range(h):
 		for j in range(w):
-			if map[i][j] > 0:
-				land_heights[l_idx] = map[i][j]
-				l_idx += 1
+			if map[i][j] > 0.0:
+				land_heights.append(map[i][j])
 	land_heights.sort()
 	if land_heights.size() > 0:
 		var target_idx = land_heights.size() - int(float(land_heights.size()) * (2.0 / 5.0))
@@ -3520,15 +3993,19 @@ func _async_generate_terrain():
 	var res_shop_leveling1 = await plane_leveling1(map,Vector2(res_leveling[1],res_leveling[2]))
 	aroundheightmin = await assign_aroundheightmin(aroundheightmin,map)
 	assignnum = await assign_num(SNOWHEIGHT,assignnum,map,max_height)
+	apply_surrounding_sea_coastline(map, assignnum, plane_start_h, plane_start_w, 12)
+	aroundheightmin = await assign_aroundheightmin(aroundheightmin,map)
 	for i in range(h):
-		aroundheightmin[i][0] = 0
-		aroundheightmin[i][w-1] = 0
+		aroundheightmin[i][0] = min(aroundheightmin[i][0], 0.0)
+		aroundheightmin[i][w-1] = min(aroundheightmin[i][w-1], 0.0)
 	for i in range(w):
-		aroundheightmin[0][i] = 0
-		aroundheightmin[h-1][i] = 0			
+		aroundheightmin[0][i] = min(aroundheightmin[0][i], 0.0)
+		aroundheightmin[h-1][i] = min(aroundheightmin[h-1][i], 0.0)			
 	for i in range(worldh):
 		for j in range(worldw):
-			# Removed the hardcoded rectangular hole that was missing ocean
+			# Solid seabed under 2 blocks of ocean water
+			_map3dnum_flat[(28) * worldh * worldw + (i) * worldw + (j)] = 5
+			_map3dnum_flat[(29) * worldh * worldw + (i) * worldw + (j)] = 5
 			_map3dnum_flat[(30) * worldh * worldw + (i) * worldw + (j)] = 1
 	for i in range(h):
 		for j in range(w):
@@ -3696,6 +4173,7 @@ func _async_generate_terrain():
 				desert[i][j] += 1.0
 			else:
 				desert[i][j] = 0
+	
 	desertheightmax += 1.0
 	res_leveling = await desert_leveling(desert)
 	desert = res_leveling[0]
@@ -3710,6 +4188,7 @@ func _async_generate_terrain():
 	get_parent().get_node("desert_shop").position = desert_shop_pos
 	get_parent().get_node("desert_shop").scale *= shop_height
 	get_parent().get_node("desert_shop/Area3D/CollisionShape3D").scale *= shop_height
+	apply_surrounding_sea_coastline(desert, desertassignnum, desert_start_h, desert_start_w, 12)
 	desertheightmin = await assign_aroundheightmin(desertheightmin,desert)
 	for i in range(h):
 		desertheightmin[i][0] = min(desertheightmin[i][0],3.0)
@@ -3824,72 +4303,136 @@ func _async_generate_terrain():
 	
 	_end_phase("Phase 5: Bridges", map, floor, ceiling, desert, map3dnum)
 	_start_phase("Phase 6: Meshes & Collisions")
-	await _set_loading_text("Calculating ground proximities...")
-	for k in range(d-1):
-		for i in range(worldh):
-			# Fast native C++ copy instead of GDScript loop
-			nearest_ground[k+1][i] = nearest_ground[k][i].duplicate()
-			for j in range(worldw):
-				if _map3dnum_flat[(k+1) * worldh * worldw + (i) * worldw + (j)] != -1:
-					nearest_ground[k+1][i][j] = k+1
-					
 	template_mesh = get_parent().get_node("StaticBody3D/MeshInstance3D").mesh
 	await _set_loading_text("Phase 6: Meshes & Collisions (Lazy Chunking)")
 	# Deferring chunk calculation to _process!
 	_end_phase("Phase 6: Meshes & Collisions", map, floor, ceiling, desert, map3dnum)
 	_start_phase("Phase 7: Entity Placement")
-	var plane_candidate = []
-	for i in range(h):
-		for j in range(w):
-			if map[i][j] > 3.1 and map[i][j] < 4.0:
-				plane_candidate.append([i,j])
+	# --- Boss Positions & Spawning ---
+	var p0dir = get_direction(caveentrance[1],caveentrance[2])
+	var plain_boss_pos = Vector3(caveentrance[0]) + p0dir * 6.0
+	plain_boss_pos.y += 2.0
 	
-	# Set spawn point far away from the cave entrance (boss) so the player has a journey.
-	var plain_boss_loc = Vector3(caveentrance[0])
-	var furthest_pos = Vector3.ZERO
-	var max_dist = 0.0
+	var p3dir = get_direction(mazeend[1],mazeend[2])
+	var cave_boss_pos = Vector3(mazeend[0]) + p3dir * 6.0
+	cave_boss_pos.y += 2.0
 	
-	# Sample up to 100 random points on the plain and pick the one furthest from the boss
-	for _attempt in range(100):
-		var cand = plane_candidate[_rng.randi() % plane_candidate.size()]
-		var cand_pos = Vector3(cand[0]+plane_start_h, int(floor(map[cand[0]][cand[1]]/0.1))+5, cand[1]+plane_start_w)
-		var dist = cand_pos.distance_to(plain_boss_loc)
-		if dist > max_dist:
-			max_dist = dist
-			furthest_pos = cand_pos
-			
-	# As a fallback or if somehow plane_candidate is empty
-	if furthest_pos == Vector3.ZERO:
-		furthest_pos = plain_boss_loc + Vector3(30, 15, 30)
-
-	get_parent().get_node("CharacterBody3D").position = furthest_pos
+	var desert_boss_pos = Vector3(desert_shop_pos.x, desert_shop_pos.y, desert_shop_pos.z + 5)
+	var snow_boss_pos = Vector3(snow_shop_pos.x, snow_shop_pos.y, snow_shop_pos.z + 5)
+	var castle_center_x = castle_sth + int(castle_height_length / 2)
+	var castle_center_z = castle_stw + int(castle_width_length / 2)
+	var castle_boss_pos = Vector3(castle_center_x, int(floor(baseheightma/0.1)) + 16, castle_center_z)
 	
-	# --- Spawn Bosses ---
 	var spawner = get_parent().get_node_or_null("spawn_enemy")
 	if spawner and spawner.has_method("spawn_boss"):
 		# 1. Plain -> Cave (Near cave entrance)
-		var p0dir = get_direction(caveentrance[1],caveentrance[2])
-		var plain_boss_pos = Vector3(caveentrance[0]) + p0dir * 6.0
-		plain_boss_pos.y += 2.0
 		spawner.spawn_boss("fantasy_wolf", plain_boss_pos, 3.0, 0)
 		
 		# 2. Cave -> Desert (Near cave exit tunnel)
-		var p3dir = get_direction(mazeend[1],mazeend[2])
-		var cave_boss_pos = Vector3(mazeend[0]) + p3dir * 6.0
-		cave_boss_pos.y += 2.0
 		spawner.spawn_boss("cave_dragon", cave_boss_pos, 4.0, 1)
 		
 		# 3. Desert -> Snow (Before the bridge)
-		var desert_boss_pos = Vector3(desert_shop_pos.x, desert_shop_pos.y, desert_shop_pos.z + 5)
 		spawner.spawn_boss("scorpion", desert_boss_pos, 3.5, 2)
 		
 		# 4. Snow -> Castle (Before the bridge)
-		var snow_boss_pos = Vector3(snow_shop_pos.x, snow_shop_pos.y, snow_shop_pos.z + 5)
 		spawner.spawn_boss("blue_dragon", snow_boss_pos, 4.0, 3)
 		
-		# 5. Castle (Throne room / Top floor)
-		var castle_boss_pos = Vector3(castle_start_h + h/2, int(floor(baseheightma/0.1)) + 5, castle_start_w + w/2)
+		# 5. Castle (Throne room / Top floor 3F)
 		spawner.spawn_boss("demon", castle_boss_pos, 5.0, 4)
+
+	# --- Safe Player Starting Position (Plains) ---
+	# The player must begin peacefully on the Plains near the Plains Shop,
+	# safely outside the detection range of any boss (> 26m from Wolf, > 36m from Blue Dragon).
+	var min_safe_dist_snow = 20.0
+	var min_safe_dist_plain = 18.0
+	
+	var best_player_pos = Vector3.ZERO
+	var best_dist_to_shop = 1e9
+	
+	var shop_grid_i = int(plane_shop_pos.x - plane_start_h)
+	var shop_grid_j = int(plane_shop_pos.z - plane_start_w)
+	
+	# Priority 1: Search within radius around Plains Shop
+	for di in range(-20, 21):
+		for dj in range(-20, 21):
+			var ci = shop_grid_i + di
+			var cj = shop_grid_j + dj
+			if ci < 0 or ci >= h or cj < 0 or cj >= w:
+				continue
+			# Strictly Plains Grass (4) or Dirt (5)
+			if assignnum[ci][cj] != 4 and assignnum[ci][cj] != 5:
+				continue
+			var ground_y = int(floor(map[ci][cj] / 0.1))
+			var cand_pos = Vector3(ci + plane_start_h, ground_y + 1.5, cj + plane_start_w)
+			
+			var d_shop = cand_pos.distance_to(plane_shop_pos)
+			if d_shop < 3.5: # Don't spawn inside shop building
+				continue
+				
+			if cand_pos.distance_to(plain_boss_pos) < min_safe_dist_plain:
+				continue
+			if cand_pos.distance_to(snow_boss_pos) < min_safe_dist_snow:
+				continue
+				
+			if d_shop < best_dist_to_shop:
+				best_dist_to_shop = d_shop
+				best_player_pos = cand_pos
+
+	# Priority 2: Fallback across entire Plains if needed
+	if best_player_pos == Vector3.ZERO:
+		for i in range(h):
+			for j in range(w):
+				if assignnum[i][j] == 4 or assignnum[i][j] == 5:
+					var ground_y = int(floor(map[i][j] / 0.1))
+					var cand_pos = Vector3(i + plane_start_h, ground_y + 1.5, j + plane_start_w)
+					if cand_pos.distance_to(plain_boss_pos) >= min_safe_dist_plain and cand_pos.distance_to(snow_boss_pos) >= min_safe_dist_snow:
+						var d_shop = cand_pos.distance_to(plane_shop_pos)
+						if d_shop < best_dist_to_shop:
+							best_dist_to_shop = d_shop
+							best_player_pos = cand_pos
+
+	if best_player_pos == Vector3.ZERO:
+		best_player_pos = plane_shop_pos + Vector3(4.0, 1.5 - float(shop_height)/2.0, 4.0)
+
+	var player_char = get_parent().get_node_or_null("CharacterBody3D")
+	if player_char:
+		player_char.position = best_player_pos
+		if "safe_respawn_position" in player_char:
+			player_char.safe_respawn_position = best_player_pos
+
+	# --- Populate POI Data for Map Highlighting ---
+	poi_data.clear()
+	# 1. Shops (all biomes)
+	poi_data.append({"id": "shop_plane", "name": "平原ショップ", "pos": plane_shop_pos, "type": "shop", "context": "surface", "color": Color(1.0, 0.85, 0.1), "symbol": "🛒"})
+	poi_data.append({"id": "shop_cave", "name": "洞窟ショップ", "pos": cave_shop_pos, "type": "shop", "context": "underground", "color": Color(1.0, 0.85, 0.1), "symbol": "🛒"})
+	poi_data.append({"id": "shop_desert", "name": "砂漠ショップ", "pos": desert_shop_pos, "type": "shop", "context": "surface", "color": Color(1.0, 0.85, 0.1), "symbol": "🛒"})
+	poi_data.append({"id": "shop_snow", "name": "雪山ショップ", "pos": snow_shop_pos, "type": "shop", "context": "surface", "color": Color(1.0, 0.85, 0.1), "symbol": "🛒"})
+	if castle_shop_pos != Vector3.ZERO:
+		poi_data.append({"id": "shop_castle", "name": "城ショップ", "pos": castle_shop_pos, "type": "shop", "context": "castle_0", "color": Color(1.0, 0.85, 0.1), "symbol": "🛒"})
+
+	# 2. Cave & Maze entrances/exits
+	poi_data.append({"id": "cave_entrance", "name": "洞窟 入口", "pos": Vector3(caveentrance[0]), "type": "entrance", "context": "surface", "color": Color(0.2, 0.9, 0.4), "symbol": "🚪"})
+	poi_data.append({"id": "maze_entrance", "name": "地下迷宮 入口", "pos": Vector3(mazeentrance[0]) + Vector3(cave_start_h, 0, cave_start_w), "type": "entrance", "context": "underground", "color": Color(0.1, 0.85, 1.0), "symbol": "⬇"})
+	poi_data.append({"id": "maze_exit", "name": "地下迷宮 出口", "pos": Vector3(mazeend[0]) + Vector3(cave_start_h, 0, cave_start_w), "type": "exit", "context": "underground", "color": Color(0.7, 0.4, 1.0), "symbol": "⬆"})
+	poi_data.append({"id": "cave_exit", "name": "洞窟 出口", "pos": Vector3(caveend), "type": "exit", "context": "surface", "color": Color(1.0, 0.55, 0.1), "symbol": "🚪"})
+
+	# 3. Bosses (all 5)
+	poi_data.append({"id": "boss_plain", "name": "平原ボス (Wolf)", "pos": plain_boss_pos, "type": "boss", "context": "surface", "color": Color(1.0, 0.2, 0.2), "symbol": "💀"})
+	poi_data.append({"id": "boss_cave", "name": "洞窟ボス (Cave Dragon)", "pos": cave_boss_pos, "type": "boss", "context": "underground", "color": Color(1.0, 0.2, 0.2), "symbol": "💀"})
+	poi_data.append({"id": "boss_desert", "name": "砂漠ボス (Scorpion)", "pos": desert_boss_pos, "type": "boss", "context": "surface", "color": Color(1.0, 0.2, 0.2), "symbol": "💀"})
+	poi_data.append({"id": "boss_snow", "name": "雪山ボス (Blue Dragon)", "pos": snow_boss_pos, "type": "boss", "context": "surface", "color": Color(1.0, 0.2, 0.2), "symbol": "💀"})
+	poi_data.append({"id": "boss_castle", "name": "魔王 (Demon)", "pos": castle_boss_pos, "type": "boss", "context": "castle_2", "color": Color(1.0, 0.1, 0.1), "symbol": "👑"})
+
+	# 4. Castle Stairs & Exit
+	var base_y_int_poi = int(floor(baseheightma / 0.1))
+	var castle_door_x = castle_sth + 10 + int((castle_height_length - 19 - 4) / 2) + 2
+	poi_data.append({"id": "castle_exit", "name": "城 出口", "pos": Vector3(castle_door_x, base_y_int_poi + 4, castle_stw + 8), "type": "exit", "context": "castle_0", "color": Color(0.2, 0.9, 0.4), "symbol": "🚪"})
+	if stair_0_pos_1f != Vector3.ZERO:
+		poi_data.append({"id": "stair_1f_up", "name": "2Fへの階段", "pos": stair_0_pos_1f, "type": "stair_up", "context": "castle_0", "color": Color(1.0, 0.85, 0.1), "symbol": "▲"})
+		poi_data.append({"id": "stair_2f_down", "name": "1Fへの階段", "pos": stair_0_pos_2f, "type": "stair_down", "context": "castle_1", "color": Color(0.1, 0.8, 1.0), "symbol": "▼"})
+	if stair_1_pos_2f != Vector3.ZERO:
+		poi_data.append({"id": "stair_2f_up", "name": "3Fへの階段", "pos": stair_1_pos_2f, "type": "stair_up", "context": "castle_1", "color": Color(1.0, 0.85, 0.1), "symbol": "▲"})
+		poi_data.append({"id": "stair_3f_down", "name": "2Fへの階段", "pos": stair_1_pos_3f, "type": "stair_down", "context": "castle_2", "color": Color(0.1, 0.8, 1.0), "symbol": "▼"})
 
 	await _set_loading_text("Phase 8: Precompute Dirt Above")
 	has_dirt_above_flat.resize(d * worldh * worldw)
