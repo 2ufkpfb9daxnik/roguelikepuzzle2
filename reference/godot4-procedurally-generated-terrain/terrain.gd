@@ -82,7 +82,7 @@ var snowseparation = 1
 var noise = FastNoiseLite.new()
 var collcnt = 0
 var template_mesh: Mesh
-var cube_node: Node3D
+var cube_node: Node
 var physics_parent: Node3D 
 var bsp_leaf_nodes: Array = []
 var dungeon_grid: Array = []
@@ -145,22 +145,44 @@ func smooth_terrain(passes: int, threshold: float,map:Array, progress_weight: fl
 		if step > 0:
 			await _add_loading_progress(step)
 		else:
-			await get_tree().process_frame
+			await _conditional_yield()
 		var read_map = []
+		read_map.resize(h)
 		for i in range(h):
-			read_map.append(map[i].duplicate())
+			read_map[i] = map[i].duplicate()
 
 		for i in range(1, h - 1):
+			var r_prev = read_map[i - 1]
+			var r_cur = read_map[i]
+			var r_next = read_map[i + 1]
+			var m_cur = map[i]
 			for j in range(1, w - 1):
-				var h0 = read_map[i-1][j-1]; var h1 = read_map[i-1][j]; var h2 = read_map[i-1][j+1]
-				var h3 = read_map[i][j-1];   var h4 = read_map[i][j];   var h5 = read_map[i][j+1]
-				var h6 = read_map[i+1][j-1]; var h7 = read_map[i+1][j]; var h8 = read_map[i+1][j+1]
+				var h0 = r_prev[j - 1]; var h1 = r_prev[j]; var h2 = r_prev[j + 1]
+				var h3 = r_cur[j - 1];  var h4 = r_cur[j];  var h5 = r_cur[j + 1]
+				var h6 = r_next[j - 1]; var h7 = r_next[j]; var h8 = r_next[j + 1]
 				
-				var max_h = max(h0, max(h1, max(h2, max(h3, max(h4, max(h5, max(h6, max(h7, h8))))))))
-				var min_h = min(h0, min(h1, min(h2, min(h3, min(h4, min(h5, min(h6, min(h7, h8))))))))
+				var max_h = h0
+				if h1 > max_h: max_h = h1
+				if h2 > max_h: max_h = h2
+				if h3 > max_h: max_h = h3
+				if h4 > max_h: max_h = h4
+				if h5 > max_h: max_h = h5
+				if h6 > max_h: max_h = h6
+				if h7 > max_h: max_h = h7
+				if h8 > max_h: max_h = h8
+
+				var min_h = h0
+				if h1 < min_h: min_h = h1
+				if h2 < min_h: min_h = h2
+				if h3 < min_h: min_h = h3
+				if h4 < min_h: min_h = h4
+				if h5 < min_h: min_h = h5
+				if h6 < min_h: min_h = h6
+				if h7 < min_h: min_h = h7
+				if h8 < min_h: min_h = h8
 				
 				if max_h - min_h < threshold:
-					map[i][j] = (h0 + h1 + h2 + h3 + h4 + h5 + h6 + h7 + h8) / 9.0
+					m_cur[j] = (h0 + h1 + h2 + h3 + h4 + h5 + h6 + h7 + h8) / 9.0
 
 func get_slope(i: int, j: int,map:Array) -> float:
 	var dx = 0.0
@@ -180,31 +202,21 @@ func get_slope(i: int, j: int,map:Array) -> float:
 	return sqrt(dx * dx + dz * dz)
 
 #マテリアル割り当て
-func assign_material(i:int,j:int,k:int,multimesh:MultiMeshInstance3D):
+func assign_material(i:int,j:int,k:int,multimesh:GeometryInstance3D):
 	var mat_num = _map3dnum_flat[(k) * worldh * worldw + (i) * worldw + (j)]
-	# --- マテリアル割り当てロジック (優先度順) ---
-	# 1. 海
-	if _map3dnum_flat[(k) * worldh * worldw + (i) * worldw + (j)] == 1:
-		multimesh.material_override = material_water
-		return
+	multimesh.material_override = _get_material_by_id(mat_num)
 
-	# 2. 岩
-	if _map3dnum_flat[(k) * worldh * worldw + (i) * worldw + (j)] == 2:
-		multimesh.material_override = material_rock
-		return
+func _get_material_by_id(mat_num: int) -> Material:
+	match mat_num:
+		1: return material_water
+		2: return material_rock
+		3: return material_snow
+		4: return material_grass
+		5: return material_dirt
+	return null
 
-	# 3. 雪
-	if _map3dnum_flat[(k) * worldh * worldw + (i) * worldw + (j)] == 3:
-		multimesh.material_override = material_snow
-		return
-
-	# 4. 草
-	if _map3dnum_flat[(k) * worldh * worldw + (i) * worldw + (j)] == 4:
-		multimesh.material_override = material_grass
-		
-	# 5. 土
-	if _map3dnum_flat[(k) * worldh * worldw + (i) * worldw + (j)] == 5:
-		multimesh.material_override = material_dirt
+func _init_box_face_templates() -> void:
+	pass
 
 class rectangle:
 	var x:int
@@ -771,9 +783,18 @@ func _exit_tree():
 	for task in chunk_queue:
 		if task.size() > 7 and task[4] == 1:
 			var task_id = task[7]
-			if not WorkerThreadPool.is_task_completed(task_id):
-				WorkerThreadPool.wait_for_task_completion(task_id)
+			WorkerThreadPool.wait_for_task_completion(task_id)
+			task[4] = 2
+var _last_queued_px: int = -999999
+var _last_queued_pz: int = -999999
+var _last_sort_px: int = -999999
+var _last_sort_pz: int = -999999
+var _chunk_state_dirty: bool = true
+var _chunk_queue_needs_sort: bool = false
+
 func _process(delta):
+	if is_generating:
+		return
 	var start_process = Time.get_ticks_usec()
 
 	var cur_pos = player.global_transform.origin
@@ -786,40 +807,45 @@ func _process(delta):
 		if playerpos.x != 1e9: # Not the very first frame
 			var dist = max(abs(px - old_px), abs(pz - old_pz))
 			if dist > 1: # Teleport detected!
-				is_player_frozen_for_chunk = true
-				player.process_mode = Node.PROCESS_MODE_DISABLED
+				if px >= 0 and pz >= 0 and px < chunk_col_state.size() and pz < chunk_col_state[0].size():
+					if chunk_col_state[px][pz] != 2:
+						is_player_frozen_for_chunk = true
+						player.process_mode = Node.PROCESS_MODE_DISABLED
 		playerpos = cur_pos
 		
 	if castle_instance != null and player != null:
 		castle_instance.visible = not is_player_in_castle(cur_pos)
 		
-	if not is_generating:
+	if px != _last_queued_px or pz != _last_queued_pz or _chunk_state_dirty:
 		_queue_chunks_around(px, pz)
 			
-	if is_player_frozen_for_chunk and not is_generating:
+	if is_player_frozen_for_chunk:
 		if px >= 0 and pz >= 0 and px < chunk_col_state.size() and pz < chunk_col_state[0].size():
 			if chunk_col_state[px][pz] == 2:
 				player.process_mode = Node.PROCESS_MODE_INHERIT
 				is_player_frozen_for_chunk = false
 			
 	var processed_chunks = 0
-	if not is_generating:
+	if not chunk_queue.is_empty():
 		processed_chunks = _process_chunk_queue(cur_pos)
 
-	if not is_generating:
-		var end_process = Time.get_ticks_usec()
-		var frame_ms = (end_process - start_process) / 1000.0
-		frame_times.append(frame_ms)
-		if frame_ms > 16.6:
-			over_16ms_count += 1
-			if processed_chunks > 0:
-				over_16ms_chunk_count += 1
+	var end_process = Time.get_ticks_usec()
+	var frame_ms = (end_process - start_process) / 1000.0
+	frame_times.append(frame_ms)
+	if frame_ms > 16.6:
+		over_16ms_count += 1
+		if processed_chunks > 0:
+			over_16ms_chunk_count += 1
 
 
 
 
 
 func _queue_chunks_around(px: int, pz: int):
+	_last_queued_px = px
+	_last_queued_pz = pz
+	_chunk_state_dirty = false
+
 	var vis_min_i = max(0, px - visiblelength)
 	var vis_max_i = min(collisionmap.size() - 1, px + visiblelength)
 	var vis_min_j = max(0, pz - visiblelength)
@@ -832,6 +858,7 @@ func _queue_chunks_around(px: int, pz: int):
 			if state == 0:
 				chunk_queue.append([i, j, 0.0, 0, 0, 0, null])
 				chunk_state[i][j] = 1
+				_chunk_queue_needs_sort = true
 			elif state == 3:
 				chunk_state[i][j] = 2
 
@@ -843,6 +870,7 @@ func _queue_chunks_around(px: int, pz: int):
 				if state == 2:
 					chunk_queue.append([i, j, 0.0, 1, 0, 0, null])
 					chunk_state[i][j] = 3
+					_chunk_queue_needs_sort = true
 				elif state == 1:
 					chunk_state[i][j] = 0
 			
@@ -852,12 +880,14 @@ func _queue_chunks_around(px: int, pz: int):
 				if col_state == 0 and state == 2: # Mesh must be generated
 					chunk_queue.append([i, j, 0.0, 2, 3, 0, null])
 					chunk_col_state[i][j] = 1
+					_chunk_queue_needs_sort = true
 				elif col_state == 3:
 					chunk_col_state[i][j] = 2
 			elif dist > unload_collision_length:
 				if col_state == 2:
 					chunk_queue.append([i, j, 0.0, 3, 0, 0, null])
 					chunk_col_state[i][j] = 3
+					_chunk_queue_needs_sort = true
 				elif col_state == 1:
 					chunk_col_state[i][j] = 0
 
@@ -893,24 +923,28 @@ func _step_generate_chunk(task: Array) -> bool:
 		return false
 		
 	elif phase == 2:
-		var cube = get_parent().get_node("cube")
+		if not cube_node:
+			cube_node = get_parent().get_node("cube")
 		if len(multimeshmap[ci][cj]) == 0 and len(multimeshdata[ci][cj]) != 0:
-			for group in multimeshdata[ci][cj]:
-				var buf = group[0]
-				var count = group[1]
-				var first_block = group[2]
-				
-				var multimesh = MultiMesh.new()
-				multimesh.transform_format = MultiMesh.TRANSFORM_3D
-				multimesh.mesh = template_mesh
-				multimesh.instance_count = count
-				multimesh.buffer = buf
-				
-				var multimeshinstance = MultiMeshInstance3D.new()
-				multimeshinstance.multimesh = multimesh
-				assign_material(first_block[0], first_block[1], first_block[2], multimeshinstance)
-				cube.add_child(multimeshinstance)
-				multimeshmap[ci][cj].append(multimeshinstance)
+			var chunk_entry = multimeshdata[ci][cj]
+			var array_mesh: ArrayMesh = null
+			if chunk_entry.size() == 1 and chunk_entry[0] is ArrayMesh:
+				array_mesh = chunk_entry[0]
+			else:
+				array_mesh = ArrayMesh.new()
+				for group in chunk_entry:
+					var surf_arrays = group[0]
+					var mat_id = group[1]
+					var surf_idx = array_mesh.get_surface_count()
+					array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, surf_arrays)
+					array_mesh.surface_set_material(surf_idx, _get_material_by_id(mat_id))
+				multimeshdata[ci][cj] = [array_mesh]
+
+			if array_mesh.get_surface_count() > 0:
+				var mesh_instance = MeshInstance3D.new()
+				mesh_instance.mesh = array_mesh
+				cube_node.add_child(mesh_instance)
+				multimeshmap[ci][cj].append(mesh_instance)
 		return true
 
 	return true
@@ -936,44 +970,22 @@ func _step_free_chunk(task: Array) -> bool:
 func _step_build_collision(task: Array) -> bool:
 	var ci = task[0]
 	var cj = task[1]
-	var phase = task[4]
-	
-	if phase == 3:
-		var col_data = collisiondata[ci][cj]
-		var sub_idx = task[5]
-		if len(col_data) == 0:
-			task[4] = 5
-			return false
-			
-		var static_body = task[6]
-		if static_body == null:
-			static_body = StaticBody3D.new()
-			task[6] = static_body
-			
-		var count = 0
-		while sub_idx < len(col_data) and count < 30:
-			var shape = BoxShape3D.new()
-			shape.size = col_data[sub_idx][0]
-			var cshape = CollisionShape3D.new()
-			cshape.shape = shape
-			cshape.position = col_data[sub_idx][1]
-			static_body.add_child(cshape)
-			sub_idx += 1
-			count += 1
-			
-		task[5] = sub_idx
-		if sub_idx >= len(col_data):
-			task[4] = 4
-		return false
-		
-	elif phase == 4:
-		var static_body = task[6]
-		if static_body != null:
-			collisionmap[ci][cj].append(static_body)
-			get_parent().get_node("cube").add_child(static_body)
-		task[4] = 5
+	var col_data = collisiondata[ci][cj]
+	if len(col_data) == 0:
 		return true
 
+	var static_body = StaticBody3D.new()
+	for sub_idx in range(len(col_data)):
+		var shape = BoxShape3D.new()
+		shape.size = col_data[sub_idx][0]
+		var owner_id = static_body.create_shape_owner(static_body)
+		static_body.shape_owner_set_transform(owner_id, Transform3D(Basis.IDENTITY, col_data[sub_idx][1]))
+		static_body.shape_owner_add_shape(owner_id, shape)
+
+	if not cube_node:
+		cube_node = get_parent().get_node("cube")
+	collisionmap[ci][cj].append(static_body)
+	cube_node.add_child(static_body)
 	return true
 
 func _step_free_collision(task: Array) -> bool:
@@ -987,25 +999,21 @@ func _step_free_collision(task: Array) -> bool:
 	return true
 
 func _process_chunk_queue(center_pos: Vector3) -> int:
+	if chunk_queue.is_empty():
+		return 0
 	var px = int(center_pos.x) / rh
 	var pz = int(center_pos.z) / rw
 	
-
-	
-	var cur_vel = Vector3.ZERO
-	if player and player.has_method("get_velocity"):
-		cur_vel = player.get_velocity()
-		
-	for task in chunk_queue:
-		var ci = task[0]
-		var cj = task[1]
-		var type = task[3]
-		var dist_sq = (ci - px) * (ci - px) + (cj - pz) * (cj - pz)
-		task[2] = float(dist_sq)
-		
-		# Direction bonus removed to prevent straight-line generation blocking
-				
-	chunk_queue.sort_custom(func(a, b): return a[2] < b[2])
+	if _chunk_queue_needs_sort or px != _last_sort_px or pz != _last_sort_pz:
+		_last_sort_px = px
+		_last_sort_pz = pz
+		_chunk_queue_needs_sort = false
+		for task in chunk_queue:
+			var ci = task[0]
+			var cj = task[1]
+			var dist_sq = (ci - px) * (ci - px) + (cj - pz) * (cj - pz)
+			task[2] = float(dist_sq)
+		chunk_queue.sort_custom(func(a, b): return a[2] < b[2])
 	
 	var start_time = Time.get_ticks_msec()
 	var processed = 0
@@ -1021,6 +1029,9 @@ func _process_chunk_queue(center_pos: Vector3) -> int:
 		
 		# Validation check
 		if type == 0 and chunk_state[ci][cj] != 1:
+			if task.size() > 7 and task[4] == 1:
+				WorkerThreadPool.wait_for_task_completion(task[7])
+				task[4] = 2
 			i += 1
 			continue
 		if type == 1 and chunk_state[ci][cj] != 3:
@@ -1047,21 +1058,25 @@ func _process_chunk_queue(center_pos: Vector3) -> int:
 			finished = _step_generate_chunk(task)
 			if finished:
 				chunk_state[ci][cj] = 2
+				_chunk_state_dirty = true
 				processed += 1
 		elif type == 1:
 			finished = _step_free_chunk(task)
 			if finished:
 				chunk_state[ci][cj] = 0
+				_chunk_state_dirty = true
 				processed += 1
 		elif type == 2:
 			finished = _step_build_collision(task)
 			if finished:
 				chunk_col_state[ci][cj] = 2
+				_chunk_state_dirty = true
 				processed += 1
 		elif type == 3:
 			finished = _step_free_collision(task)
 			if finished:
 				chunk_col_state[ci][cj] = 0
+				_chunk_state_dirty = true
 				processed += 1
 				
 		if not finished:
@@ -1079,24 +1094,39 @@ func update_visibility(center_pos: Vector3):
 
 func assign_aroundheightmin(aroundheightmin:Array,map:Array)->Array:
 	for i in range(h):
+		var out_row = aroundheightmin[i]
+		var r_cur = map[i]
+		var r_prev = map[i - 1] if i > 0 else null
+		var r_next = map[i + 1] if i + 1 < h else null
 		for j in range(w):
-			if i - 1 >= 0 and j - 1 >= 0:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i - 1][j - 1])
-			if i - 1 >= 0:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i - 1][j])
-			if i - 1 >= 0 and j + 1 < w:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i - 1][j + 1])
+			var m_val = out_row[j]
+			var v = r_cur[j]
+			if v < m_val: m_val = v
+			if j > 0:
+				v = r_cur[j - 1]
+				if v < m_val: m_val = v
 			if j + 1 < w:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i][j + 1])
-			if i + 1 < h and j + 1 < w:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i + 1][j + 1])
-			if i + 1 < h:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i + 1][j])
-			if i + 1 < h and j - 1 >= 0:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i + 1][j - 1])
-			if j - 1 >= 0:
-				aroundheightmin[i][j] = min(aroundheightmin[i][j], map[i][j - 1])
-			aroundheightmin[i][j] = min(map[i][j], aroundheightmin[i][j])
+				v = r_cur[j + 1]
+				if v < m_val: m_val = v
+			if r_prev != null:
+				v = r_prev[j]
+				if v < m_val: m_val = v
+				if j > 0:
+					v = r_prev[j - 1]
+					if v < m_val: m_val = v
+				if j + 1 < w:
+					v = r_prev[j + 1]
+					if v < m_val: m_val = v
+			if r_next != null:
+				v = r_next[j]
+				if v < m_val: m_val = v
+				if j > 0:
+					v = r_next[j - 1]
+					if v < m_val: m_val = v
+				if j + 1 < w:
+					v = r_next[j + 1]
+					if v < m_val: m_val = v
+			out_row[j] = m_val
 	return aroundheightmin
 	
 #コリジョンを生成する関数
@@ -1216,96 +1246,21 @@ func _thread_calculate_chunk_data(i1: int, j1: int, result_container: Array):
 	var limit_j_max = limit_j_base + rw
 	if limit_j_max > ww: limit_j_max = ww
 
-	var visited_mesh = PackedByteArray()
-	visited_mesh.resize(max_k * rh * rw)
-	visited_mesh.fill(0)
-
-	var group_list = []
-	for k in range(max_k):
-		var k_wh_ww = k * wh_ww
-		var c_k_rh_rw = k * (rh * rw)
-		for gi in range(limit_i_base, limit_i_max):
-			var gi_ww = gi * ww
-			var c_i_rw = (gi - limit_i_base) * rw
-			for gj in range(limit_j_base, limit_j_max):
-				var idx = k_wh_ww + gi_ww + gj
-				var curmap3dnum = _map3dnum_flat[idx]
-				
-				var lc_idx = c_k_rh_rw + c_i_rw + (gj - limit_j_base)
-				if visited_mesh[lc_idx] != 0 or curmap3dnum == -1:
-					continue
-					
-				var que = [] 
-				que.append([gi, gj, k])
-				var new_group_idx = len(group_list)
-				group_list.append([])
-				var head = 0
-				
-				while head < que.size():
-					var cur = que[head]
-					head += 1
-					var c_i = cur[0]
-					var c_j = cur[1]
-					var c_k = cur[2]
-					
-					var c_lc_idx = c_k * (rh * rw) + (c_i - limit_i_base) * rw + (c_j - limit_j_base)
-					if visited_mesh[c_lc_idx] != 0:
-						continue
-					visited_mesh[c_lc_idx] = 1
-					group_list[new_group_idx].push_back(cur)
-					
-					if c_i - 1 >= limit_i_base:
-						var n_idx = c_k * wh_ww + (c_i - 1) * ww + c_j
-						var n_lc_idx = c_k * (rh * rw) + (c_i - 1 - limit_i_base) * rw + (c_j - limit_j_base)
-						if _map3dnum_flat[n_idx] == curmap3dnum and visited_mesh[n_lc_idx] == 0:
-							que.append([c_i - 1, c_j, c_k])
-					if c_i + 1 < limit_i_max:
-						var n_idx = c_k * wh_ww + (c_i + 1) * ww + c_j
-						var n_lc_idx = c_k * (rh * rw) + (c_i + 1 - limit_i_base) * rw + (c_j - limit_j_base)
-						if _map3dnum_flat[n_idx] == curmap3dnum and visited_mesh[n_lc_idx] == 0:
-							que.append([c_i + 1, c_j, c_k])
-					if c_j - 1 >= limit_j_base:
-						var n_idx = c_k * wh_ww + c_i * ww + (c_j - 1)
-						var n_lc_idx = c_k * (rh * rw) + (c_i - limit_i_base) * rw + (c_j - 1 - limit_j_base)
-						if _map3dnum_flat[n_idx] == curmap3dnum and visited_mesh[n_lc_idx] == 0:
-							que.append([c_i, c_j - 1, c_k])
-					if c_j + 1 < limit_j_max:
-						var n_idx = c_k * wh_ww + c_i * ww + (c_j + 1)
-						var n_lc_idx = c_k * (rh * rw) + (c_i - limit_i_base) * rw + (c_j + 1 - limit_j_base)
-						if _map3dnum_flat[n_idx] == curmap3dnum and visited_mesh[n_lc_idx] == 0:
-							que.append([c_i, c_j + 1, c_k])
-					if c_k - 1 >= 0:
-						var n_idx = (c_k - 1) * wh_ww + c_i * ww + c_j
-						var n_lc_idx = (c_k - 1) * (rh * rw) + (c_i - limit_i_base) * rw + (c_j - limit_j_base)
-						if _map3dnum_flat[n_idx] == curmap3dnum and visited_mesh[n_lc_idx] == 0:
-							que.append([c_i, c_j, c_k - 1])
-					if c_k + 1 < max_k:
-						var n_idx = (c_k + 1) * wh_ww + c_i * ww + c_j
-						var n_lc_idx = (c_k + 1) * (rh * rw) + (c_i - limit_i_base) * rw + (c_j - limit_j_base)
-						if _map3dnum_flat[n_idx] == curmap3dnum and visited_mesh[n_lc_idx] == 0:
-							que.append([c_i, c_j, c_k + 1])
-
-	for group in group_list:
-		var buf = PackedFloat32Array()
-		var count = group.size()
-		if count == 0: continue
-		buf.resize(count * 12)
-		var b_idx = 0
-		for k in range(count):
-			var blockt = group[k]
-			buf[b_idx+0] = 1.0; buf[b_idx+1] = 0.0; buf[b_idx+2] = 0.0; buf[b_idx+3] = float(blockt[0])
-			buf[b_idx+4] = 0.0; buf[b_idx+5] = 1.0; buf[b_idx+6] = 0.0; buf[b_idx+7] = float(blockt[2])
-			buf[b_idx+8] = 0.0; buf[b_idx+9] = 0.0; buf[b_idx+10] = 1.0; buf[b_idx+11] = float(blockt[1])
-			b_idx += 12
-		local_multi.append([buf, count, group[0]])
+	# 隣接面カリング（露出している面のみ抽出してチャンク単位のArrayMeshを構築：見た目100%完全一致でポリゴン数約80%削減）
+	var mat_packed = [
+		null,
+		[],
+		[],
+		[],
+		[],
+		[]
+	]
+	var mat_face_counts = [0, 0, 0, 0, 0, 0]
 
 	var _chunk_mask_flat = PackedByteArray()
 	_chunk_mask_flat.resize(max_k * rh * rw)
 	_chunk_mask_flat.fill(0)
-	
-	if _map3dnum_flat.is_empty():
-		return
-		
+
 	for k in range(max_k):
 		var k_wh_ww = k * wh_ww
 		var c_k_rh_rw = k * (rh * rw)
@@ -1315,22 +1270,182 @@ func _thread_calculate_chunk_data(i1: int, j1: int, result_container: Array):
 			var c_i_rw = c_i * rw
 			for gj in range(limit_j_base, limit_j_max):
 				var idx = k_wh_ww + gi_ww + gj
+				var curmap3dnum = _map3dnum_flat[idx]
+				var c_j = gj - limit_j_base
+				var c_idx = c_k_rh_rw + c_i_rw + c_j
+
+				if curmap3dnum == -1:
+					_chunk_mask_flat[c_idx] = 1
+					continue
+
+				# 6方向それぞれの隣接ブロックを調べ、露出している面のビットマスク(0..63)を計算
+				var fmask = 0
+				var fcnt = 0
+				if curmap3dnum > 1:
+					# 不透明ブロック(2..5): 隣がワールド外、または空気(-1)/水(1)ならその面は露出
+					if gi == 0 or _map3dnum_flat[idx - ww] <= 1:
+						fmask |= 1; fcnt += 1
+					if gi == wh - 1 or _map3dnum_flat[idx + ww] <= 1:
+						fmask |= 2; fcnt += 1
+					if k == 0 or _map3dnum_flat[idx - wh_ww] <= 1:
+						fmask |= 4; fcnt += 1
+					if k == max_k - 1 or _map3dnum_flat[idx + wh_ww] <= 1:
+						fmask |= 8; fcnt += 1
+					if gj == 0 or _map3dnum_flat[idx - 1] <= 1:
+						fmask |= 16; fcnt += 1
+					if gj == ww - 1 or _map3dnum_flat[idx + 1] <= 1:
+						fmask |= 32; fcnt += 1
+				elif curmap3dnum == 1:
+					# 水ブロック(1): 隣がワールド外、または空気(-1)ならその面は露出（水同士や海底との境界内部面をカリング）
+					if gi == 0 or _map3dnum_flat[idx - ww] == -1:
+						fmask |= 1; fcnt += 1
+					if gi == wh - 1 or _map3dnum_flat[idx + ww] == -1:
+						fmask |= 2; fcnt += 1
+					if k == 0 or _map3dnum_flat[idx - wh_ww] == -1:
+						fmask |= 4; fcnt += 1
+					if k == max_k - 1 or _map3dnum_flat[idx + wh_ww] == -1:
+						fmask |= 8; fcnt += 1
+					if gj == 0 or _map3dnum_flat[idx - 1] == -1:
+						fmask |= 16; fcnt += 1
+					if gj == ww - 1 or _map3dnum_flat[idx + 1] == -1:
+						fmask |= 32; fcnt += 1
+
+				if fmask == 0:
+					# 6面すべて隠れている完全内部ボクセルは描画・コリジョン共にスキップ
+					_chunk_mask_flat[c_idx] = 1
+					continue
+
+				if curmap3dnum >= 1 and curmap3dnum <= 5:
+					var bucket: Array = mat_packed[curmap3dnum]
+					bucket.append(gi | (k << 10) | (gj << 20) | (fmask << 30))
+					mat_face_counts[curmap3dnum] += fcnt
+
+	# スレッド安全なローカル面テンプレート定義（WorkerThreadPoolでのArray共有参照競合を完全回避）
+	var f_v0 = PackedVector3Array([
+		Vector3(-0.5, 0.5, -0.5), Vector3(0.5, 0.5, 0.5), Vector3(-0.5, -0.5, 0.5),
+		Vector3(-0.5, 0.5, -0.5), Vector3(0.5, 0.5, -0.5), Vector3(-0.5, 0.5, 0.5)
+	])
+	var f_v1 = PackedVector3Array([
+		Vector3(-0.5, 0.5, 0.5), Vector3(0.5, 0.5, -0.5), Vector3(0.5, -0.5, 0.5),
+		Vector3(0.5, 0.5, -0.5), Vector3(-0.5, 0.5, -0.5), Vector3(0.5, 0.5, 0.5)
+	])
+	var f_v2 = PackedVector3Array([
+		Vector3(-0.5, -0.5, 0.5), Vector3(0.5, -0.5, -0.5), Vector3(0.5, -0.5, -0.5),
+		Vector3(0.5, 0.5, 0.5), Vector3(-0.5, -0.5, -0.5), Vector3(0.5, -0.5, 0.5)
+	])
+	var f_v3 = PackedVector3Array([
+		Vector3(-0.5, -0.5, -0.5), Vector3(0.5, -0.5, 0.5), Vector3(-0.5, -0.5, -0.5),
+		Vector3(-0.5, 0.5, 0.5), Vector3(0.5, -0.5, -0.5), Vector3(-0.5, -0.5, 0.5)
+	])
+	var f_norms = PackedVector3Array([
+		Vector3(-1.0, 0.0, 0.0), Vector3(1.0, 0.0, 0.0), Vector3(0.0, -1.0, 0.0),
+		Vector3(0.0, 1.0, 0.0), Vector3(0.0, 0.0, -1.0), Vector3(0.0, 0.0, 1.0)
+	])
+	var f_tx = PackedFloat32Array([0.0, 0.0, 1.0, 1.0, -1.0, 1.0])
+	var f_tz = PackedFloat32Array([1.0, -1.0, 0.0, 0.0, 0.0, 0.0])
+	var uv0 = Vector2(0.0, 0.0)
+	var uv1 = Vector2(1.0, 0.0)
+	var uv2 = Vector2(1.0, 1.0)
+	var uv3 = Vector2(0.0, 1.0)
+
+	for mat_id in range(1, 6):
+		var total_faces = mat_face_counts[mat_id]
+		if total_faces == 0:
+			continue
+		var bucket: Array = mat_packed[mat_id]
+		var count = bucket.size()
+
+		var verts = PackedVector3Array()
+		verts.resize(total_faces * 4)
+		var norms = PackedVector3Array()
+		norms.resize(total_faces * 4)
+		var tans = PackedFloat32Array()
+		tans.resize(total_faces * 16)
+		var uvs = PackedVector2Array()
+		uvs.resize(total_faces * 4)
+		var indices = PackedInt32Array()
+		indices.resize(total_faces * 6)
+
+		var v_cursor = 0
+		var t_cursor = 0
+		var i_cursor = 0
+
+		for idx_b in range(count):
+			var packed_val = bucket[idx_b]
+			var bx = float(packed_val & 0x3FF)
+			var by = float((packed_val >> 10) & 0x3FF)
+			var bz = float((packed_val >> 20) & 0x3FF)
+			var fmask = int((packed_val >> 30) & 0x3F)
+			var center_pos = Vector3(bx, by, bz)
+
+			for d_dir in range(6):
+				if (fmask & (1 << d_dir)) == 0:
+					continue
+				var f_norm: Vector3 = f_norms[d_dir]
+				var tx = f_tx[d_dir]
+				var tz = f_tz[d_dir]
+
+				verts[v_cursor + 0] = center_pos + f_v0[d_dir]
+				verts[v_cursor + 1] = center_pos + f_v1[d_dir]
+				verts[v_cursor + 2] = center_pos + f_v2[d_dir]
+				verts[v_cursor + 3] = center_pos + f_v3[d_dir]
+
+				norms[v_cursor + 0] = f_norm
+				norms[v_cursor + 1] = f_norm
+				norms[v_cursor + 2] = f_norm
+				norms[v_cursor + 3] = f_norm
+
+				tans[t_cursor + 0] = tx; tans[t_cursor + 1] = 0.0; tans[t_cursor + 2] = tz; tans[t_cursor + 3] = 1.0
+				tans[t_cursor + 4] = tx; tans[t_cursor + 5] = 0.0; tans[t_cursor + 6] = tz; tans[t_cursor + 7] = 1.0
+				tans[t_cursor + 8] = tx; tans[t_cursor + 9] = 0.0; tans[t_cursor + 10] = tz; tans[t_cursor + 11] = 1.0
+				tans[t_cursor + 12] = tx; tans[t_cursor + 13] = 0.0; tans[t_cursor + 14] = tz; tans[t_cursor + 15] = 1.0
+
+				uvs[v_cursor + 0] = uv0
+				uvs[v_cursor + 1] = uv1
+				uvs[v_cursor + 2] = uv2
+				uvs[v_cursor + 3] = uv3
+
+				indices[i_cursor + 0] = v_cursor + 0
+				indices[i_cursor + 1] = v_cursor + 1
+				indices[i_cursor + 2] = v_cursor + 2
+				indices[i_cursor + 3] = v_cursor + 0
+				indices[i_cursor + 4] = v_cursor + 2
+				indices[i_cursor + 5] = v_cursor + 3
+
+				v_cursor += 4
+				t_cursor += 16
+				i_cursor += 6
+
+		var surf_arrays = []
+		surf_arrays.resize(Mesh.ARRAY_MAX)
+		surf_arrays[Mesh.ARRAY_VERTEX] = verts
+		surf_arrays[Mesh.ARRAY_NORMAL] = norms
+		surf_arrays[Mesh.ARRAY_TANGENT] = tans
+		surf_arrays[Mesh.ARRAY_TEX_UV] = uvs
+		surf_arrays[Mesh.ARRAY_INDEX] = indices
+		local_multi.append([surf_arrays, mat_id])
+
+	# コリジョンのGreedy Meshing: 材質の違いを問わず非空気ブロック(!= -1)同士を統合してBoxShape3D数を激減させる
+	for k in range(max_k):
+		var c_k_rh_rw = k * (rh * rw)
+		for gi in range(limit_i_base, limit_i_max):
+			var c_i = gi - limit_i_base
+			var c_i_rw = c_i * rw
+			for gj in range(limit_j_base, limit_j_max):
 				var c_j = gj - limit_j_base
 				var c_idx = c_k_rh_rw + c_i_rw + c_j
 				
-				if _chunk_mask_flat[c_idx] == 0 and _map3dnum_flat[idx] != -1:
-					var current_material = _map3dnum_flat[idx]
+				if _chunk_mask_flat[c_idx] == 0:
 					var depth = 1
-					while gj + depth < limit_j_max and _chunk_mask_flat[c_idx + depth] == 0 and _map3dnum_flat[idx + depth] == current_material:
+					while gj + depth < limit_j_max and _chunk_mask_flat[c_idx + depth] == 0:
 						depth += 1
 					
 					var width = 1
 					var done = false
 					while gi + width < limit_i_max and not done:
-						var w_idx = k_wh_ww + (gi + width) * ww + gj
 						var c_w_idx = c_k_rh_rw + (c_i + width) * rw + c_j
 						for l in range(depth):
-							if _chunk_mask_flat[c_w_idx + l] != 0 or _map3dnum_flat[w_idx + l] != current_material:
+							if _chunk_mask_flat[c_w_idx + l] != 0:
 								done = true
 								break
 						if not done:
@@ -1339,13 +1454,11 @@ func _thread_calculate_chunk_data(i1: int, j1: int, result_container: Array):
 					var height = 1
 					done = false
 					while k + height < max_k and not done:
-						var h_wh_ww = (k + height) * wh_ww
 						var c_h_rh_rw = (k + height) * (rh * rw)
 						for m in range(width):
-							var w_idx = h_wh_ww + (gi + m) * ww + gj
 							var c_w_idx = c_h_rh_rw + (c_i + m) * rw + c_j
 							for l in range(depth):
-								if _chunk_mask_flat[c_w_idx + l] != 0 or _map3dnum_flat[w_idx + l] != current_material:
+								if _chunk_mask_flat[c_w_idx + l] != 0:
 									done = true
 									break
 							if done: break
@@ -1765,29 +1878,31 @@ func sea(map:Array, n:int = 4, progress_weight: float = 0.0):
 	flat_map.resize(h * w)
 	var idx = 0
 	for i in range(h):
+		var row = map[i]
 		for j in range(w):
-			flat_map[idx] = map[i][j]
+			flat_map[idx] = row[j]
 			idx += 1
 			
 	if progress_weight > 0: await _add_loading_progress(progress_weight / 3.0)
-	else: await get_tree().process_frame
+	else: await _conditional_yield()
 	
 	flat_map.sort()
 	
 	if progress_weight > 0: await _add_loading_progress(progress_weight / 3.0)
-	else: await get_tree().process_frame
+	else: await _conditional_yield()
 	
 	var threshold_idx = int(float(h * w) / float(n))
 	threshold_idx = clamp(threshold_idx, 0, h * w - 1)
 	SEAHEIGHT = flat_map[threshold_idx]
 	
 	for i in range(h):
+		var row = map[i]
 		for j in range(w):
-			if map[i][j] <= SEAHEIGHT:
-				map[i][j] = SEAHEIGHT
+			if row[j] <= SEAHEIGHT:
+				row[j] = SEAHEIGHT
 				
 	if progress_weight > 0: await _add_loading_progress(progress_weight / 3.0)
-	else: await get_tree().process_frame
+	else: await _conditional_yield()
 	
 	var seablocksum = 0
 	return [map, seablocksum]
@@ -2691,7 +2806,7 @@ func find_mesh_instance(node: Node) -> MeshInstance3D:
 			return found
 	return null
 func make_castle():
-	await get_tree().process_frame
+	await _conditional_yield()
 	var castle_scene = load(castle_path)
 	castle_instance = castle_scene.instantiate()
 	var base = []
@@ -2700,9 +2815,10 @@ func make_castle():
 	for i in range(h):
 		var row_map = []
 		var row_around = []
-		for j in range(w):
-			row_map.append(0.0)
-			row_around.append(999999.0)
+		row_map.resize(w)
+		row_map.fill(0.0)
+		row_around.resize(w)
+		row_around.fill(999999.0)
 		base.append(row_map)
 		baseheightmin.append(row_around)
 	base[0][0] = -1.5
@@ -2716,44 +2832,36 @@ func make_castle():
 	base[h-1][w/2] = -1.5
 	base = diamondsquare(base)
 	await smooth_terrain(10,0.5,base, 5.0)
-	await get_tree().process_frame
+	await _conditional_yield()
 	var baseheightmi = 1e9
-	await _add_loading_progress(0.29411764705882354)
 	for i in range(h):
 		for j in range(w):
 			baseheightmi = min(baseheightmi,base[i][j])
-	await _add_loading_progress(0.29411764705882354)
 	for i in range(h):
 		for j in range(w):
 			base[i][j] -= baseheightmi
-	await get_tree().process_frame
 	var resbase = await sea(base)
 	base = resbase[0]
 	baseheightmi = 1e9
-	await _add_loading_progress(0.29411764705882354)
 	for i in range(h):
 		for j in range(w):
 			baseheightmi = min(baseheightmi,base[i][j])
-	await _add_loading_progress(0.29411764705882354)
 	for i in range(h):
 		for j in range(w):
 			base[i][j] -= baseheightmi
 	baseheightma = 0
-	await _add_loading_progress(0.29411764705882354)
 	for i in range(h):
 		for j in range(w):
 			baseheightma = max(baseheightma,base[i][j])
-	await _add_loading_progress(0.29411764705882354)
 	for i in range(h):
 		for j in range(w):
 			base[i][j] = baseheightma-base[i][j]
-	await _add_loading_progress(0.29411764705882354)
 	for i in range(h):
 		for j in range(w):
 			base[i][j] += 3.0
 	baseheightma += 3.0
 	baseheightmin = await assign_aroundheightmin(baseheightmin,base)
-	await _add_loading_progress(0.29411764705882354)
+	await _add_loading_progress(2.3529411764705883)
 	for i in range(h):
 		for j in range(w):
 			var height = int(floor(base[i][j]/0.1))
@@ -3575,6 +3683,7 @@ var loading_progress = null
 var loading_tween = null
 
 func _enter_tree():
+	_init_box_face_templates()
 	if DEBUG_FIXED_SEED:
 		_rng.seed = DEBUG_SEED_VALUE
 	var file = FileAccess.open("user://game_settings.json", FileAccess.READ)
@@ -3710,13 +3819,13 @@ func _setup_beautiful_environment():
 	sky.sky_material = sky_mat
 	environment.sky = sky
 	
-	# Add some post-processing for better visuals
+	# Add some post-processing for better visuals (toned down bloom/intensity so snow is not dazzling)
 	environment.ssao_enabled = true
 	environment.ssao_radius = 1.5
 	environment.ssao_intensity = 2.0
 	environment.glow_enabled = true
-	environment.glow_intensity = 0.5
-	environment.glow_bloom = 0.1
+	environment.glow_intensity = 0.25
+	environment.glow_bloom = 0.02
 	environment.tonemap_mode = Environment.TONE_MAPPER_ACES
 	
 	env.environment = environment
@@ -3730,7 +3839,7 @@ func _setup_beautiful_environment():
 		get_parent().add_child(light)
 		light.rotation_degrees = Vector3(-45, 45, 0)
 	
-	light.light_energy = 1.2
+	light.light_energy = 1.0
 	light.light_color = Color(1.0, 0.95, 0.9)
 	light.shadow_enabled = true
 	light.shadow_blur = 1.5
@@ -3747,10 +3856,9 @@ func _start_phase(phase_name: String):
 	print("\n--- START PHASE: ", phase_name, " ---")
 	_phase_start_time = Time.get_ticks_usec()
 
-func _end_phase(phase_name: String, local_map=null, local_floor=null, local_ceiling=null, local_desert=null, local_map3dnum=null):
+func _end_phase(phase_name: String, _local_map=null, _local_floor=null, _local_ceiling=null, _local_desert=null, _local_map3dnum=null):
 	var elapsed = (Time.get_ticks_usec() - _phase_start_time) / 1000.0
 	print("--- END PHASE: ", phase_name, " (", elapsed, " ms) ---")
-	_print_hashes(local_map, local_floor, local_ceiling, local_desert, local_map3dnum)
 	_print_memory()
 
 func _print_memory():
@@ -3810,12 +3918,6 @@ func _async_generate_terrain():
 	player = get_parent().get_node("CharacterBody3D")
 	_total_start_time = Time.get_ticks_usec()
 	_start_phase("Phase 0: Memory Allocation")
-	await _set_loading_text("Allocating Memory (2D)...")
-	for i in range(h):
-		var arrw = []
-		for j in range(w):
-			arrw.append([])
-
 	await _update_loading("Allocating Memory (2D)...", 2)
 	for i in range(h):
 		var row_map = []
@@ -3831,17 +3933,9 @@ func _async_generate_terrain():
 		assignnum.append(row_map1)
 		aroundheightmin.append(row_around)
 	
-	await _update_loading("Allocating Memory (map3dnum)...", 4)
-	await _add_loading_progress(2.0)
-	await _set_loading_text("Allocating Memory (map3dnum)...")
+	await _update_loading("Allocating Memory (map3dnum)...", 8)
 	_map3dnum_flat.resize(d * worldh * worldw)
 	_map3dnum_flat.fill(-1)
-		
-	await _update_loading("Allocating Memory (map3d)...", 8)
-	await _add_loading_progress(2.0)
-	await _set_loading_text("Allocating Memory (map3d)...")
-	_map3d_flat.resize(d * worldh * worldw)
-	_map3d_flat.fill(-1)
 	var chunkh = worldh/rh
 	var chunkw = worldw/rw
 	if(chunkw*rw<worldw):
@@ -4297,9 +4391,6 @@ func _async_generate_terrain():
 	
 	if anchor_c != Vector3.ZERO and anchor_d != Vector3.ZERO:
 		build_bridge(anchor_c, anchor_d)
-	# --- Generate User Requested Debug Report ---
-	generate_debug_report_and_image(Vector3(mazeend[0]), anchor_a, anchor_b, anchor_c, anchor_d)
-	# --------------------------------------------
 	
 	_end_phase("Phase 5: Bridges", map, floor, ceiling, desert, map3dnum)
 	_start_phase("Phase 6: Meshes & Collisions")
@@ -4362,11 +4453,17 @@ func _async_generate_terrain():
 			# Strictly Plains Grass (4) or Dirt (5)
 			if assignnum[ci][cj] != 4 and assignnum[ci][cj] != 5:
 				continue
-			var ground_y = int(floor(map[ci][cj] / 0.1))
-			var cand_pos = Vector3(ci + plane_start_h, ground_y + 1.5, cj + plane_start_w)
+			var wx_cand = ci + plane_start_h
+			var wz_cand = cj + plane_start_w
+			var ground_y = get_ground_y(wx_cand, d - 1, wz_cand)
+			if ground_y < 30:
+				continue
+			if get_map3dnum(wx_cand, ground_y + 1, wz_cand) != -1 or get_map3dnum(wx_cand, ground_y + 2, wz_cand) != -1:
+				continue
+			var cand_pos = Vector3(wx_cand, ground_y + 1.5, wz_cand)
 			
 			var d_shop = cand_pos.distance_to(plane_shop_pos)
-			if d_shop < 3.5: # Don't spawn inside shop building
+			if d_shop < 5.5: # Don't spawn inside 4x-scaled shop building
 				continue
 				
 			if cand_pos.distance_to(plain_boss_pos) < min_safe_dist_plain:
@@ -4437,32 +4534,27 @@ func _async_generate_terrain():
 	await _set_loading_text("Phase 8: Precompute Dirt Above")
 	has_dirt_above_flat.resize(d * worldh * worldw)
 	has_dirt_above_flat.fill(0)
+	var wh_ww = worldh * worldw
+	var bridge_j_min = plane_start_w + int(w * 0.7)
+	var bridge_j_max = castle_start_w + int(w * 0.3)
 	for i in range(worldh):
+		var i_ww = i * worldw
 		for j in range(worldw):
-			var dirt_found = false
-			
-			# Include the plains as well. Bridges start around plane_start_w + w*0.8.
-			# So anything before castle_start_w (w*2.5) is mostly safe, except the bridge.
-			# Let's just simply exclude 2 (bridges) IF it's high up (k > 15), but accept 2 (rock) if it's low (k <= 15).
-			# And accept 4 and 5 everywhere (castle dungeon has unconditional return true in check_dirt_above, so we don't need to worry about its roof here).
+			var i_ww_j = i_ww + j
+			var is_bridge_area = (j > bridge_j_min and j < bridge_j_max)
+			var dirt_start_k = -1
 			for k in range(d - 1, -1, -1):
-				var idx = k * worldh * worldw + i * worldw + j
+				var idx = k * wh_ww + i_ww_j
 				var c = _map3dnum_flat[idx]
-				
 				if c == 4 or c == 5:
-					dirt_found = true
-				elif c == 2 or c == 3:
-					# Rock and snow are surface covers. 
-					# To prevent high bridges from triggering, we only count them if they are part of the solid ground (e.g. they have blocks immediately below them).
-					# A bridge has air below it. A mountain does not.
-					# Actually, a much safer way is to just accept 2 and 3 if we are outside the bridge area.
-					# The bridge area is roughly between plane_start_w + w*0.8 and castle_start_w + w*0.2.
-					var is_bridge_area = (j > plane_start_w + int(w * 0.7) and j < castle_start_w + int(w * 0.3))
-					if not is_bridge_area:
-						dirt_found = true
-						
-				if dirt_found:
-					has_dirt_above_flat[idx] = 1
+					dirt_start_k = k
+					break
+				elif (c == 2 or c == 3) and not is_bridge_area:
+					dirt_start_k = k
+					break
+			if dirt_start_k >= 0:
+				for k in range(dirt_start_k, -1, -1):
+					has_dirt_above_flat[k * wh_ww + i_ww_j] = 1
 
 	if loading_progress: loading_progress.value = 100.0
 	await get_tree().process_frame
@@ -4477,31 +4569,28 @@ func _async_generate_terrain():
 	is_path.resize(worldh * worldw)
 	is_path.fill(0)
 	
-	var wh_ww = worldh * worldw
-	# Chunked generation to prevent Godot from freezing the loading screen
-	var chunk_size = 20
+	var chunk_size = 64
 	for wx in range(worldh):
 		if wx % chunk_size == 0:
-			await get_tree().process_frame
-			
+			await _conditional_yield()
+		var wx_ww = wx * worldw
 		for wz in range(worldw):
+			var col_offset = wx_ww + wz
 			var is_path_col = false
 			for y in range(d - 1):
-				var idx_floor = y * wh_ww + wx * worldw + wz
-				var idx_air = (y + 1) * wh_ww + wx * worldw + wz
-				var cell_floor = _map3dnum_flat[idx_floor]
-				var cell_air = _map3dnum_flat[idx_air]
-				var under = has_dirt_above_flat[idx_air]
-				if under > 0 and cell_air == -1 and (cell_floor != -1 and cell_floor != 1):
-					is_path_col = true
-					break
+				var idx_floor = y * wh_ww + col_offset
+				var idx_air = idx_floor + wh_ww
+				if has_dirt_above_flat[idx_air] > 0 and _map3dnum_flat[idx_air] == -1:
+					var cell_floor = _map3dnum_flat[idx_floor]
+					if cell_floor != -1 and cell_floor != 1:
+						is_path_col = true
+						break
 			if is_path_col:
 				is_path[wz * worldh + wx] = 1
 
 	for wx in range(worldh):
 		if wx % chunk_size == 0:
-			await get_tree().process_frame
-			
+			await _conditional_yield()
 		for wz in range(worldw):
 			var p_idx = wz * worldh + wx
 			var pixel_idx = p_idx * 4
@@ -4513,13 +4602,14 @@ func _async_generate_terrain():
 			else:
 				var is_wall = false
 				for dz in range(-1, 2):
+					var nz = wz + dz
+					if nz < 0 or nz >= worldw: continue
+					var nz_wh = nz * worldh
 					for dx in range(-1, 2):
-						var nz = wz + dz
 						var nx = wx + dx
-						if nz >= 0 and nz < worldw and nx >= 0 and nx < worldh:
-							if is_path[nz * worldh + nx] == 1:
-								is_wall = true
-								break
+						if nx >= 0 and nx < worldh and is_path[nz_wh + nx] == 1:
+							is_wall = true
+							break
 					if is_wall: break
 				if is_wall:
 					data[pixel_idx] = 102
@@ -4530,9 +4620,48 @@ func _async_generate_terrain():
 	var img = Image.create_from_data(worldh, worldw, false, Image.FORMAT_RGBA8, data)
 	underground_map_texture = ImageTexture.create_from_image(img)
 	
-	loading_ui.visible = false
+	# プレイヤー初期スポーン地点周辺の3x3チャンク（メッシュ＋コリジョン）を事前に同期構築し、
+	# 物理サーバーへ確実に登録してからプレイヤーの凍結を解除する（床抜け・埋まり完全防止）
+	var start_px = int(best_player_pos.x / rh)
+	var start_pz = int(best_player_pos.z / rw)
+	var preload_tasks = []
+	for ci in range(max(0, start_px - collision_length), min(chunk_state.size(), start_px + collision_length + 1)):
+		for cj in range(max(0, start_pz - collision_length), min(chunk_state[0].size(), start_pz + collision_length + 1)):
+			if not chunk_calculated[ci][cj]:
+				var res_c = []
+				var tid = WorkerThreadPool.add_task(_thread_calculate_chunk_data.bind(ci, cj, res_c), true)
+				preload_tasks.append([ci, cj, tid, res_c])
+
+	for pt in preload_tasks:
+		var ci = pt[0]
+		var cj = pt[1]
+		WorkerThreadPool.wait_for_task_completion(pt[2])
+		multimeshdata[ci][cj] = pt[3][0]
+		collisiondata[ci][cj] = pt[3][1]
+		chunk_calculated[ci][cj] = true
+
+	for ci in range(max(0, start_px - collision_length), min(chunk_state.size(), start_px + collision_length + 1)):
+		for cj in range(max(0, start_pz - collision_length), min(chunk_state[0].size(), start_pz + collision_length + 1)):
+			_step_generate_chunk([ci, cj, 0.0, 0, 2, 0, null])
+			chunk_state[ci][cj] = 2
+			_step_build_collision([ci, cj, 0.0, 2, 3, 0, null])
+			chunk_col_state[ci][cj] = 2
+
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+
+	playerpos = best_player_pos
+	is_player_frozen_for_chunk = false
 	if player:
+		player.global_position = best_player_pos
+		if "velocity" in player:
+			player.velocity = Vector3.ZERO
+		if player.has_method("set_movement_enabled"):
+			player.set_movement_enabled(true)
 		player.process_mode = Node.PROCESS_MODE_INHERIT
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+	loading_ui.visible = false
 	if loading_ui:
 		is_generating = false
 	update_visibility(player.global_transform.origin)

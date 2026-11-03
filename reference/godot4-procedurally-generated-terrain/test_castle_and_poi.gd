@@ -34,6 +34,29 @@ func _init() -> void:
 	print("Terrain generation finished! Running verifications...")
 	var initial_player_pos = main_node.player_node.position
 
+	print("\n--- Check 0: Player Initial Spawn Physics & Movement Simulation ---")
+	var p = main_node.player_node
+	var start_test_pos = p.global_position
+	for f in range(40):
+		if f >= 5:
+			Input.action_press("w")
+		await physics_frame
+		await process_frame
+		if f < 10 or f % 10 == 0:
+			var px = int(p.global_position.x / terrain_node.rh)
+			var pz = int(p.global_position.z / terrain_node.rw)
+			var c_st = terrain_node.chunk_state[px][pz]
+			var col_st = terrain_node.chunk_col_state[px][pz]
+			print("  Frame %d: pos=%s, proc_mode=%d, mov_en=%s, on_floor=%s, chunk=(%d,%d)[m=%d,c=%d]" % [
+				f, p.global_position, p.process_mode, p.movement_enabled, p.is_on_floor(), px, pz, c_st, col_st
+			])
+	Input.action_release("w")
+	var moved_dist = Vector2(p.global_position.x, p.global_position.z).distance_to(Vector2(start_test_pos.x, start_test_pos.z))
+	print("  Horizontal distance moved on 'w' press: %.2fm" % moved_dist)
+	assert(moved_dist > 2.0, "Player must be able to move freely from initial position! Moved: %.2fm" % moved_dist)
+	p.global_position = initial_player_pos
+	p.velocity = Vector3.ZERO
+
 	# --- Check 1: Castle Map Textures ---
 	print("\n--- Check 1: Castle Map Textures ---")
 	assert(terrain_node.castle_map_textures.size() == 3, "castle_map_textures must contain 3 textures (1F, 2F, 3F)")

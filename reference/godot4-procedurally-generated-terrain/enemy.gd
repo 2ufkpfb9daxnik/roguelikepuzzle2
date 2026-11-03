@@ -20,6 +20,8 @@ enum State {
 @export var biome_type: int = 0
 
 var player: Node3D = null
+var terrain_node: Node3D = null
+var main_node: Node = null
 var target_time: float = 0.0
 var random_direction: Vector3 = Vector3.ZERO
 var enemy_name: String = ""
@@ -53,24 +55,22 @@ func _ready() -> void:
 	if detection_area and not detection_area.is_connected("body_entered", Callable(self, "_on_body_entered")):
 		detection_area.connect("body_entered", Callable(self, "_on_body_entered"))
 
-	var parent = get_parent()
-	if parent:
-		player = parent.get_node_or_null("CharacterBody3D")
+	main_node = get_parent()
+	if main_node:
+		player = main_node.get_node_or_null("CharacterBody3D")
+		terrain_node = main_node.get_node_or_null("terrain")
 
 	_set_random_idle_duration()
 	_play_best_anim(["Idle", "Animation_Idle_withSkin"])
 
 func _physics_process(delta: float) -> void:
-	var parent = get_parent()
-	if parent:
-		var terrain_node = parent.get_node_or_null("terrain")
-		if terrain_node and "is_generating" in terrain_node and terrain_node.is_generating:
-			velocity = Vector3.ZERO
-			return
+	if terrain_node and terrain_node.is_generating:
+		velocity = Vector3.ZERO
+		return
 
 	# 探索モード時、プレイヤーから一定距離（60m）以上離れたら自動デスポーンして負荷軽減（ボスは除外）
-	if player and not is_boss and state in [State.IDLE, State.MOVE, State.DETECT, State.CHASE]:
-		if global_position.distance_to(player.global_position) > 60.0:
+	if player and not is_boss and state <= State.CHASE:
+		if global_position.distance_squared_to(player.global_position) > 3600.0:
 			queue_free()
 			return
 
@@ -79,7 +79,8 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector3.ZERO
 		return
 
-	if not is_on_floor():
+	var on_floor = is_on_floor()
+	if not on_floor:
 		velocity.y -= gravity * delta
 	else:
 		velocity.y = -0.5
@@ -106,15 +107,16 @@ func _physics_process(delta: float) -> void:
 		State.DEAD:
 			pass
 
-	move_and_slide()
+	if not on_floor or velocity.x != 0.0 or velocity.z != 0.0:
+		move_and_slide()
 
-	# 段差（高さ1）の自動踏破（ステップアップ）
-	if is_on_wall() and state in [State.MOVE, State.CHASE]:
-		var fwd = Vector3(velocity.x, 0, velocity.z)
-		if fwd.length_squared() > 0.01:
-			_try_step_up(fwd)
+		# 段差（高さ1）の自動踏破（ステップアップ）
+		if is_on_wall() and (state == State.MOVE or state == State.CHASE):
+			var fwd = Vector3(velocity.x, 0, velocity.z)
+			if fwd.length_squared() > 0.01:
+				_try_step_up(fwd)
 
-	if exclamation_ui:
+	if exclamation_ui and exclamation_state != "hidden":
 		_update_exclamation(delta)
 
 func _try_step_up(movement_dir: Vector3) -> void:
@@ -163,7 +165,7 @@ func _process_idle(delta: float) -> void:
 		var target_rotation = atan2(random_direction.x, random_direction.z)
 		rotation.y = lerp_angle(rotation.y, target_rotation, 1.0)
 	else:
-		if player and global_position.distance_to(player.global_position) <= detection_range:
+		if player and global_position.distance_squared_to(player.global_position) <= detection_range * detection_range:
 			state = State.DETECT
 			_play_detection()
 
@@ -171,8 +173,7 @@ func _process_move(delta: float) -> void:
 	if is_boss:
 		state = State.IDLE
 		return
-	var parent = get_parent()
-	if parent and "isshoping" in parent and parent.isshoping:
+	if main_node and "isshoping" in main_node and main_node.isshoping:
 		return
 
 	state_timer += delta
@@ -187,7 +188,7 @@ func _process_move(delta: float) -> void:
 		velocity.z = 0.0
 		state_timer = 0.0
 		_set_random_idle_duration()
-	elif player and global_position.distance_to(player.global_position) <= detection_range:
+	elif player and global_position.distance_squared_to(player.global_position) <= detection_range * detection_range:
 		state = State.DETECT
 		_play_detection()
 
@@ -195,8 +196,7 @@ func _process_detect(delta: float) -> void:
 	if is_boss:
 		state = State.IDLE
 		return
-	var parent = get_parent()
-	if parent and "isshoping" in parent and parent.isshoping:
+	if main_node and "isshoping" in main_node and main_node.isshoping:
 		return
 
 	exclamation_time += delta
@@ -208,8 +208,7 @@ func _process_chase(delta: float) -> void:
 	if is_boss:
 		state = State.IDLE
 		return
-	var parent = get_parent()
-	if parent and "isshoping" in parent and parent.isshoping:
+	if main_node and "isshoping" in main_node and main_node.isshoping:
 		return
 	if not player:
 		return
@@ -221,8 +220,11 @@ func _process_chase(delta: float) -> void:
 	velocity.x = forward.x * speed * chase_speed_multiplier
 	velocity.z = forward.z * speed * chase_speed_multiplier
 
-	if global_position.distance_to(player.global_position) > detection_range * 1.5:
+	var lose_dist = detection_range * 1.5
+	if global_position.distance_squared_to(player.global_position) > lose_dist * lose_dist:
 		state = State.IDLE
+		velocity.x = 0.0
+		velocity.z = 0.0
 		_play_best_anim(["Idle", "Animation_Idle_withSkin"])
 
 # ===============================
@@ -340,12 +342,12 @@ func _update_exclamation(delta: float) -> void:
 # ===============================
 func _on_body_entered(body: Node3D) -> void:
 	if body and body.name == "CharacterBody3D":
-		var parent = get_parent()
+		var parent = main_node if main_node else get_parent()
 		if parent:
-			var terrain_node = parent.get_node_or_null("terrain")
-			if terrain_node and "is_generating" in terrain_node and terrain_node.is_generating:
+			var t_node = terrain_node if terrain_node else parent.get_node_or_null("terrain")
+			if t_node and "is_generating" in t_node and t_node.is_generating:
 				return
-			var player_node = parent.get_node_or_null("CharacterBody3D")
+			var player_node = player if player else parent.get_node_or_null("CharacterBody3D")
 			if player_node and "isbattle" in player_node and player_node.isbattle:
 				return
 			if parent.has_node("battle_scene"):
@@ -354,17 +356,17 @@ func _on_body_entered(body: Node3D) -> void:
 		await _transition_to_battle(biome_type, enemy_name)
 
 func _transition_to_battle(biome: int, encountered_enemy: String) -> void:
-	var parent = get_parent()
+	var parent = main_node if main_node else get_parent()
 	if not parent:
 		return
 	if "isshoping" in parent and parent.isshoping:
 		return
 
-	var terrain_node = parent.get_node_or_null("terrain")
-	if terrain_node and "is_generating" in terrain_node and terrain_node.is_generating:
+	var t_node = terrain_node if terrain_node else parent.get_node_or_null("terrain")
+	if t_node and "is_generating" in t_node and t_node.is_generating:
 		return
 
-	var player_node = parent.get_node_or_null("CharacterBody3D")
+	var player_node = player if player else parent.get_node_or_null("CharacterBody3D")
 	if player_node and "isbattle" in player_node and player_node.isbattle:
 		return
 
@@ -385,11 +387,11 @@ func _transition_to_battle(biome: int, encountered_enemy: String) -> void:
 			battle_scene.enemy_data = spawn_node.enemy_data
 			battle_scene.stage_enemy = spawn_node.stage_enemy
 
-		if terrain_node:
-			battle_scene.plane_battle_pos = terrain_node.plane_battle_pos
-			battle_scene.cave_battle_pos = terrain_node.cave_battle_pos
-			battle_scene.desert_battle_pos = terrain_node.desert_battle_pos
-			battle_scene.snow_battle_pos = terrain_node.snow_battle_pos
+		if t_node:
+			battle_scene.plane_battle_pos = t_node.plane_battle_pos
+			battle_scene.cave_battle_pos = t_node.cave_battle_pos
+			battle_scene.desert_battle_pos = t_node.desert_battle_pos
+			battle_scene.snow_battle_pos = t_node.snow_battle_pos
 
 		battle_scene.charactercamera = parent.get_node_or_null("CharacterBody3D/Camera3D")
 

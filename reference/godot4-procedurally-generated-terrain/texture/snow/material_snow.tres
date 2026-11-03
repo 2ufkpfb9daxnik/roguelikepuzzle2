@@ -5,7 +5,10 @@
 [ext_resource type="Texture2D" uid="uid://f6ffbtx7qe47" path="res://texture/snow/Snow010A_1K-JPG_Roughness.jpg" id="3_cnm75"]
 
 [resource]
+albedo_color = Color(0.68, 0.73, 0.78, 1)
 albedo_texture = ExtResource("1_co41j")
+metallic_specular = 0.1
+roughness = 0.9
 roughness_texture = ExtResource("3_cnm75")
 normal_enabled = true
 normal_texture = ExtResource("2_m5y0j")

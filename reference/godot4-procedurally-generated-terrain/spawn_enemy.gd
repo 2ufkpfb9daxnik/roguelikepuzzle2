@@ -59,6 +59,9 @@ var can_spawn: bool = true
 var spawned_enemies: Array = []
 var spawn_time: float = 0.0
 
+var _shared_detect_sphere: SphereShape3D = null
+var _shared_boss_sphere: SphereShape3D = null
+
 enum State {
 	IDLE,
 	MOVE,
@@ -126,12 +129,11 @@ func spawn_enemy(pos: Vector3) -> void:
 	if enemy_info == null:
 		return
 
-	var default_model_path: String = enemy_info[0]
 	var all_animation_model_paths: Array = enemy_info[1]
 
 	var enemy_instance = Enemy.new()
 	enemy_instance.name = enemy_key
-	enemy_instance.global_position = pos
+	enemy_instance.position = pos
 	enemy_instance.health = 100
 	enemy_instance.max_health = 100
 	enemy_instance.speed = 5.0
@@ -139,15 +141,16 @@ func spawn_enemy(pos: Vector3) -> void:
 	enemy_instance.state = State.IDLE
 	enemy_instance.enemy_name = enemy_key
 
-	# Detection Area
+	# Detection Area (共有SphereShape3Dでリソース生成コストを削減)
 	var detection_area = Area3D.new()
 	detection_area.name = "DetectionArea"
 	detection_area.monitoring = true
 	detection_area.monitorable = true
 	var area_shape = CollisionShape3D.new()
-	var sphere = SphereShape3D.new()
-	sphere.radius = 2.5
-	area_shape.shape = sphere
+	if not _shared_detect_sphere:
+		_shared_detect_sphere = SphereShape3D.new()
+		_shared_detect_sphere.radius = 2.5
+	area_shape.shape = _shared_detect_sphere
 	detection_area.add_child(area_shape)
 	enemy_instance.add_child(detection_area)
 
@@ -236,39 +239,43 @@ func _process(delta: float) -> void:
 	if spawn_time >= 2.0:
 		spawn_time = 0.0
 		spawned_enemies = spawned_enemies.filter(func(e): return is_instance_valid(e))
+		if spawned_enemies.size() >= 15:
+			return
 		var cur_pos = player.global_transform.origin
 		var ground_y_size = d
 		var ground_x_size = terrain_node.worldh
 		var ground_z_size = terrain_node.worldw
-		
-		
 
-		# 計算負荷（14000回ループによるカクつき）を無くすため、ランダムサンプリング方式に変更
-		var sample_count = 30
+		# 12グリッド単位に直接スナップしてサンプリング回数を最小化
+		var sample_count = 8
+		var check_y = int(cur_pos.y)
+		if check_y < 0 or check_y >= ground_y_size:
+			return
 		for _s in range(sample_count):
-			# ランダムな角度と距離でドーナツ状の範囲から座標を取得
 			var angle = randf() * PI * 2.0
 			var dist = randf_range(min_spawn_range, max_spawn_range)
-			var i = int(cos(angle) * dist)
-			var j = int(sin(angle) * dist)
-			
-			var check_x = int(cur_pos.x) + i
-			var check_y = int(cur_pos.y)
-			var check_z = int(cur_pos.z) + j
+			var raw_x = cur_pos.x + cos(angle) * dist
+			var raw_z = cur_pos.z + sin(angle) * dist
+			var check_x = int(round(raw_x / 12.0)) * 12
+			var check_z = int(round(raw_z / 12.0)) * 12
 
-			if check_y < 0 or check_y >= ground_y_size: continue
 			if check_x < 0 or check_x >= ground_x_size: continue
 			if check_z < 0 or check_z >= ground_z_size: continue
 
-			if check_x % 12 == 0 and check_z % 12 == 0:
-				var ground_y = terrain_node.get_ground_y(check_x, check_y, check_z)
-				if ground_y <= 30: continue
-				
-				var spawn_coord = Vector3i(check_x, ground_y, check_z)
-				if not isspawned.has(spawn_coord):
-					isspawned[spawn_coord] = true
-					_spawn_queue.append(Vector3(float(check_x), float(ground_y) + 0.6, float(check_z)))
-					break # 1回のチェック処理で最大1体だけキューに入れる（分散させる）
+			var dx = float(check_x) - cur_pos.x
+			var dz = float(check_z) - cur_pos.z
+			var d_sq = dx * dx + dz * dz
+			if d_sq < float(min_spawn_range * min_spawn_range) or d_sq > float(max_spawn_range * max_spawn_range):
+				continue
+
+			var ground_y = terrain_node.get_ground_y(check_x, check_y, check_z)
+			if ground_y <= 30: continue
+			
+			var spawn_coord = Vector3i(check_x, ground_y, check_z)
+			if not isspawned.has(spawn_coord):
+				isspawned[spawn_coord] = true
+				_spawn_queue.append(Vector3(float(check_x), float(ground_y) + 0.6, float(check_z)))
+				break # 1回のチェック処理で最大1体だけキューに入れる（分散させる）
 
 func _ready() -> void:
 	var parent = get_parent()
@@ -344,7 +351,7 @@ func spawn_boss(enemy_key: String, pos: Vector3, scale_mult: float = 3.0, biome:
 	var enemy_instance = Enemy.new()
 	enemy_instance.name = enemy_key + "_Boss"
 	enemy_instance.is_boss = true
-	enemy_instance.global_position = pos
+	enemy_instance.position = pos
 	enemy_instance.health = 5000
 	enemy_instance.max_health = 5000
 	enemy_instance.speed = 3.0
@@ -358,9 +365,10 @@ func spawn_boss(enemy_key: String, pos: Vector3, scale_mult: float = 3.0, biome:
 	detection_area.monitoring = true
 	detection_area.monitorable = true
 	var area_shape = CollisionShape3D.new()
-	var sphere = SphereShape3D.new()
-	sphere.radius = 3.5
-	area_shape.shape = sphere
+	if not _shared_boss_sphere:
+		_shared_boss_sphere = SphereShape3D.new()
+		_shared_boss_sphere.radius = 3.5
+	area_shape.shape = _shared_boss_sphere
 	detection_area.add_child(area_shape)
 	enemy_instance.add_child(detection_area)
 

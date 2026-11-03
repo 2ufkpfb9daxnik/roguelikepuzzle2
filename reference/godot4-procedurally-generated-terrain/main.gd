@@ -2,6 +2,7 @@ extends Node3D
 
 @onready var shop_ui = get_node_or_null("ShopUi") if has_node("ShopUi") else get_node_or_null("CanvasLayer/ShopUI")
 @onready var player_node: CharacterBody3D = $CharacterBody3D
+@onready var terrain_node: Node3D = get_node_or_null("terrain")
 
 # ==============================
 # パーティデータ管理 (CharacterData による一元管理)
@@ -11,6 +12,7 @@ var isshoping: bool = false
 var money: int = 0
 var minimap_root: Control
 var minimap_container: SubViewportContainer
+var minimap_viewport: SubViewport
 var minimap_camera: Camera3D
 var minimap_local_zoom: float = 55.0
 var minimap_big_zoom_mult: float = 1.05
@@ -22,6 +24,9 @@ var player_marker: ColorRect
 var castle_texture_rect: TextureRect
 var poi_container: Control
 var poi_marker_nodes: Dictionary = {}
+var _minimap_render_timer: float = 0.0
+var _last_hud_money: int = -999999
+var _last_hud_biome: String = ""
 
 # 全キャラクターのマスター定義
 # [base_hp, base_atk, base_def, type, model_path, price]
@@ -128,6 +133,8 @@ func _sync_from_legacy_arrays(prop_name: String, values: Array) -> void:
 			"allies_base_defense": party[i].base_defense = values[i]
 
 func _ready() -> void:
+	if not terrain_node:
+		terrain_node = get_node_or_null("terrain")
 	# 初期パーティ登録（red_magician）
 	add_character_by_id("red_magician")
 	_setup_hud()
@@ -135,8 +142,21 @@ func _ready() -> void:
 	_setup_loading_screen()
 	_setup_minimap()
 
-func _process(_delta: float) -> void:
-	_update_hud()
+func _process(delta: float) -> void:
+	if not terrain_node:
+		terrain_node = get_node_or_null("terrain")
+
+	var is_castle = false
+	var castle_floor = 0
+	var player_pos = Vector3.ZERO
+	if player_node:
+		player_pos = player_node.global_position
+		if terrain_node and terrain_node.has_method("is_player_in_castle"):
+			is_castle = terrain_node.is_player_in_castle(player_pos)
+			if is_castle:
+				castle_floor = terrain_node.get_castle_floor(player_pos)
+
+	_update_hud(player_pos, is_castle, castle_floor)
 	
 	# メインカメラがマップ用マーカー(レイヤー2)を映さないようにする
 	if player_node:
@@ -151,21 +171,15 @@ func _process(_delta: float) -> void:
 				minimap_root.visible = true
 				
 				var is_under = false
-				var is_castle = false
-				var castle_floor = 0
-				var terrain_node = get_node_or_null("terrain")
-				if terrain_node:
-					if terrain_node.has_method("is_player_in_castle"):
-						is_castle = terrain_node.is_player_in_castle(player_node.global_position)
-						if is_castle:
-							castle_floor = terrain_node.get_castle_floor(player_node.global_position)
-					if not is_castle and terrain_node.has_method("check_dirt_above"):
-						var px = int(round(player_node.global_position.x))
-						var pz = int(round(player_node.global_position.z))
-						var py = int(round(player_node.global_position.y))
-						is_under = terrain_node.check_dirt_above(px, py + 2, pz)
+				if not is_castle and terrain_node and terrain_node.has_method("check_dirt_above"):
+					var px = int(round(player_pos.x))
+					var pz = int(round(player_pos.z))
+					var py = int(round(player_pos.y))
+					is_under = terrain_node.check_dirt_above(px, py + 2, pz)
 				
 				_is_underground_cached = is_under
+				if "torch_light" in player_node and player_node.torch_light:
+					player_node.torch_light.visible = (is_castle or is_under)
 				
 				if is_castle:
 					minimap_container.modulate.a = 0.3
@@ -173,7 +187,7 @@ func _process(_delta: float) -> void:
 						underground_texture_rect.visible = false
 					if castle_texture_rect:
 						castle_texture_rect.visible = true
-						if "castle_map_textures" in terrain_node and castle_floor < terrain_node.castle_map_textures.size():
+						if terrain_node and "castle_map_textures" in terrain_node and castle_floor < terrain_node.castle_map_textures.size():
 							castle_texture_rect.texture = terrain_node.castle_map_textures[castle_floor]
 				elif _is_underground_cached:
 					minimap_container.modulate.a = 0.3
@@ -191,12 +205,18 @@ func _process(_delta: float) -> void:
 					
 		if minimap_camera and minimap_root and minimap_root.visible:
 			if map_mode == 1:
-				var terrain_node = get_node_or_null("terrain")
 				if terrain_node:
 					minimap_camera.global_position = Vector3(terrain_node.worldh / 2.0, 200, terrain_node.worldw / 2.0)
 			else:
-				minimap_camera.global_position = player_node.global_position + Vector3(0, 80, 0)
+				minimap_camera.global_position = player_pos + Vector3(0, 80, 0)
 			minimap_camera.rotation_degrees = Vector3(-90, 0, 0)
+
+			# SubViewportの3D再描画を間引き(20Hz)してGPU・CPU負荷を大幅軽減（マーカー類は毎フレーム滑らかに更新）
+			if minimap_viewport:
+				_minimap_render_timer += delta
+				if _minimap_render_timer >= 0.05:
+					_minimap_render_timer = 0.0
+					minimap_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 			
 			var current_map_size = minimap_root.size
 			var current_scale_factor = current_map_size.y / minimap_camera.size
@@ -209,35 +229,20 @@ func _process(_delta: float) -> void:
 			var offset_x = diff_x * current_scale_factor
 			var offset_y = diff_z * current_scale_factor
 			
-			if underground_texture_rect and underground_texture_rect.visible:
-				var terrain_node = get_node_or_null("terrain")
-				if terrain_node:
-					if underground_texture_rect.texture == null and "underground_map_texture" in terrain_node:
-						underground_texture_rect.texture = terrain_node.underground_map_texture
-						
-					underground_texture_rect.size = Vector2(terrain_node.worldh, terrain_node.worldw) * current_scale_factor
-					underground_texture_rect.position = center + Vector2(offset_x, offset_y)
+			if underground_texture_rect and underground_texture_rect.visible and terrain_node:
+				if underground_texture_rect.texture == null and "underground_map_texture" in terrain_node:
+					underground_texture_rect.texture = terrain_node.underground_map_texture
+					
+				underground_texture_rect.size = Vector2(terrain_node.worldh, terrain_node.worldw) * current_scale_factor
+				underground_texture_rect.position = center + Vector2(offset_x, offset_y)
 
-			if castle_texture_rect and castle_texture_rect.visible:
-				var terrain_node = get_node_or_null("terrain")
-				if terrain_node:
-					castle_texture_rect.size = Vector2(terrain_node.worldh, terrain_node.worldw) * current_scale_factor
-					castle_texture_rect.position = center + Vector2(offset_x, offset_y)
-			
-			# Check castle state for POI filtering
-			var is_castle_now = false
-			var castle_floor_now = 0
-			var terrain_node_poi = get_node_or_null("terrain")
-			if terrain_node_poi and terrain_node_poi.has_method("is_player_in_castle"):
-				is_castle_now = terrain_node_poi.is_player_in_castle(player_node.global_position)
-				if is_castle_now:
-					castle_floor_now = terrain_node_poi.get_castle_floor(player_node.global_position)
+			if castle_texture_rect and castle_texture_rect.visible and terrain_node:
+				castle_texture_rect.size = Vector2(terrain_node.worldh, terrain_node.worldw) * current_scale_factor
+				castle_texture_rect.position = center + Vector2(offset_x, offset_y)
 
-			_update_poi_markers(cam_pos, center, current_scale_factor, current_map_size, is_castle_now, castle_floor_now)
+			_update_poi_markers(cam_pos, center, current_scale_factor, current_map_size, is_castle, castle_floor)
 			
 			if player_marker and minimap_camera:
-				var player_pos = player_node.global_position
-				
 				var p_diff_x = player_pos.x - cam_pos.x
 				var p_diff_z = player_pos.z - cam_pos.z
 				
@@ -315,27 +320,28 @@ func _setup_hud() -> void:
 	hud_guide_panel.add_child(guide_label)
 	hud_layer.add_child(hud_guide_panel)
 
-func _update_hud() -> void:
-	if hud_money_label:
+func _update_hud(ppos: Vector3, is_castle: bool, castle_floor: int) -> void:
+	if hud_money_label and money != _last_hud_money:
+		_last_hud_money = money
 		hud_money_label.text = "💰 Money: %d" % money
 
-	# プレイヤー位置に応じたバイオーム表示
+	# プレイヤー位置に応じたバイオーム表示（変化時のみLabelを更新）
 	if hud_biome_label and player_node:
-		var ppos = player_node.global_position
 		var biome_str = "📍 平原 (Plains)"
-		var terrain_node = get_node_or_null("terrain")
 		if terrain_node and "desert_start_h" in terrain_node:
 			if ppos.x >= terrain_node.desert_start_h and ppos.x <= terrain_node.desert_start_h + terrain_node.h and ppos.z >= terrain_node.desert_start_w and ppos.z <= terrain_node.desert_start_w + terrain_node.w:
 				biome_str = "📍 砂漠 (Desert)"
 			elif ppos.x >= terrain_node.cave_start_h and ppos.x <= terrain_node.cave_start_h + terrain_node.h and ppos.z >= terrain_node.cave_start_w and ppos.z <= terrain_node.cave_start_w + terrain_node.w:
 				biome_str = "📍 洞窟 (Cave)"
 			elif ppos.x >= terrain_node.castle_start_h and ppos.x <= terrain_node.castle_start_h + terrain_node.h and ppos.z >= terrain_node.castle_start_w and ppos.z <= terrain_node.castle_start_w + terrain_node.w:
-				if terrain_node.has_method("is_player_in_castle") and terrain_node.is_player_in_castle(ppos):
-					var flr = terrain_node.get_castle_floor(ppos) + 1
+				if is_castle:
+					var flr = castle_floor + 1
 					biome_str = "📍 魔王城 %dF (Demon Castle %dF)" % [flr, flr]
 				else:
 					biome_str = "📍 魔王城 (Castle)"
-		hud_biome_label.text = biome_str
+		if biome_str != _last_hud_biome:
+			_last_hud_biome = biome_str
+			hud_biome_label.text = biome_str
 
 # ==============================
 # ポーズメニュー（Pause Menu）
@@ -532,10 +538,13 @@ func _setup_minimap() -> void:
 	minimap_container.position = Vector2(0, 0)
 	minimap_container.stretch = true
 	
-	var minimap_viewport = SubViewport.new()
+	minimap_viewport = SubViewport.new()
 	minimap_viewport.name = "MapViewport"
 	minimap_viewport.size = Vector2i(256, 256)
 	minimap_viewport.transparent_bg = true
+	minimap_viewport.msaa_3d = Viewport.MSAA_DISABLED
+	minimap_viewport.positional_shadow_atlas_size = 0
+	minimap_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 	
 	minimap_camera = Camera3D.new()
 	minimap_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
@@ -608,6 +617,8 @@ func _zoom_map(direction: float) -> void:
 		minimap_local_zoom = clamp(minimap_local_zoom + direction * 5.0, 25.0, 120.0)
 		if minimap_camera:
 			minimap_camera.size = minimap_local_zoom
+		if minimap_viewport:
+			minimap_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 	elif map_mode == 1:
 		minimap_big_zoom_mult = clamp(minimap_big_zoom_mult + direction * 0.08, 0.35, 1.8)
 		_update_map_mode()
@@ -632,9 +643,8 @@ func _update_map_mode() -> void:
 			if map_clip: map_clip.size = m_size
 			if minimap_container:
 				minimap_container.size = m_size
-				var vp = minimap_container.get_node_or_null("MapViewport")
-				if vp: vp.size = Vector2i(int(m_size.x), int(m_size.y))
 			if minimap_camera: minimap_camera.size = minimap_local_zoom
+			if minimap_viewport: minimap_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 		1:
 			# Grand full-screen Big Map fitting world dimensions perfectly
 			minimap_root.show()
@@ -650,10 +660,7 @@ func _update_map_mode() -> void:
 			if map_clip: map_clip.size = map_size
 			if minimap_container:
 				minimap_container.size = map_size
-				var vp = minimap_container.get_node_or_null("MapViewport")
-				if vp: vp.size = Vector2i(int(map_size.x), int(map_size.y))
 			
-			var terrain_node = get_node_or_null("terrain")
 			var world_h = 258.0
 			var world_w = 516.0
 			if terrain_node:
@@ -665,6 +672,7 @@ func _update_map_mode() -> void:
 			var fit_cam_size = max(req_cam_v, req_cam_h)
 			if minimap_camera:
 				minimap_camera.size = fit_cam_size * minimap_big_zoom_mult
+			if minimap_viewport: minimap_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 		2:
 			minimap_root.hide()
 func _update_underground_map():
@@ -673,7 +681,6 @@ func _update_underground_map():
 func _update_poi_markers(cam_pos: Vector3, center: Vector2, current_scale_factor: float, current_map_size: Vector2, is_castle: bool, castle_floor: int) -> void:
 	if not poi_container:
 		return
-	var terrain_node = get_node_or_null("terrain")
 	if not terrain_node or not ("poi_data" in terrain_node) or terrain_node.poi_data.size() == 0:
 		return
 
@@ -684,6 +691,8 @@ func _update_poi_markers(cam_pos: Vector3, center: Vector2, current_scale_factor
 		current_context = "underground"
 
 	var active_ids = {}
+	var pulse_scale = Vector2.ONE
+	var pulse_computed = false
 
 	for poi in terrain_node.poi_data:
 		var p_id = poi.get("id", "")
@@ -725,15 +734,18 @@ func _update_poi_markers(cam_pos: Vector3, center: Vector2, current_scale_factor
 		marker.position = Vector2(screen_x, screen_y) - marker.size / 2.0
 
 		# Name tag visibility based on map mode
-		var name_tag = marker.get_node_or_null("NameTag")
+		var name_tag: Control = marker.get_meta("name_tag") if marker.has_meta("name_tag") else marker.get_node_or_null("NameTag")
 		if name_tag:
 			name_tag.visible = (map_mode == 1)
 
 		# Pulsing animation for Boss and Stairs
 		var p_type = poi.get("type", "")
 		if p_type == "boss" or p_type == "stair_up" or p_type == "stair_down":
-			var pulse = 1.0 + 0.15 * sin(Time.get_ticks_msec() * 0.006)
-			marker.scale = Vector2(pulse, pulse)
+			if not pulse_computed:
+				var pulse = 1.0 + 0.15 * sin(Time.get_ticks_msec() * 0.006)
+				pulse_scale = Vector2(pulse, pulse)
+				pulse_computed = true
+			marker.scale = pulse_scale
 			marker.pivot_offset = marker.size / 2.0
 		else:
 			marker.scale = Vector2.ONE
@@ -794,5 +806,6 @@ func _create_poi_marker(poi: Dictionary) -> Control:
 	name_lbl.visible = false
 	name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	m.add_child(name_lbl)
+	m.set_meta("name_tag", name_lbl)
 
 	return m

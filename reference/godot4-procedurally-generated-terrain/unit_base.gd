@@ -160,15 +160,17 @@ func play_unit_animation(anim_name: String) -> void:
 	if not current_visual_model_root:
 		_setup_visual_model()
 
-	# 既存の表示モデルを非表示にする（破棄しないことでスパイク防止）
+	# 既存の表示モデルを非表示にし、非表示モデルのAnimationPlayer/Skeleton更新負荷を完全停止
 	for child in current_visual_model_root.get_children():
 		if "visible" in child:
 			child.visible = false
+		child.process_mode = Node.PROCESS_MODE_DISABLED
 
 	# すでにインスタンス化されているか確認
 	var inst: Node3D = null
 	if loaded_models.has(target_key) and is_instance_valid(loaded_models[target_key]):
 		inst = loaded_models[target_key]
+		inst.process_mode = Node.PROCESS_MODE_INHERIT
 		if "visible" in inst:
 			inst.visible = true
 	else:
@@ -199,6 +201,7 @@ func play_unit_animation(anim_name: String) -> void:
 
 		inst = scene_res.instantiate()
 		current_visual_model_root.add_child(inst)
+		inst.process_mode = Node.PROCESS_MODE_INHERIT
 		if "visible" in inst:
 			inst.visible = true
 		loaded_models[target_key] = inst
@@ -206,10 +209,15 @@ func play_unit_animation(anim_name: String) -> void:
 	current_animation_name = target_key
 	isanim = true
 
-	# AnimationPlayer を取得して再生
-	var ap: AnimationPlayer = inst.get_node_or_null("AnimationPlayer")
-	if not ap:
-		ap = inst.find_child("AnimationPlayer", true, false)
+	# AnimationPlayer を取得して再生（メタデータキャッシュでツリー探索を省略）
+	var ap: AnimationPlayer = null
+	if inst.has_meta("cached_ap"):
+		ap = inst.get_meta("cached_ap")
+	else:
+		ap = inst.get_node_or_null("AnimationPlayer")
+		if not ap:
+			ap = inst.find_child("AnimationPlayer", true, false)
+		inst.set_meta("cached_ap", ap)
 	
 	if ap:
 		animation_player = ap
@@ -244,6 +252,7 @@ func _create_hp_billboard():
 	hp_viewport.name = "HP_SubViewport"
 	hp_viewport.size = Vector2i(120, 20)
 	hp_viewport.transparent_bg = true
+	hp_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 	hp_progress = ProgressBar.new()
 	hp_progress.name = "HP_ProgressBar"
@@ -295,6 +304,8 @@ func _update_hp_billboard():
 		hp_progress.value = health
 	if hp_label_control:
 		hp_label_control.text = "%d/%d" % [health, max_health]
+	if hp_viewport:
+		hp_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 # ==============================
 # ダメージ＆回復処理

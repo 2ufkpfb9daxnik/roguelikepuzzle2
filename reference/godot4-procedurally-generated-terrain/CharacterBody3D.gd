@@ -29,9 +29,9 @@ func set_movement_enabled(enabled: bool) -> void:
 func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	torch_light = OmniLight3D.new()
-	torch_light.light_color = Color(1.0, 0.8, 0.5)
-	torch_light.light_energy = 5.0
-	torch_light.omni_range = 30.0
+	torch_light.light_color = Color(1.0, 0.85, 0.6)
+	torch_light.light_energy = 2.5
+	torch_light.omni_range = 25.0
 	torch_light.shadow_enabled = true
 	add_child(torch_light)
 	torch_light.position = Vector3(1.5, 1.5, 1.5)
@@ -58,12 +58,26 @@ func _physics_process(delta: float):
 			safe_pos_timer = 0.0
 			safe_respawn_position = global_position
 
-	if not movement_enabled or Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
+	if not movement_enabled:
 		velocity.x = 0.0
 		velocity.z = 0.0
 		velocity.y -= gravity * delta
 		move_and_slide()
 		return
+
+	# 万が一チャンク読み込み遅延等で地面ブロック内部に埋まった場合の自動脱出フェールセーフ
+	var parent_node = get_parent()
+	if parent_node:
+		var t_node = parent_node.get_node_or_null("terrain")
+		if t_node and not t_node.is_generating and t_node.has_method("get_map3dnum"):
+			var bx = int(round(global_position.x))
+			var by_foot = int(round(global_position.y - 0.35))
+			var bz = int(round(global_position.z))
+			if t_node.get_map3dnum(bx, by_foot, bz) > 1:
+				var gy = t_node.get_ground_y(bx, by_foot + 4, bz)
+				if gy >= 0:
+					global_position.y = float(gy) + 1.5
+					velocity.y = 0.0
 
 	velocity.y -= gravity * delta
 
@@ -71,7 +85,17 @@ func _physics_process(delta: float):
 	var is_sprinting = Input.is_key_pressed(KEY_SHIFT) and is_on_floor()
 	var cur_speed = sprint_speed if is_sprinting else speed
 
-	var input = Input.get_vector("a", "d", "w", "s")
+	var input = Vector2.ZERO
+	if InputMap.has_action("a") and InputMap.has_action("d") and InputMap.has_action("w") and InputMap.has_action("s"):
+		input = Input.get_vector("a", "d", "w", "s")
+	if input == Vector2.ZERO:
+		var ix = (1.0 if (Input.is_physical_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT)) else 0.0) - (1.0 if (Input.is_physical_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT)) else 0.0)
+		var iy = (1.0 if (Input.is_physical_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN)) else 0.0) - (1.0 if (Input.is_physical_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP)) else 0.0)
+		input = Vector2(ix, iy).limit_length(1.0)
+
+	if input.length_squared() > 0.01 and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE:
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
 	var movement_dir = transform.basis * Vector3(input.x, 0, input.y)
 	velocity.x = movement_dir.x * cur_speed
 	velocity.z = movement_dir.z * cur_speed
