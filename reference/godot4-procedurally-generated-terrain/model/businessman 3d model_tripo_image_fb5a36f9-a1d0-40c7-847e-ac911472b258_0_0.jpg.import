@@ -1,0 +1,38 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://cydvs2vr0ckbr"
+path.s3tc="res://.godot/imported/businessman 3d model_tripo_image_fb5a36f9-a1d0-40c7-847e-ac911472b258_0_0.jpg-e6d0e3574b7547f532cae0827fe0b874.s3tc.ctex"
+metadata={
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
+}
+generator_parameters={
+"md5": "21cfbbd2245dd13b38a3c45064e11c05"
+}
+
+[deps]
+
+source_file="res://model/businessman 3d model_tripo_image_fb5a36f9-a1d0-40c7-847e-ac911472b258_0_0.jpg"
+dest_files=["res://.godot/imported/businessman 3d model_tripo_image_fb5a36f9-a1d0-40c7-847e-ac911472b258_0_0.jpg-e6d0e3574b7547f532cae0827fe0b874.s3tc.ctex"]
+
+[params]
+
+compress/mode=2
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=0
+detect_3d/compress_to=0

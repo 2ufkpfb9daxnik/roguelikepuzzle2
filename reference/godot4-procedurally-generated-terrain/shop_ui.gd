@@ -10,6 +10,7 @@ extends CanvasLayer
 
 var selected_char_index: int = 0
 var recruit_stock: Array = []
+var current_shop_biome: int = -1
 var message_text: String = ""
 
 var root_control: Control
@@ -18,6 +19,7 @@ var message_label: Label
 var tabs: TabContainer
 var level_box: VBoxContainer
 var recruit_box: VBoxContainer
+var party_box: VBoxContainer
 var inventory_root: VBoxContainer
 var detail_label: Label
 
@@ -110,9 +112,10 @@ func _build_ui() -> void:
 	tabs.add_theme_font_size_override("font_size", 20)
 	outer.add_child(tabs)
 
-	level_box = _add_tab("レベルアップ")
-	recruit_box = _add_tab("仲間を雇う")
-	inventory_root = _add_tab("インベントリ / スキルツリー / バフ")
+	level_box = _add_tab("ショップ（コイン）")
+	recruit_box = _add_tab("仲間を雇う（コイン）")
+	party_box = _add_tab("戦闘メンバー編成")
+	inventory_root = _add_tab("インベントリ / スキルツリー（ポーション）")
 
 func _add_tab(tab_title: String) -> VBoxContainer:
 	var scroll := ScrollContainer.new()
@@ -154,8 +157,9 @@ func _clear(box: VBoxContainer) -> void:
 # ============================================================
 # 開閉
 # ============================================================
-func open_shop() -> void:
+func open_shop(shop_biome: int = -1) -> void:
 	visible = true
+	current_shop_biome = shop_biome
 	var main_node := get_main_node()
 	if main_node:
 		main_node.isshoping = true
@@ -163,6 +167,13 @@ func open_shop() -> void:
 			main_node.player_node.set_movement_enabled(false)
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	message_text = ""
+	if main_node and "party" in main_node and main_node.party.size() < 2:
+		message_text = "まずは仲間を1人購入しましょう！ コインでキャラクターを雇えます。"
+	if current_shop_biome >= 0:
+		var stage_name := _biome_label(current_shop_biome)
+		if message_text != "":
+			message_text += "　"
+		message_text += "%sのショップ：このステージに出現するキャラを販売中。" % stage_name
 	_ensure_recruit_stock()
 	_refresh_all()
 	if tabs:
@@ -173,6 +184,8 @@ func _on_close_button_pressed() -> void:
 	var main_node := get_main_node()
 	if main_node:
 		main_node.isshoping = false
+		if "shop_reopen_block_until_ms" in main_node:
+			main_node.shop_reopen_block_until_ms = Time.get_ticks_msec() + 600
 		if "player_node" in main_node and main_node.player_node and main_node.player_node.has_method("set_movement_enabled"):
 			main_node.player_node.set_movement_enabled(true)
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -180,11 +193,15 @@ func _on_close_button_pressed() -> void:
 func _refresh_all() -> void:
 	var main_node := get_main_node()
 	if main_node and money_label:
-		money_label.text = "コイン: %d" % int(main_node.money)
+		money_label.text = "コイン: %d   ポーション: %d" % [
+			int(main_node.money),
+			int(main_node.potions) if "potions" in main_node else 0
+		]
 	if message_label:
 		message_label.text = message_text
 	_populate_levelup()
 	_populate_recruit()
+	_populate_party_selection()
 	_populate_inventory()
 
 # ============================================================
@@ -196,7 +213,7 @@ func _populate_levelup() -> void:
 	if not main_node:
 		return
 	var party: Array = main_node.party
-	level_box.add_child(_label("コインを使ってキャラクターをレベルアップ。レベルアップでスキルポイント +1。", 15, COL_SUBTEXT))
+	level_box.add_child(_label("コインを使ってキャラクターをレベルアップ。レベルアップで能力が上昇する。", 15, COL_SUBTEXT))
 	for i in range(party.size()):
 		var c: CharacterData = party[i]
 		var card := PanelContainer.new()
@@ -212,8 +229,8 @@ func _populate_levelup() -> void:
 		info.add_theme_constant_override("separation", 4)
 		row.add_child(info)
 
-		info.add_child(_label("%s  Lv.%d  [%s / %s]  SP:%d" % [
-			_display(c.id), c.level, c.get_element_name(), c.get_skill_attribute_name(), c.skill_points
+		info.add_child(_label("%s  Lv.%d  [%s / %s]" % [
+			_display(c.id), c.level, c.get_element_name(), c.get_skill_attribute_name()
 		], 22, c.get_element_color()))
 		info.add_child(_label("HP %d  ATK %d  DEF %d" % [c.get_max_health(), c.get_attack(), c.get_defense()], 16, COL_SUBTEXT))
 
@@ -234,6 +251,9 @@ func _populate_levelup() -> void:
 		button.pressed.connect(_on_levelup.bind(i))
 		row.add_child(button)
 
+	# ショップの恒久強化もコインで購入する。
+	_populate_buffs(level_box)
+
 func _on_levelup(index: int) -> void:
 	var main_node := get_main_node()
 	if not main_node or index < 0 or index >= main_node.party.size():
@@ -245,7 +265,7 @@ func _on_levelup(index: int) -> void:
 		_refresh_all()
 		return
 	c.level_up_with_coin()
-	message_text = "%s が Lv.%d になった！ スキルポイント +1" % [_display(c.id), c.level]
+	message_text = "%s が Lv.%d になった！" % [_display(c.id), c.level]
 	_ensure_recruit_stock()
 	_refresh_all()
 
@@ -259,10 +279,19 @@ func _ensure_recruit_stock() -> void:
 	var party_ids := {}
 	for c in main_node.party:
 		party_ids[c.id] = true
+	# 各ショップは、そのバイオームに出現するキャラだけを販売する。
+	var allowed_ids: Array = []
+	if current_shop_biome >= 0:
+		var spawner = main_node.get_node_or_null("spawn_enemy")
+		if spawner and "stage_enemy" in spawner and current_shop_biome < spawner.stage_enemy.size():
+			allowed_ids = spawner.stage_enemy[current_shop_biome]
 	var candidates: Array = []
 	for id in main_node.all_characters.keys():
-		if not party_ids.has(id):
-			candidates.append(id)
+		if party_ids.has(id):
+			continue
+		if not allowed_ids.is_empty() and not allowed_ids.has(id):
+			continue
+		candidates.append(id)
 	# 全候補を価格順に並べる。ランダムに6人だけ出すと、所持金で
 	# 雇えるキャラが候補にいないことがあるため、常に全員から選べるようにする。
 	candidates.sort_custom(func(a, b):
@@ -276,15 +305,25 @@ func _ensure_recruit_stock() -> void:
 	)
 	recruit_stock = candidates
 
+func _biome_label(biome: int) -> String:
+	match biome:
+		0: return "草原"
+		1: return "洞窟"
+		2: return "砂漠"
+		3: return "雪原"
+		4: return "魔王城"
+	return "このステージ"
+
 func _populate_recruit() -> void:
 	_clear(recruit_box)
 	var main_node := get_main_node()
 	if not main_node:
 		return
 	var party_size: int = main_node.party.size()
-	recruit_box.add_child(_label("パーティは最大3体。倒した敵が低確率で仲間になることもあります。 (%d/3)" % party_size, 15, COL_SUBTEXT))
-	if party_size >= GameData.MAX_PARTY_SIZE:
-		recruit_box.add_child(_label("パーティが満員です。これ以上は雇えません。", 18, Color(1.0, 0.55, 0.45)))
+	var roster_size: int = main_node.get_roster().size() if main_node.has_method("get_roster") else party_size
+	recruit_box.add_child(_label("仲間は最大50体まで。戦闘にはその中から3体を選びます。倒した敵が低確率で仲間になることもあります。 (仲間 %d/50)" % roster_size, 15, COL_SUBTEXT))
+	if not main_node.can_recruit_more():
+		recruit_box.add_child(_label("仲間が満員です。これ以上は雇えません。", 18, Color(1.0, 0.55, 0.45)))
 		return
 
 	var visible_count := 0
@@ -305,6 +344,11 @@ func _populate_recruit() -> void:
 		var atk := CharacterData.calculate_status(config[1], level)
 		var def := CharacterData.calculate_status(config[2], level)
 		var element := GameData.element_for_character(id, int(config[3]))
+		var elements: Array = GameData.elements_for_character(id, int(config[3]))
+		var element_names: Array = []
+		for value in elements:
+			element_names.append(GameData.element_name(int(value)))
+		var element_text := " / ".join(PackedStringArray(element_names))
 		var price := int(config[5]) if config.size() > 5 else 1000
 
 		var card := PanelContainer.new()
@@ -318,10 +362,10 @@ func _populate_recruit() -> void:
 		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(info)
 		info.add_child(_label("%s  [%s / スキル:%s]" % [
-			_display(id), GameData.element_name(element), GameData.skill_attribute_name(GameData.skill_attribute_for_type(int(config[3])))
+			_display(id), element_text, GameData.skill_attribute_name(GameData.skill_attribute_for_type(int(config[3])))
 		], 22, GameData.element_color(element)))
 		info.add_child(_label("Lv.1  HP %d  ATK %d  DEF %d" % [hp, atk, def], 16, COL_SUBTEXT))
-		info.add_child(_label("属性: %s  カテゴリ: %s" % [GameData.element_name(element), GameData.category_name(GameData.element_category(element))], 13, COL_SUBTEXT))
+		info.add_child(_label("属性: %s  カテゴリ: %s" % [element_text, GameData.category_name(GameData.element_category(element))], 13, COL_SUBTEXT))
 
 		var button := Button.new()
 		button.text = "雇う\n%d コイン" % price
@@ -341,7 +385,7 @@ func _on_buy_character(char_id: String, price: int) -> void:
 	if not main_node:
 		return
 	if not main_node.can_recruit_more():
-		message_text = "パーティが満員です。"
+		message_text = "戦闘メンバーが満員です。"
 		_refresh_all()
 		return
 	if int(main_node.money) < price:
@@ -359,17 +403,63 @@ func _on_buy_character(char_id: String, price: int) -> void:
 	_refresh_all()
 
 # ============================================================
+# 戦闘メンバー編成
+# ============================================================
+func _populate_party_selection() -> void:
+	_clear(party_box)
+	var main_node := get_main_node()
+	if not main_node:
+		return
+	var roster: Array = main_node.get_roster() if main_node.has_method("get_roster") else []
+	var selected_count: int = main_node.get_battle_party().size() if main_node.has_method("get_battle_party") else 0
+	party_box.add_child(_label("仲間は最大50体まで。その中から戦闘に出る3体を選べます。", 16, COL_SUBTEXT))
+	party_box.add_child(_label("戦闘メンバー: %d / 3" % selected_count, 22, COL_GOLD))
+	if roster.is_empty():
+		party_box.add_child(_label("仲間がいません。ショップで雇ってください。", 18, COL_SUBTEXT))
+		return
+	for c in roster:
+		var is_selected: bool = main_node.is_battle_member(c.id) if main_node.has_method("is_battle_member") else false
+		var card := PanelContainer.new()
+		card.add_theme_stylebox_override("panel", _style(COL_PANEL, c.get_element_color().darkened(0.2)))
+		party_box.add_child(card)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		card.add_child(row)
+		var info := VBoxContainer.new()
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(info)
+		info.add_child(_label("%s  Lv.%d  [%s]" % [_display(c.id), c.level, c.get_element_name()], 20, c.get_element_color()))
+		info.add_child(_label("HP %d  ATK %d  DEF %d  スキル属性: %s" % [c.get_max_health(), c.get_attack(), c.get_defense(), c.get_skill_attribute_name()], 14, COL_SUBTEXT))
+		var button := Button.new()
+		button.text = "出撃中" if is_selected else "待機"
+		button.custom_minimum_size = Vector2(120, 54)
+		button.add_theme_font_size_override("font_size", 17)
+		button.disabled = not is_selected and selected_count >= 3
+		button.pressed.connect(_on_toggle_battle_member.bind(c.id))
+		row.add_child(button)
+
+func _on_toggle_battle_member(char_id: String) -> void:
+	var main_node := get_main_node()
+	if not main_node or not main_node.has_method("toggle_battle_member"):
+		return
+	if main_node.toggle_battle_member(char_id):
+		message_text = "%s の出撃設定を変更しました。" % _display(char_id)
+	else:
+		message_text = "編成できませんでした（戦闘メンバーは1〜3体）。"
+	_refresh_all()
+
+# ============================================================
 # スキルツリー / インベントリ
 # ============================================================
 func _populate_inventory() -> void:
 	_clear(inventory_root)
 	var main_node := get_main_node()
-	if not main_node or main_node.party.is_empty():
-		inventory_root.add_child(_label("キャラクターがいません。", 18, COL_SUBTEXT))
+	var party: Array = main_node.get_roster() if main_node and main_node.has_method("get_roster") else (main_node.party if main_node else [])
+	if not main_node or party.is_empty():
+		inventory_root.add_child(_label("強化できる仲間がいません。ショップでキャラクターを雇ってください。", 18, COL_SUBTEXT))
 		return
 
-	selected_char_index = clampi(selected_char_index, 0, main_node.party.size() - 1)
-	var party: Array = main_node.party
+	selected_char_index = clampi(selected_char_index, 0, party.size() - 1)
 	var selected: CharacterData = party[selected_char_index]
 
 	inventory_root.add_child(_label("キャラクター", 16, COL_SUBTEXT))
@@ -432,10 +522,11 @@ func _populate_inventory() -> void:
 	points_box.custom_minimum_size = Vector2(230, 0)
 	points_box.add_theme_constant_override("separation", 3)
 	status_row.add_child(points_box)
-	points_box.add_child(_label("スキルポイント", 14, COL_SUBTEXT))
-	points_box.add_child(_label("%d SP" % selected.skill_points, 30, COL_GOLD))
+	points_box.add_child(_label("所持ポーション", 14, COL_SUBTEXT))
+	var potion_total := int(main_node.potions) if "potions" in main_node else 0
+	points_box.add_child(_label("%d ポーション" % potion_total, 30, Color(0.65, 0.85, 1.0)))
 	points_box.add_child(_label("解放ノード: %d / %d" % [_unlocked_count(selected), selected.get_skill_tree().size()], 14, COL_TEXT))
-	points_box.add_child(_label("スキルゲージ: %d%%" % selected.ult_charge, 14, COL_TEXT))
+	points_box.add_child(_label("属性値は戦闘の攻撃フェーズで使用", 14, COL_TEXT))
 
 	# 所持品（習得済みスキル・パーティ共通レリック）
 	inventory_root.add_child(_label("所持品 / レリック", 22, COL_GOLD))
@@ -468,17 +559,15 @@ func _populate_inventory() -> void:
 			var button := _create_node_button(selected, node)
 			column_box.add_child(button)
 
-	_populate_buffs()
-
 # ============================================================
-# ショップバフ（元の Buy Buff 機能を新ショップへ統合）
+# ショップバフ（コインで購入する恒久強化）
 # ============================================================
-func _populate_buffs() -> void:
+func _populate_buffs(parent: VBoxContainer) -> void:
 	var main_node := get_main_node()
 	if not main_node or not main_node.has_method("get_shop_buff_catalog"):
 		return
-	inventory_root.add_child(_label("ショップバフ強化（パーティ全体）", 22, COL_GOLD))
-	inventory_root.add_child(_label("コインで購入してLvを上げる。攻撃・防御・HPなどは次回戦闘から反映される。", 14, COL_SUBTEXT))
+	parent.add_child(_label("ショップバフ強化（パーティ全体・コイン）", 22, COL_GOLD))
+	parent.add_child(_label("コインで購入してLvを上げる。攻撃・防御・HPなどは次回戦闘から反映される。", 14, COL_SUBTEXT))
 	for buff in main_node.get_shop_buff_catalog():
 		var id := str(buff["id"])
 		var level := int(main_node.get_shop_buff_level(id))
@@ -487,7 +576,7 @@ func _populate_buffs() -> void:
 
 		var card := PanelContainer.new()
 		card.add_theme_stylebox_override("panel", _style(COL_PANEL, COL_BORDER.darkened(0.2)))
-		inventory_root.add_child(card)
+		parent.add_child(card)
 
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 16)
@@ -609,7 +698,12 @@ func _modifier_summary(mods: Dictionary) -> String:
 		"coin_bonus": "コイン獲得",
 		"exp_bonus": "EXP獲得",
 		"element_bonus": "属性ダメージ",
-		"crit_chance": "クリティカル率"
+		"crit_chance": "クリティカル率",
+		"heal_bonus": "回復効果",
+		"shield_bonus": "シールド効果",
+		"sword_bonus": "剣攻撃",
+		"combo_bonus": "コンボ倍率",
+		"fever_bonus": "フィーバー倍率"
 	}
 	var flat_labels := {
 		"attack": "攻撃力",
@@ -654,21 +748,24 @@ func _create_node_button(character: CharacterData, node: Dictionary) -> Button:
 		state_text = "未習得 / %d" % max_level
 
 	var button := Button.new()
-	button.text = "%s%s\n%s\n%s  SP:%d" % [
-		prefix, str(node.get("name", "")), str(node.get("desc", "")), state_text, int(node.get("cost", 1))
+	var potion_cost := character.get_node_potion_cost(node_id)
+	button.text = "%s%s\n%s\n%s  %d ポーション" % [
+		prefix, str(node.get("name", "")), str(node.get("desc", "")), state_text, potion_cost
 	]
 	button.custom_minimum_size = Vector2(0, 108)
 	button.add_theme_font_size_override("font_size", 13)
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.tooltip_text = _node_requirement_text(character, node)
-	button.disabled = not character.can_unlock_node(node)
+	button.tooltip_text = _node_requirement_text(character, node, potion_cost)
+	var main_node := get_main_node()
+	var owned_potions := int(main_node.potions) if main_node and "potions" in main_node else 0
+	button.disabled = not character.can_unlock_node(node) or owned_potions < potion_cost
 	button.add_theme_stylebox_override("normal", _style(COL_PANEL, border.darkened(0.15)))
 	button.add_theme_stylebox_override("hover", _style(COL_PANEL.lightened(0.08), border))
 	button.add_theme_stylebox_override("disabled", _style(Color(0.06, 0.07, 0.09, 0.85), Color(0.18, 0.20, 0.26)))
 	button.pressed.connect(_on_unlock_node.bind(node_id))
 	return button
 
-func _node_requirement_text(character: CharacterData, node: Dictionary) -> String:
+func _node_requirement_text(character: CharacterData, node: Dictionary, potion_cost: int = -1) -> String:
 	var lines: Array = []
 	var required_level := int(node.get("char_level", 1))
 	if character.level < required_level:
@@ -686,10 +783,13 @@ func _node_requirement_text(character: CharacterData, node: Dictionary) -> Strin
 				any_ok = true
 		if not any_ok:
 			lines.append("前提: 進化ノードのいずれか")
-	if character.skill_points < int(node.get("cost", 1)):
-		lines.append("スキルポイント不足")
+	var main_node := get_main_node()
+	var owned_potions := int(main_node.potions) if main_node and "potions" in main_node else 0
+	var cost := potion_cost if potion_cost >= 0 else character.get_node_potion_cost(str(node.get("id", "")))
+	if owned_potions < cost:
+		lines.append("ポーション不足（%d / %d）" % [owned_potions, cost])
 	if lines.is_empty():
-		return "解放可能"
+		return "解放可能（%d ポーション）" % cost
 	return "\n".join(lines)
 
 func _on_select_character(index: int) -> void:
@@ -698,13 +798,25 @@ func _on_select_character(index: int) -> void:
 
 func _on_unlock_node(node_id: String) -> void:
 	var main_node := get_main_node()
-	if not main_node or selected_char_index >= main_node.party.size():
+	var roster: Array = main_node.get_roster() if main_node and main_node.has_method("get_roster") else (main_node.party if main_node else [])
+	if not main_node or selected_char_index >= roster.size():
 		return
-	var c: CharacterData = main_node.party[selected_char_index]
+	var c: CharacterData = roster[selected_char_index]
+	if not c.can_unlock_node(GameData.get_skill_node(c.element, node_id)):
+		message_text = "条件を満たしていません。"
+		_refresh_all()
+		return
+	var cost := c.get_node_potion_cost(node_id)
+	if "potions" in main_node and not main_node.spend_potions(cost):
+		message_text = "ポーションが足りません。"
+		_refresh_all()
+		return
 	if c.unlock_skill_node(node_id):
 		var node := GameData.get_skill_node(c.element, node_id)
-		message_text = "%s を解放した！" % str(node.get("name", node_id))
+		message_text = "%s を解放した！（%d ポーション）" % [str(node.get("name", node_id)), cost]
 	else:
+		if "potions" in main_node:
+			main_node.add_potions(cost)
 		message_text = "条件を満たしていません。"
 	_refresh_all()
 

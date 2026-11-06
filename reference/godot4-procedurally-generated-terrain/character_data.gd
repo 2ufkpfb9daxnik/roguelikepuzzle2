@@ -11,6 +11,7 @@ var name: String = ""
 var model_path: String = ""
 var type: int = 0
 var element: int = GameData.Element.FIRE
+var secondary_element: int = GameData.Element.NONE
 var level: int = 1
 var exp: int = 0
 var skill_points: int = 1
@@ -64,10 +65,37 @@ func get_crit_chance() -> float:
 	return clampf(float(mods.get("crit_chance", 0.0)), 0.0, 0.75)
 
 func get_element_name() -> String:
-	return GameData.element_name(element)
+	return get_element_names()
+
+func get_element_names() -> String:
+	var names: Array = []
+	for value in get_elements():
+		names.append(GameData.element_name(int(value)))
+	return " / ".join(PackedStringArray(names))
+
+# 主属性 + 副属性。重複は除外する。
+func get_elements() -> Array:
+	var result: Array = []
+	if element > 0:
+		result.append(element)
+	if secondary_element > 0 and secondary_element != element:
+		result.append(secondary_element)
+	return result
+
+func has_element(value: int) -> bool:
+	return get_elements().has(value)
+
+func get_secondary_element_name() -> String:
+	return GameData.element_name(secondary_element)
 
 func get_element_color() -> Color:
 	return GameData.element_color(element)
+
+func get_element_colors() -> Array:
+	var colors: Array = []
+	for value in get_elements():
+		colors.append(GameData.element_color(int(value)))
+	return colors
 
 func get_skill_attribute() -> int:
 	return GameData.skill_attribute_for_type(type)
@@ -129,8 +157,6 @@ func can_unlock_node(node: Dictionary) -> bool:
 		return false
 	if level < int(node.get("char_level", 1)):
 		return false
-	if skill_points < int(node.get("cost", 1)):
-		return false
 
 	var requirements: Array = node.get("requires", [])
 	for req in requirements:
@@ -157,11 +183,17 @@ func can_unlock_node(node: Dictionary) -> bool:
 				return false
 	return true
 
+# インベントリ強化に使うポーションコスト。
+func get_node_potion_cost(node_id: String) -> int:
+	var node := GameData.get_skill_node(element, node_id)
+	if node.is_empty():
+		return 0
+	return int(node.get("cost", 1)) * 100
+
 func unlock_skill_node(node_id: String) -> bool:
 	var node := GameData.get_skill_node(element, node_id)
 	if not can_unlock_node(node):
 		return false
-	skill_points -= int(node.get("cost", 1))
 	skill_nodes[node_id] = get_node_level(node_id) + 1
 	return true
 
@@ -194,6 +226,9 @@ static func create_from_config(char_id: String, config: Array, char_level: int =
 	data.level = max(1, char_level)
 	data.cur_health = cur_hp
 	data.element = element_override if element_override > 0 else GameData.element_for_character(char_id, data.type)
+	data.secondary_element = GameData.secondary_element_for_character(char_id)
+	if data.secondary_element == data.element:
+		data.secondary_element = GameData.Element.NONE
 	data.exp = 0
 	data.skill_points = max(1, data.level)
 	return data
@@ -207,6 +242,8 @@ func get_spawn_info() -> Dictionary:
 		"path": model_path,
 		"type": type,
 		"element": element,
+		"secondary_element": secondary_element,
+		"elements": get_elements(),
 		"level": level,
 		"exp": exp,
 		"skill_nodes": skill_nodes.duplicate(true),
@@ -224,6 +261,7 @@ func serialize() -> Dictionary:
 		"model_path": model_path,
 		"type": type,
 		"element": element,
+		"secondary_element": secondary_element,
 		"level": level,
 		"exp": exp,
 		"skill_points": skill_points,
@@ -242,6 +280,7 @@ static func deserialize(data: Dictionary) -> CharacterData:
 	c.model_path = str(data.get("model_path", ""))
 	c.type = int(data.get("type", 0))
 	c.element = int(data.get("element", GameData.Element.FIRE))
+	c.secondary_element = int(data.get("secondary_element", GameData.Element.NONE))
 	c.level = int(data.get("level", 1))
 	c.exp = int(data.get("exp", 0))
 	c.skill_points = int(data.get("skill_points", 1))

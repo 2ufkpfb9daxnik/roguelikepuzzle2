@@ -78,6 +78,22 @@ var enemy_intent_labels: Dictionary = {}
 var enemy_statuses: Dictionary = {}
 var fever_charge: int = 0
 var fever_turns: int = 0
+var fever_started_this_turn := false
+var fever_title_label: Label = null
+var fever_dance_layer: Node2D = null
+var fever_dancers: Array = []
+var _fever_dance_3d: Array = []
+var _fever_dance_scene: PackedScene = null
+var _fever_dance_load_started := false
+var fever_dance_frames: SpriteFrames = null
+var fever_se_player: AudioStreamPlayer = null
+var battle_action_label: Label = null
+var turn_element_values: Dictionary = {}
+var battle_potions: int = 0
+var is_boss_battle: bool = false
+var is_final_boss: bool = false
+var battle_lost: bool = false
+var element_value_labels: Dictionary = {}
 var shop_attack_mult: float = 1.0
 var shop_defense_mult: float = 1.0
 var shop_heal_mult: float = 1.0
@@ -197,6 +213,7 @@ func _setup_shop_battle_buffs() -> void:
 		shop_fever_mult = 2.0 + 0.25 * potion_lv
 		shop_start_shield = 5.0 * main_ref.get_shop_buff_level("start_shield")
 		party_relic_mods["start_shield"] = float(party_relic_mods.get("start_shield", 0.0)) + shop_start_shield
+		shop_fever_mult += float(party_relic_mods.get("fever_bonus", 0.0))
 	if main_ref and main_ref.has_method("get_board_buff_config") and puzzle_board and puzzle_board.has_method("set_battle_buffs"):
 		puzzle_board.set_battle_buffs(main_ref.get_board_buff_config())
 
@@ -211,22 +228,38 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 	battle_divscore = [0, 0, 0, 0, 0, 0]
 	fever_charge = 0
 	fever_turns = 0
+	fever_started_this_turn = false
+	_hide_fever_dancers()
+	turn_element_values.clear()
+	battle_potions = 0
+	is_boss_battle = false
+	is_final_boss = false
+	battle_lost = false
 	player_original_position = player.global_position
 	allies_to_spawn = allies_data
-	party = main_ref.party if main_ref and "party" in main_ref else []
+	if main_ref and main_ref.has_method("get_battle_party"):
+		party = main_ref.get_battle_party()
+	else:
+		party = main_ref.party if main_ref and "party" in main_ref else []
 	party_relic_mods = GameData.collect_party_relic_modifiers(party)
 	_setup_shop_battle_buffs()
+	_start_fever_dance_preload()
 
 	# 触れた敵はこの直後に existing_enemies として解放される。
 	# 解放後は参照できなくなるため、名前だけを先に控えておく。
 	var touched_enemy_name := ""
 	if is_instance_valid(touched_enemy):
 		touched_enemy_name = str(touched_enemy.enemy_name)
+		is_boss_battle = bool(touched_enemy.get("is_boss"))
+		is_final_boss = is_boss_battle and biome_type == 4
 		# 戦場ロード中にプレイヤーを遠くへ退避させるため、距離による
 		# 自動デスポーンで接触した敵（呼び出し元）が消えないようにする。
 		touched_enemy.set_physics_process(false)
 	if touched_enemy_name == "":
 		touched_enemy_name = encountered_enemy_name
+	if touched_enemy_name in ["blue_dragon", "cave_dragon", "demon", "rainbow_snake_dragon", "sea_dragon"]:
+		is_boss_battle = true
+		is_final_boss = biome_type == 4
 
 	field_camera = player.get_node_or_null("Camera3D") as Camera3D
 	if field_camera:
@@ -371,6 +404,36 @@ func _spawn_allies() -> void:
 		spawned_allies.append(ally_instance)
 		ally_start_positions.append(pos)
 		_try_play_idle(ally_instance)
+	_spawn_businessman_avatar()
+
+func _spawn_businessman_avatar() -> void:
+	if main_ref == null or allies_root == null:
+		return
+	var config: Array = []
+	if "all_characters" in main_ref:
+		config = main_ref.all_characters.get("businessman", [])
+	var model_path := "res://model/businessman 3d model.glb"
+	if config.size() > 4 and str(config[4]) != "":
+		model_path = str(config[4])
+	var model_paths := _list_model_paths(model_path)
+	var battle_paths := _filter_battle_animations(model_paths)
+	var avatar := Ally.new()
+	avatar.name = "PlayerAvatar_Businessman"
+	avatar.character_index = -1
+	avatar.character_name = "businessman"
+	avatar.element = GameData.Element.LIGHT
+	avatar.level = 1
+	avatar.attack = 0
+	avatar.defense = 0
+	avatar.max_health = 9999
+	avatar.health = 9999
+	avatar.set_animation_model_paths(battle_paths if not battle_paths.is_empty() else model_paths)
+	avatar.state = UnitBase.UnitState.BATTLE_IDLE
+	allies_root.add_child(avatar)
+	avatar.position = Vector3(0, 1.5, ally_z + 2.6)
+	avatar.rotation = Vector3(0, PI, 0)
+	_add_unit_name_label(avatar, "ビジネスマン", GameData.Element.LIGHT, Vector3(0, 2.8, 0))
+	_try_play_idle(avatar)
 
 func _spawn_enemies(touched_name: String) -> void:
 	var names: Array = []
@@ -444,6 +507,7 @@ func _spawn_enemies(touched_name: String) -> void:
 		enemy_instance.position = pos
 		enemy_instance.rotation = Vector3.ZERO
 		enemies_root.add_child(enemy_instance)
+		enemy_instance.set_spawn_origin(pos)
 		enemy_instance.hp_camera = battle_camera
 		enemy_instance.setup_hp_bar_for_battle()
 		if enemy_instance.has_method("adjust_model_to_ground"):
@@ -615,6 +679,30 @@ func _build_hud() -> void:
 		resource_row.add_child(resource_label)
 		resource_labels.append(resource_label)
 
+	# スキル駒を消して得た属性値。攻撃フェーズで「属性値 / パーティ人数」が
+	# 0 より大きいキャラだけが属性スキルを発動する。
+	var element_row := HBoxContainer.new()
+	element_row.add_theme_constant_override("separation", 14)
+	top_left.add_child(element_row)
+	element_value_labels.clear()
+	var seen_elements: Array = []
+	for c in party:
+		if c == null:
+			continue
+		for raw_element in c.get_elements():
+			var element_value := int(raw_element)
+			if seen_elements.has(element_value):
+				continue
+			seen_elements.append(element_value)
+			var element_label := Label.new()
+			element_label.text = "%s 0" % GameData.element_name(element_value)
+			element_label.add_theme_font_size_override("font_size", 18)
+			element_label.add_theme_color_override("font_color", GameData.element_color(element_value))
+			element_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+			element_label.add_theme_constant_override("outline_size", 4)
+			element_row.add_child(element_label)
+			element_value_labels[element_value] = element_label
+
 	var status_row := HBoxContainer.new()
 	status_row.add_theme_constant_override("separation", 22)
 	top_left.add_child(status_row)
@@ -717,6 +805,42 @@ func _build_hud() -> void:
 	combo_label.add_theme_constant_override("outline_size", 8)
 	combo_label.visible = false
 	hud_root.add_child(combo_label)
+
+	# フィーバー突入時の大バナー。SE 後にダンサーへ切り替わる。
+	fever_title_label = Label.new()
+	fever_title_label.set_anchors_preset(Control.PRESET_CENTER)
+	fever_title_label.offset_left = -700
+	fever_title_label.offset_top = -260
+	fever_title_label.offset_right = 700
+	fever_title_label.offset_bottom = -60
+	fever_title_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	fever_title_label.grow_vertical = Control.GROW_DIRECTION_BOTH
+	fever_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	fever_title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	fever_title_label.add_theme_font_size_override("font_size", 86)
+	fever_title_label.add_theme_color_override("font_color", Color(1.0, 0.42, 0.82))
+	fever_title_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.98))
+	fever_title_label.add_theme_constant_override("outline_size", 16)
+	fever_title_label.visible = false
+	fever_title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud_root.add_child(fever_title_label)
+
+	# 各キャラの行動名を画面下中央にも表示する。
+	battle_action_label = Label.new()
+	battle_action_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	battle_action_label.offset_left = -520
+	battle_action_label.offset_top = -170
+	battle_action_label.offset_right = 520
+	battle_action_label.offset_bottom = -112
+	battle_action_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	battle_action_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	battle_action_label.add_theme_font_size_override("font_size", 30)
+	battle_action_label.add_theme_color_override("font_color", Color(1.0, 0.92, 0.55))
+	battle_action_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	battle_action_label.add_theme_constant_override("outline_size", 8)
+	battle_action_label.modulate.a = 0.0
+	battle_action_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud_root.add_child(battle_action_label)
 
 	log_label = Label.new()
 	log_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -846,8 +970,32 @@ func _apply_start_relics() -> void:
 
 func start_battle() -> void:
 	battle_finished = false
+	_play_battle_bgm()
 	await _banner("Battle Start!", 0.9)
 	_start_player_turn()
+
+func _bgm_manager() -> Node:
+	return get_node_or_null("/root/BGMManager")
+
+func _play_battle_bgm() -> void:
+	var bgm := _bgm_manager()
+	if bgm and bgm.has_method("play_battle"):
+		bgm.play_battle(is_boss_battle, is_final_boss)
+
+func _play_fever_bgm() -> void:
+	var bgm := _bgm_manager()
+	if bgm and bgm.has_method("play_fever"):
+		bgm.play_fever()
+
+func _play_ending_bgm() -> void:
+	var bgm := _bgm_manager()
+	if bgm and bgm.has_method("play_ending"):
+		bgm.play_ending()
+
+func _play_field_bgm() -> void:
+	var bgm := _bgm_manager()
+	if bgm and bgm.has_method("play_field"):
+		bgm.play_field()
 
 func _start_player_turn() -> void:
 	if battle_finished:
@@ -860,8 +1008,8 @@ func _start_player_turn() -> void:
 		return
 	turn_number += 1
 	resolving = false
+	turn_element_values.clear()
 	_refresh_active_character()
-	_deploy_ready_skill_piece()
 	_update_enemy_intents()
 	puzzle_board.canmove = true
 	_update_hud()
@@ -871,9 +1019,11 @@ func _deploy_ready_skill_piece() -> void:
 	if party.is_empty() or active_index < 0 or active_index >= party.size():
 		return
 	var active_char: CharacterData = party[active_index]
-	if active_char.ult_charge < 100:
+	var active_elements := active_char.get_elements()
+	if active_elements.is_empty():
 		return
-	if not puzzle_board.place_skill_piece():
+	var piece_id := GameData.piece_id_for_element(int(active_elements.pick_random()))
+	if not puzzle_board.place_skill_piece(piece_id):
 		_log("スキル駒を置ける空きがありません。")
 		return
 	active_char.ult_charge = 0
@@ -921,7 +1071,9 @@ func _on_turn_resolved(result: Dictionary) -> void:
 	var turn_scores: Array = result.get("score", [])
 	for i in range(mini(battle_divscore.size(), turn_scores.size())):
 		battle_divscore[i] = int(battle_divscore[i]) + int(turn_scores[i])
+	turn_element_values = result.get("element_hits", {}).duplicate()
 	await _resolve_player_actions(result)
+	turn_element_values.clear()
 	if battle_finished:
 		return
 	if _living_enemies().is_empty():
@@ -940,22 +1092,22 @@ func _on_turn_resolved(result: Dictionary) -> void:
 		await _finish_victory()
 		return
 	if fever_turns > 0:
-		fever_turns -= 1
-		if fever_turns == 0:
-			_log("フィーバー終了")
+		if fever_started_this_turn:
+			fever_started_this_turn = false
+		else:
+			fever_turns -= 1
+			if fever_turns == 0:
+				_log("フィーバー終了")
+				_hide_fever_dancers()
+				_play_battle_bgm()
 	_start_player_turn()
 
 func _resolve_player_actions(result: Dictionary) -> void:
 	var scores: Array = result.get("score", [])
 	var combo: int = int(result.get("combo", 1))
-	var element_hits: Dictionary = result.get("element_hits", {})
-	var combo_mult: float = 1.0 + max(0, combo - 1) * (0.25 + shop_combo_bonus)
-	var shield_count := int(scores[0]) if scores.size() > 0 else 0
-	var sword_count := int(scores[1]) if scores.size() > 1 else 0
+	var combo_mult: float = 1.0 + max(0, combo - 1) * (0.25 + shop_combo_bonus + float(party_relic_mods.get("combo_bonus", 0.0)))
 	var coin_count := int(scores[2]) if scores.size() > 2 else 0
 	var potion_count := int(scores[3]) if scores.size() > 3 else 0
-	var food_count := int(scores[4]) if scores.size() > 4 else 0
-	var skill_count := int(scores[5]) if scores.size() > 5 else 0
 	var fever_mult: float = shop_fever_mult if fever_turns > 0 else 1.0
 	var active_char: CharacterData = party[active_index] if active_index < party.size() else null
 
@@ -967,15 +1119,6 @@ func _resolve_player_actions(result: Dictionary) -> void:
 		battle_coin += gain
 		_log("コイン +%d" % gain)
 
-	if food_count > 0:
-		var heal := int((food_count * 24 + 8) * combo_mult * fever_mult * shop_heal_mult)
-		_heal_lowest_ally(heal)
-
-	if shield_count > 0:
-		var shield := int(shield_count * 32 * combo_mult * fever_mult * shop_shield_mult)
-		party_shield += shield
-		_log("シールド +%d" % shield)
-
 	if potion_count > 0:
 		if fever_turns > 0:
 			_log("フィーバー中：ポーションは次回分として蓄積されません")
@@ -984,58 +1127,329 @@ func _resolve_player_actions(result: Dictionary) -> void:
 			fever_charge = clampi(fever_charge + fever_gain, 0, 100)
 			_log("フィーバーゲージ +%d" % fever_gain)
 			if fever_charge >= 100:
-				_activate_fever()
+				await _activate_fever()
+		# ポーションはインベントリのスキル強化通貨にもなる。
+		var potion_gain := int(potion_count * 8 * combo_mult * shop_potion_mult)
+		battle_potions += potion_gain
+		if main_ref and main_ref.has_method("add_potions"):
+			main_ref.add_potions(potion_gain)
+		_log("ポーション +%d" % potion_gain)
 
 	if active_char == null:
 		_update_hud()
 		await get_tree().create_timer(0.15).timeout
 		return
 
-	# 操作キャラのスキル属性と一致する駒を消すとスキルゲージが溜まり、
-	# ついでにキャラ属性のスキル攻撃が発動する。
-	var attr_piece: int = active_char.get_skill_attribute()
-	var attr_count := int(scores[attr_piece]) if attr_piece >= 0 and attr_piece < scores.size() else 0
-	if attr_count > 0:
-		var skill_gain := int(attr_count * 10 * combo_mult * fever_mult)
-		active_char.ult_charge = clampi(active_char.ult_charge + skill_gain, 0, 100)
-		_log("%sゲージ +%d" % [active_char.get_skill_attribute_name(), skill_gain])
-		await _trigger_element_skill(active_char, attr_count, combo_mult * fever_mult, active_char.element)
-
-	if skill_count > 0:
-		party_shield += float(active_char.get_character_modifiers().get("skill_shield", 0.0))
-		await _use_skill_pieces(active_char, skill_count, element_hits, combo_mult * fever_mult)
-
-	if sword_count > 0:
-		await _party_physical_attack(active_char, sword_count, combo_mult * fever_mult)
-
+	await _party_attack_phase(result, combo_mult * fever_mult)
 	_update_hud()
-	if sword_count == 0 and skill_count == 0:
-		_log("攻撃リソースなし")
 	await get_tree().create_timer(0.15).timeout
 
-func _activate_fever() -> void:
-	fever_turns = 3
-	fever_charge = 0
-	_log("FEVER!! 3ターンの間、獲得リソースとスキル効果が2倍！")
-	_banner("FEVER!", 0.9)
-
-func _party_physical_attack(active_char: CharacterData, sword_count: int, combo_mult: float) -> void:
-	var living := _living_enemies()
-	if living.is_empty():
-		return
-	var attackers := _living_allies()
-	for ally in attackers:
+# 攻撃フェーズ:
+#  - 各キャラの攻撃値 = そのターンに獲得した剣の値 × そのキャラの攻撃力
+#  - スキル駒を消して得た属性値 / パーティ人数 > 0 なら、そのキャラの属性スキルを敵全体へ発動
+func _party_attack_phase(result: Dictionary, combo_mult: float) -> void:
+	var scores: Array = result.get("score", [])
+	var shield_count := int(scores[0]) if scores.size() > 0 else 0
+	var sword_count := int(scores[1]) if scores.size() > 1 else 0
+	var food_count := int(scores[4]) if scores.size() > 4 else 0
+	var party_count: int = maxi(1, party.size())
+	var acted := false
+	for char_index in range(party.size()):
 		if _living_enemies().is_empty():
 			break
-		var target = _living_enemies().pick_random()
-		var char_index: int = ally.character_index
-		var char_data: CharacterData = party[char_index] if char_index >= 0 and char_index < party.size() else active_char
-		var attack_stat := float(ally.attack)
-		var raw := int(sword_count * (attack_stat + 10.0) * 0.55 * combo_mult)
-		await _animate_lunge(ally, target)
-		var dealt := _damage_enemy(target, raw, char_data.element, char_data)
-		_log("%s の攻撃: %d" % [_display_name(char_data.id), dealt])
-		await get_tree().create_timer(0.08).timeout
+		var char_data: CharacterData = party[char_index]
+		var ally = _ally_for_index(char_index)
+		if ally == null:
+			continue
+
+		var role := char_data.get_skill_attribute()
+		if role == GameData.Piece.SWORD and sword_count > 0:
+			var target = _living_enemies().pick_random()
+			if target:
+				var attack_power := int(ally.attack)
+				var sword_bonus := 1.0 + float(party_relic_mods.get("sword_bonus", 0.0)) + float(char_data.get_character_modifiers().get("sword_bonus", 0.0))
+				var attack_value := int(sword_count * attack_power * 0.55 * combo_mult * sword_bonus)
+				var attack_element := _best_attack_element(char_data, target)
+				_show_action_focus(ally, "剣攻撃", GameData.element_color(attack_element))
+				await _animate_lunge(ally, target)
+				var dealt := _damage_enemy(target, max(1, attack_value), attack_element, char_data)
+				_log("%s の剣攻撃: %d（剣%d × 攻撃力%d / %s）" % [
+					_display_name(char_data.id), dealt, sword_count, attack_power,
+					GameData.element_name(attack_element)
+				])
+				acted = true
+				await get_tree().create_timer(0.08).timeout
+		elif role == GameData.Piece.SHIELD and shield_count > 0:
+			var shield_bonus := 1.0 + float(party_relic_mods.get("shield_bonus", 0.0)) + float(char_data.get_character_modifiers().get("shield_bonus", 0.0))
+			var shield_gain := int(shield_count * (float(ally.defense) + 5.0) * 0.8 * combo_mult * shop_shield_mult * shield_bonus)
+			party_shield += float(shield_gain)
+			_show_action_focus(ally, "盾防御", GameData.element_color(char_data.element))
+			_log("%s の盾防御: シールド +%d（盾%d × 防御力%d）" % [
+				_display_name(char_data.id), shield_gain, shield_count, int(ally.defense)
+			])
+			acted = true
+			await get_tree().create_timer(0.2).timeout
+		elif role == GameData.Piece.FOOD and food_count > 0:
+			var heal_bonus := 1.0 + float(party_relic_mods.get("heal_bonus", 0.0)) + float(char_data.get_character_modifiers().get("heal_bonus", 0.0))
+			var heal := int(food_count * (float(ally.attack) * 0.5 + 10.0) * combo_mult * shop_heal_mult * heal_bonus)
+			for target_ally in _living_allies():
+				target_ally.receive_heal(heal)
+				_sync_ally_to_party(target_ally)
+			_show_action_focus(ally, "回復", Color(0.45, 0.95, 0.55))
+			_log("%s の回復: 味方全員 +%d（回復%d）" % [
+				_display_name(char_data.id), heal, food_count
+			])
+			acted = true
+			await get_tree().create_timer(0.2).timeout
+
+		# 二属性キャラは、属性ごとに属性値が条件を満たせばそれぞれスキルを発動する。
+		for raw_element in char_data.get_elements():
+			if _living_enemies().is_empty():
+				break
+			var skill_element := int(raw_element)
+			var element_value := int(turn_element_values.get(skill_element, 0))
+			var share := float(element_value) / float(party_count)
+			if share > 0.0:
+				await _trigger_element_skill_for(char_data, char_index, share, combo_mult, skill_element)
+				acted = true
+
+	if not acted:
+		_log("攻撃リソースなし")
+
+func _best_attack_element(char_data: CharacterData, target: Node3D) -> int:
+	var best_element: int = char_data.element
+	var best_mult := -1.0
+	for raw_element in char_data.get_elements():
+		var candidate := int(raw_element)
+		var mult := GameData.damage_multiplier(candidate, target.element)
+		if mult > best_mult:
+			best_mult = mult
+			best_element = candidate
+	return best_element
+
+func _activate_fever() -> void:
+	if fever_turns > 0:
+		return
+	fever_turns = 5
+	fever_started_this_turn = true
+	fever_charge = 0
+	_log("★ FEVER TIME!! ★ 5手の間、獲得リソースとスキル効果が2倍！")
+	# 元ゲームと同じく、突入時はBGMを止めて専用SEを鳴らし、
+	# SE が終わってからフィーバーダンスとフィーバーBGMへ移る。
+	var bgm := _bgm_manager()
+	if bgm and bgm.has_method("stop_all"):
+		bgm.stop_all()
+	_show_fever_title()
+	var wait_time := _play_fever_intro_se()
+	await get_tree().create_timer(wait_time).timeout
+	if battle_finished:
+		return
+	_hide_fever_title()
+	await _show_fever_dancers()
+	if battle_finished:
+		return
+	_play_fever_bgm()
+	_update_hud()
+
+func _play_fever_intro_se() -> float:
+	if fever_se_player == null:
+		fever_se_player = AudioStreamPlayer.new()
+		fever_se_player.name = "FeverIntroSE"
+		fever_se_player.bus = "SE" if AudioServer.get_bus_index("SE") != -1 else "Master"
+		add_child(fever_se_player)
+	var se_path := "res://sound/se/patinko/THROUGHOUT_BOUNS継続音.mp3"
+	if fever_se_player.stream == null and ResourceLoader.exists(se_path):
+		fever_se_player.stream = load(se_path)
+	if fever_se_player.stream == null:
+		return 1.6
+	fever_se_player.play()
+	return clampf(fever_se_player.stream.get_length(), 0.8, 6.0)
+
+func _show_fever_title() -> void:
+	if fever_title_label == null:
+		return
+	fever_title_label.text = "★ FEVER TIME!! ★\n残り%d手" % fever_turns
+	fever_title_label.visible = true
+	fever_title_label.modulate.a = 1.0
+	fever_title_label.scale = Vector2(0.4, 0.4)
+	fever_title_label.pivot_offset = fever_title_label.size * 0.5
+	var tween := create_tween()
+	tween.tween_property(fever_title_label, "scale", Vector2(1.12, 1.12), 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(fever_title_label, "scale", Vector2.ONE, 0.12)
+
+func _hide_fever_title() -> void:
+	if fever_title_label == null or not fever_title_label.visible:
+		return
+	var tween := create_tween()
+	tween.tween_property(fever_title_label, "scale", Vector2.ZERO, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tween.tween_callback(func():
+		if is_instance_valid(fever_title_label):
+			fever_title_label.visible = false
+	)
+
+func _get_fever_dance_frames() -> SpriteFrames:
+	if fever_dance_frames != null:
+		return fever_dance_frames
+	var tres_path := "res://texture/fever_dance/fever_dance_frames.tres"
+	if ResourceLoader.exists(tres_path):
+		var res = load(tres_path)
+		if res is SpriteFrames:
+			fever_dance_frames = res
+			return fever_dance_frames
+	fever_dance_frames = SpriteFrames.new()
+	fever_dance_frames.add_animation("dance")
+	fever_dance_frames.set_animation_loop("dance", true)
+	fever_dance_frames.set_animation_speed("dance", 24.0)
+	for i in range(256):
+		var path := "res://texture/fever_dance/frames/frame_%04d.png" % i
+		if not ResourceLoader.exists(path):
+			break
+		fever_dance_frames.add_frame("dance", load(path))
+	return fever_dance_frames
+
+func _ensure_fever_dance_layer() -> void:
+	if fever_dance_layer != null and is_instance_valid(fever_dance_layer):
+		return
+	fever_dance_layer = Node2D.new()
+	fever_dance_layer.name = "FeverDanceLayer"
+	fever_dance_layer.z_index = 25
+	ui_root.add_child(fever_dance_layer)
+
+func _start_fever_dance_preload() -> void:
+	if _fever_dance_load_started:
+		return
+	_fever_dance_load_started = true
+	var path := "res://model/fever_dance.glb"
+	if ResourceLoader.exists(path):
+		ResourceLoader.load_threaded_request(path, "PackedScene")
+
+func _get_fever_dance_scene_async() -> PackedScene:
+	if _fever_dance_scene != null:
+		return _fever_dance_scene
+	_start_fever_dance_preload()
+	var path := "res://model/fever_dance.glb"
+	if not ResourceLoader.exists(path):
+		return null
+	var status := ResourceLoader.load_threaded_get_status(path)
+	var waited := 0
+	while status == ResourceLoader.THREAD_LOAD_IN_PROGRESS and waited < 900:
+		await get_tree().process_frame
+		waited += 1
+		status = ResourceLoader.load_threaded_get_status(path)
+	if status == ResourceLoader.THREAD_LOAD_LOADED:
+		var res = ResourceLoader.load_threaded_get(path)
+		if res is PackedScene:
+			_fever_dance_scene = res
+	return _fever_dance_scene
+
+func _show_fever_dance_3d(scene: PackedScene) -> bool:
+	if scene == null or battle_stage == null:
+		return false
+	if _fever_dance_3d.is_empty():
+		var placements := [
+			{"pos": Vector3(-3.6, 0.05, -6.8), "scale": 1.8, "flip": false},
+			{"pos": Vector3(0.0, 0.05, -7.8), "scale": 2.1, "flip": false},
+			{"pos": Vector3(3.6, 0.05, -6.8), "scale": 1.8, "flip": true}
+		]
+		for i in range(placements.size()):
+			var info: Dictionary = placements[i]
+			var dancer: Node3D = scene.instantiate()
+			dancer.name = "FeverDancer3D_%d" % i
+			battle_stage.add_child(dancer)
+			var spawn_pos: Vector3 = info["pos"]
+			dancer.position = spawn_pos
+			var s := float(info["scale"])
+			dancer.scale = Vector3(s, s, s)
+			dancer.rotation = Vector3(0, 0 if not bool(info["flip"]) else 0.35, 0)
+			var ap: AnimationPlayer = dancer.find_child("AnimationPlayer", true, false)
+			var clip := ""
+			if ap:
+				var clips: Array = []
+				for anim_name in ap.get_animation_list():
+					var anim_res := ap.get_animation(anim_name)
+					if anim_res and anim_res.length > 2.0:
+						clips.append(anim_name)
+				if not clips.is_empty():
+					clip = str(clips[i % clips.size()])
+					ap.play(clip)
+					ap.animation_finished.connect(_on_fever_dancer_anim_finished.bind(ap, dancer, clip))
+			_fever_dance_3d.append({"node": dancer, "anim": ap, "clip": clip})
+	for entry in _fever_dance_3d:
+		var node: Node3D = entry.get("node", null)
+		if node != null and is_instance_valid(node):
+			node.visible = true
+			var ap: AnimationPlayer = entry.get("anim", null)
+			var clip: String = str(entry.get("clip", ""))
+			if ap and clip != "":
+				ap.play(clip)
+	return true
+
+func _on_fever_dancer_anim_finished(_anim_name: String, ap: AnimationPlayer, dancer: Node3D, clip: String) -> void:
+	if is_instance_valid(ap) and is_instance_valid(dancer) and dancer.visible and clip != "":
+		ap.play(clip)
+
+func _show_fever_dancers() -> void:
+	# GLB にダンスアニメーションが含まれているため、まず3D上に配置する。
+	var scene := await _get_fever_dance_scene_async()
+	if _show_fever_dance_3d(scene):
+		return
+	_ensure_fever_dance_layer()
+	var frames := _get_fever_dance_frames()
+	if frames == null or frames.get_frame_count("dance") == 0:
+		_log("フィーバーダンス画像が見つかりません。")
+		return
+	if fever_dancers.is_empty():
+		var placements := [
+			{"pos": Vector2(250, 300), "scale": 0.28, "flip": false},
+			{"pos": Vector2(1670, 300), "scale": 0.28, "flip": true},
+			{"pos": Vector2(250, 830), "scale": 0.36, "flip": false},
+			{"pos": Vector2(1670, 830), "scale": 0.36, "flip": true},
+			{"pos": Vector2(960, 900), "scale": 0.30, "flip": false}
+		]
+		for info in placements:
+			var dancer := AnimatedSprite2D.new()
+			var spawn_pos: Vector2 = info["pos"]
+			dancer.sprite_frames = frames
+			dancer.animation = "dance"
+			dancer.position = spawn_pos
+			dancer.scale = Vector2(0.05, 0.05)
+			dancer.flip_h = bool(info["flip"])
+			dancer.modulate.a = 0.0
+			dancer.z_index = 25
+			fever_dance_layer.add_child(dancer)
+			fever_dancers.append({"sprite": dancer, "target_scale": float(info["scale"])})
+	var tween := create_tween()
+	tween.set_parallel(true)
+	for entry in fever_dancers:
+		var dancer: AnimatedSprite2D = entry["sprite"]
+		if dancer == null or not is_instance_valid(dancer):
+			continue
+		dancer.visible = true
+		dancer.scale = Vector2(0.05, 0.05)
+		dancer.modulate.a = 0.0
+		dancer.play("dance")
+		var target_scale := float(entry["target_scale"])
+		tween.tween_property(dancer, "scale", Vector2(target_scale, target_scale), 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tween.tween_property(dancer, "modulate:a", 1.0, 0.18)
+
+func _hide_fever_dancers() -> void:
+	for entry in fever_dancers:
+		var dancer: AnimatedSprite2D = entry.get("sprite", null)
+		if dancer != null and is_instance_valid(dancer):
+			dancer.stop()
+			dancer.visible = false
+	for entry in _fever_dance_3d:
+		var node: Node3D = entry.get("node", null)
+		var ap: AnimationPlayer = entry.get("anim", null)
+		if node != null and is_instance_valid(node):
+			node.visible = false
+		if ap != null and is_instance_valid(ap):
+			ap.stop()
+
+func _party_physical_attack(active_char: CharacterData, sword_count: int, combo_mult: float) -> void:
+	# 互換用: 攻撃フェーズ本体は _party_attack_phase。
+	var result := {"score": [0, sword_count, 0, 0, 0, 0], "combo": 1, "element_hits": {}}
+	await _party_attack_phase(result, combo_mult)
 
 func _use_skill_pieces(active_char: CharacterData, skill_count: int, element_hits: Dictionary, combo_mult: float) -> void:
 	if skill_count <= 0:
@@ -1046,19 +1460,25 @@ func _use_skill_pieces(active_char: CharacterData, skill_count: int, element_hit
 	await _trigger_element_skill(active_char, skill_count, combo_mult, hit_element)
 
 # キャラ属性に対応するスキル攻撃。
-# 直接ダメージに加えて、属性ごとの状態異常・支援効果を付与する。
-func _trigger_element_skill(active_char: CharacterData, count: int, combo_mult: float, element: int) -> void:
-	if count <= 0:
+# 直接ダメージに加えて、属性ごとの状態異常・支援効果を敵全体へ付与する。
+func _trigger_element_skill(active_char: CharacterData, count: float, combo_mult: float, element: int) -> void:
+	await _trigger_element_skill_for(active_char, party.find(active_char), count, combo_mult, element)
+
+func _trigger_element_skill_for(active_char: CharacterData, char_index: int, count: float, combo_mult: float, element: int) -> void:
+	if count <= 0.0:
 		return
-	var actor: Node3D = _ally_for_index(active_index)
+	var actor: Node3D = _ally_for_index(char_index)
 	if actor:
+		_show_action_focus(actor, "%sスキル発動" % GameData.element_name(element), GameData.element_color(element))
 		await _animate_actor_forward(actor)
 
-	var base := int((count * (18 + active_char.level * 5)) * active_char.get_skill_power() * combo_mult * shop_attack_mult)
+	var stacks: int = maxi(1, int(ceil(count)))
+	var attack_power := int(actor.attack) if actor else active_char.get_attack()
+	var base := int((count * (10.0 + attack_power * 0.35)) * active_char.get_skill_power() * combo_mult * shop_attack_mult)
 	var targets := _living_enemies()
 	for target in targets:
 		if is_instance_valid(target):
-			_damage_enemy(target, base, element, active_char)
+			_damage_enemy(target, max(1, base), element, active_char)
 
 	match element:
 		GameData.Element.POISON:
@@ -1066,24 +1486,26 @@ func _trigger_element_skill(active_char: CharacterData, count: int, combo_mult: 
 				if not is_instance_valid(target) or target.hp <= 0:
 					continue
 				var status := _get_enemy_status(target)
-				status["poison"] = int(status["poison"]) + count
+				status["poison"] = int(status["poison"]) + stacks
 				status["poison_turns"] = 99
-			_log("%sスキル：敵を毒状態にした（盤面に毒がある間、継続ダメージ）" % GameData.element_name(element))
+			_log("%sスキル：敵全体を毒状態にした（属性値 %.1f / パーティ%d）" % [
+				GameData.element_name(element), count, party.size()
+			])
 		GameData.Element.FIRE:
 			for target in targets:
 				if not is_instance_valid(target) or target.hp <= 0:
 					continue
 				var status := _get_enemy_status(target)
-				status["burn"] = int(status["burn"]) + count * (4 + active_char.level)
+				status["burn"] = int(status["burn"]) + stacks * (4 + active_char.level)
 				status["burn_turns"] = maxi(int(status["burn_turns"]), 2)
-			_log("%sスキル：敵を燃焼状態にした" % GameData.element_name(element))
+			_log("%sスキル：敵全体を燃焼状態にした" % GameData.element_name(element))
 		GameData.Element.ICE:
 			for target in targets:
 				if not is_instance_valid(target) or target.hp <= 0:
 					continue
 				var status := _get_enemy_status(target)
 				status["freeze"] = maxi(int(status["freeze"]), 1)
-			_log("%sスキル：敵を凍結させた" % GameData.element_name(element))
+			_log("%sスキル：敵全体を凍結させた" % GameData.element_name(element))
 		GameData.Element.THUNDER:
 			for target in targets:
 				if not is_instance_valid(target) or target.hp <= 0:
@@ -1091,15 +1513,17 @@ func _trigger_element_skill(active_char: CharacterData, count: int, combo_mult: 
 				if randf() < 0.45:
 					var status := _get_enemy_status(target)
 					status["stun"] = maxi(int(status["stun"]), 1)
-			_log("%sスキル：敵に感電を付与した" % GameData.element_name(element))
+			_log("%sスキル：敵全体に感電を付与した" % GameData.element_name(element))
 		GameData.Element.WATER, GameData.Element.WOOD:
-			var heal := int(count * (8 + active_char.level * 3) * combo_mult * shop_heal_mult)
+			var heal_bonus := 1.0 + float(party_relic_mods.get("heal_bonus", 0.0)) + float(active_char.get_character_modifiers().get("heal_bonus", 0.0))
+			var heal := int(count * (8 + active_char.level * 3) * combo_mult * shop_heal_mult * heal_bonus)
 			for ally in _living_allies():
 				ally.receive_heal(heal)
 				_sync_ally_to_party(ally)
 			_log("%sスキル：味方全員を %d 回復" % [GameData.element_name(element), heal])
 		GameData.Element.LIGHT:
-			var heal := int(count * (10 + active_char.level * 3) * combo_mult * shop_heal_mult)
+			var heal_bonus := 1.0 + float(party_relic_mods.get("heal_bonus", 0.0)) + float(active_char.get_character_modifiers().get("heal_bonus", 0.0))
+			var heal := int(count * (10 + active_char.level * 3) * combo_mult * shop_heal_mult * heal_bonus)
 			for ally in _living_allies():
 				ally.receive_heal(heal)
 				_sync_ally_to_party(ally)
@@ -1108,19 +1532,22 @@ func _trigger_element_skill(active_char: CharacterData, count: int, combo_mult: 
 					var status := _get_enemy_status(target)
 					status["poison"] = 0
 					status["burn"] = 0
-			_log("%sスキル：味方を回復し、敵の状態異常を浄化" % GameData.element_name(element))
+			_log("%sスキル：味方を回復し、敵全体の状態異常を浄化" % GameData.element_name(element))
 		GameData.Element.DARK:
-			var heal := int(base * 0.35 * shop_heal_mult)
+			var heal_bonus := 1.0 + float(party_relic_mods.get("heal_bonus", 0.0)) + float(active_char.get_character_modifiers().get("heal_bonus", 0.0))
+			var heal := int(base * 0.35 * shop_heal_mult * heal_bonus)
 			if actor and is_instance_valid(actor):
 				actor.receive_heal(heal)
 				_sync_ally_to_party(actor)
-			_log("%sスキル：与えたダメージの一部を吸収" % GameData.element_name(element))
+			_log("%sスキル：敵全体から与えたダメージの一部を吸収" % GameData.element_name(element))
 		GameData.Element.EARTH:
-			var shield_gain := int(count * (24 + active_char.level * 5) * combo_mult * shop_shield_mult)
+			var shield_bonus := 1.0 + float(party_relic_mods.get("shield_bonus", 0.0)) + float(active_char.get_character_modifiers().get("shield_bonus", 0.0))
+			var shield_gain := int(count * (24 + active_char.level * 5) * combo_mult * shop_shield_mult * shield_bonus)
 			party_shield += shield_gain
 			_log("%sスキル：シールド +%d" % [GameData.element_name(element), shield_gain])
 		GameData.Element.WIND:
-			var shield_gain := int(count * (14 + active_char.level * 3) * combo_mult * shop_shield_mult)
+			var shield_bonus := 1.0 + float(party_relic_mods.get("shield_bonus", 0.0)) + float(active_char.get_character_modifiers().get("shield_bonus", 0.0))
+			var shield_gain := int(count * (14 + active_char.level * 3) * combo_mult * shop_shield_mult * shield_bonus)
 			party_shield += shield_gain
 			_log("%sスキル：風の護りでシールド +%d" % [GameData.element_name(element), shield_gain])
 		_:
@@ -1129,7 +1556,7 @@ func _trigger_element_skill(active_char: CharacterData, count: int, combo_mult: 
 	_update_enemy_intents()
 	await get_tree().create_timer(0.15).timeout
 	if actor and is_instance_valid(actor):
-		await _return_actor(actor, active_index, true)
+		await _return_actor(actor, char_index, true)
 
 func _get_enemy_status(enemy: Node3D) -> Dictionary:
 	var key := enemy.get_instance_id()
@@ -1178,9 +1605,14 @@ func _damage_enemy(target: Node3D, raw: int, attack_element: int, source: Charac
 		return 0
 	var multiplier := GameData.damage_multiplier(attack_element, target.element)
 	var element_bonus := float(party_relic_mods.get("element_bonus", 0.0))
+	if source:
+		element_bonus += float(source.get_character_modifiers().get("element_bonus", 0.0))
 	var damage := int(raw * multiplier * (1.0 + element_bonus))
 	var crit := false
-	if source and randf() < source.get_crit_chance():
+	var crit_chance := float(party_relic_mods.get("crit_chance", 0.0))
+	if source:
+		crit_chance += source.get_crit_chance()
+	if randf() < crit_chance:
 		damage = int(damage * 1.6)
 		crit = true
 	if GameData.damage_multiplier(attack_element, target.element) > 1.0:
@@ -1335,6 +1767,8 @@ func _finish_victory() -> void:
 	battle_finished = true
 	puzzle_board.canmove = false
 	resolving = true
+	if is_final_boss:
+		_play_ending_bgm()
 	await _banner("YOU WIN!", 1.0)
 	_log_turn_end()
 
@@ -1372,8 +1806,12 @@ func _finish_defeat() -> void:
 	if battle_finished:
 		return
 	battle_finished = true
+	battle_lost = true
 	puzzle_board.canmove = false
 	resolving = true
+	var bgm := _bgm_manager()
+	if bgm and bgm.has_method("stop_all"):
+		bgm.stop_all()
 	await _banner("GAME OVER", 1.2)
 	_log_turn_end()
 	await get_tree().create_timer(0.8).timeout
@@ -1435,6 +1873,17 @@ func end_battle() -> void:
 	if is_instance_valid(_paused_terrain):
 		_paused_terrain.set_process(_terrain_process_was_enabled)
 	_paused_terrain = null
+	_hide_fever_dancers()
+	if fever_title_label and is_instance_valid(fever_title_label):
+		fever_title_label.visible = false
+	if battle_lost:
+		var bgm := _bgm_manager()
+		if bgm and bgm.has_method("stop_all"):
+			bgm.stop_all()
+	elif is_final_boss:
+		_play_ending_bgm()
+	else:
+		_play_field_bgm()
 	queue_free()
 
 # ============================================================
@@ -1451,18 +1900,23 @@ func _refresh_active_character() -> void:
 				active_index = i
 				break
 	var active_char: CharacterData = party[active_index]
-	var skills_unlocked := active_char.get_node_level("offense_1") > 0 or active_char.get_skill_power() > 1.0
-	puzzle_board.configure(active_char.element, active_char.level, skills_unlocked, active_char.get_skill_attribute())
+	var any_skill_unlocked := false
+	for c in party:
+		if c != null and (c.get_node_level("offense_1") > 0 or c.get_skill_power() > 1.0):
+			any_skill_unlocked = true
+			break
+	puzzle_board.set_party_skills(party)
+	puzzle_board.configure(active_char.element, active_char.level, any_skill_unlocked, active_char.get_skill_attribute(), party)
 	if board_element_label:
-		if skills_unlocked:
-			board_element_label.text = "操作属性: %s  /  スキル属性: %s  /  スキル駒: %s" % [
-				active_char.get_element_name(), active_char.get_skill_attribute_name(),
-				GameData.element_name(active_char.element)
+		if puzzle_board.allow_skill_pieces:
+			var piece_elements: Array = []
+			for element in puzzle_board.party_skill_elements:
+				piece_elements.append(GameData.element_name(int(element)))
+			board_element_label.text = "操作属性: %s  /  出現スキル駒: %s" % [
+				active_char.get_element_name(), " / ".join(PackedStringArray(piece_elements))
 			]
 		else:
-			board_element_label.text = "操作属性: %s  /  スキル属性: %s  /  スキル駒: 未解禁" % [
-				active_char.get_element_name(), active_char.get_skill_attribute_name()
-			]
+			board_element_label.text = "操作属性: %s  /  スキル駒: 未解禁" % active_char.get_element_name()
 		board_element_label.add_theme_color_override("font_color", active_char.get_element_color())
 
 func _update_hud() -> void:
@@ -1474,14 +1928,25 @@ func _update_hud() -> void:
 	for i in range(resource_labels.size()):
 		var value := int(battle_divscore[i]) if i < battle_divscore.size() else 0
 		resource_labels[i].text = "%s %d" % [resource_names[i], value]
-	coin_label.text = "コイン: %d" % ((main_ref.money if main_ref else 0) + battle_coin)
+	coin_label.text = "コイン: %d　ポーション: %d" % [
+		(main_ref.money if main_ref else 0) + battle_coin,
+		(main_ref.potions if main_ref and "potions" in main_ref else 0)
+	]
+	for element in element_value_labels.keys():
+		var label: Label = element_value_labels[element]
+		if label and is_instance_valid(label):
+			label.text = "%s %d" % [GameData.element_name(int(element)), int(turn_element_values.get(element, 0))]
 	var living_enemy_count := _living_enemies().size()
 	enemy_count_label.text = "敵: %d　シールド: %d" % [living_enemy_count, int(party_shield)]
 	if active_index < party.size():
 		var active_char: CharacterData = party[active_index]
-		active_label.text = "操作中: %s  [%s / %s]  スキルチャージ %d%%" % [
-			_display_name(active_char.id), active_char.get_element_name(),
-			active_char.get_skill_attribute_name(), active_char.ult_charge
+		var active_values: Array = []
+		for raw_element in active_char.get_elements():
+			var element_value := int(raw_element)
+			active_values.append("%s %d" % [GameData.element_name(element_value), int(turn_element_values.get(element_value, 0))])
+		active_label.text = "操作中: %s  [%s]  %s / パーティ%d" % [
+			_display_name(active_char.id), active_char.get_element_names(),
+			" / ".join(PackedStringArray(active_values)), maxi(1, party.size())
 		]
 		active_label.add_theme_color_override("font_color", active_char.get_element_color())
 	for i in range(party_cards.size()):
@@ -1511,26 +1976,33 @@ func _update_hud() -> void:
 		]
 		card["hp_bar"].max_value = max_hp
 		card["hp_bar"].value = hp
-		card["ult_label"].text = "スキルチャージ %d / 100  [%s駒]" % [c.ult_charge, c.get_skill_attribute_name()]
+		var element_parts: Array = []
+		var max_share := 0.0
+		for raw_element in c.get_elements():
+			var element_value := int(raw_element)
+			var value := int(turn_element_values.get(element_value, 0))
+			var share := float(value) / float(maxi(1, party.size()))
+			max_share = maxf(max_share, share)
+			element_parts.append("%s %d/%d=%.1f" % [
+				GameData.element_name(element_value), value, maxi(1, party.size()), share
+			])
+		card["ult_label"].text = "%s%s" % [
+			"  ".join(PackedStringArray(element_parts)),
+			"  発動" if max_share > 0.0 else ""
+		]
 		card["ult_label"].add_theme_color_override("font_color", c.get_element_color())
-		card["ult_bar"].value = c.ult_charge
+		card["ult_bar"].value = clampi(int(max_share * 100.0), 0, 100)
 		var gauge_fill := StyleBoxFlat.new()
-		gauge_fill.bg_color = c.get_element_color() if c.ult_charge < 100 else Color(1.0, 0.88, 0.32)
+		gauge_fill.bg_color = c.get_element_color() if max_share <= 0.0 else Color(1.0, 0.88, 0.32)
 		gauge_fill.set_corner_radius_all(4)
 		card["ult_bar"].add_theme_stylebox_override("fill", gauge_fill)
 		card["button"].disabled = (ally == null or i == active_index)
 	if skill_help_label:
-		if not party.is_empty() and active_index < party.size():
-			var active_char: CharacterData = party[active_index]
-			skill_help_label.text = "%s駒を消すとスキルチャージ増加 + %sスキル攻撃\n満タンで%sスキル駒を自動配置" % [
-				active_char.get_skill_attribute_name(), active_char.get_element_name(), active_char.get_skill_attribute_name()
-			]
-		else:
-			skill_help_label.text = "スキルゲージが満タンになると属性スキル駒を自動配置"
+		skill_help_label.text = "パーティ全員のスキル属性駒が4マッチで出現\n消した属性値 / パーティ%d が0超で全員分の属性スキル発動" % maxi(1, party.size())
 	if fever_bar and fever_label:
 		if fever_turns > 0:
-			fever_label.text = "FEVER!! 残り%dターン" % fever_turns
-			fever_bar.value = 100
+			fever_label.text = "★ FEVER TIME ★ 残り%d手" % fever_turns
+			fever_bar.value = clampi(int(float(fever_turns) / 5.0 * 100.0), 0, 100)
 		else:
 			fever_label.text = "FEVER %d%%" % fever_charge
 			fever_bar.value = fever_charge
@@ -1582,6 +2054,70 @@ func _ally_for_index(index: int) -> Node3D:
 		if is_instance_valid(ally) and ally.character_index == index and ally.hp > 0:
 			return ally
 	return null
+
+func _show_action_focus(actor: Node3D, action_text: String, color: Color) -> void:
+	if not is_instance_valid(actor):
+		return
+	var character_name := _display_name(actor.character_name if "character_name" in actor else "?")
+	# 3D: 頭上に行動名を出し、足元に属性色のリングと補助光を追加する。
+	var action_label := Label3D.new()
+	action_label.text = action_text
+	action_label.font_size = 42
+	action_label.modulate = color.lightened(0.25)
+	action_label.outline_size = 10
+	action_label.outline_modulate = Color(0, 0, 0, 0.95)
+	action_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	action_label.pixel_size = 0.0045
+	action_label.position = Vector3(0, 3.3, 0)
+	actor.add_child(action_label)
+
+	var focus_light := OmniLight3D.new()
+	focus_light.light_color = color
+	focus_light.light_energy = 2.2
+	focus_light.omni_range = 6.0
+	focus_light.shadow_enabled = false
+	focus_light.position = Vector3(0, 1.8, 0)
+	actor.add_child(focus_light)
+
+	var ring := MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.75
+	torus.outer_radius = 1.15
+	torus.rings = 24
+	torus.ring_segments = 8
+	ring.mesh = torus
+	ring.position = Vector3(0, 0.08, 0)
+	ring.rotation_degrees = Vector3(90, 0, 0)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(color.r, color.g, color.b, 0.85)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	ring.material_override = mat
+	actor.add_child(ring)
+
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(action_label, "position:y", 4.4, 0.95)
+	tween.tween_property(action_label, "modulate:a", 0.0, 0.95)
+	tween.tween_property(focus_light, "light_energy", 0.0, 0.75)
+	tween.tween_property(ring, "scale", Vector3(1.9, 1.0, 1.9), 0.55)
+	tween.tween_property(ring, "transparency", 1.0, 0.55)
+	tween.finished.connect(func():
+		if is_instance_valid(action_label):
+			action_label.queue_free()
+		if is_instance_valid(focus_light):
+			focus_light.queue_free()
+		if is_instance_valid(ring):
+			ring.queue_free()
+	)
+
+	# HUD 下中央にも「誰が何をするか」を表示する。
+	if battle_action_label:
+		battle_action_label.text = "%s：%s" % [character_name, action_text]
+		battle_action_label.modulate.a = 1.0
+		var hud_tween := create_tween()
+		hud_tween.tween_interval(0.55)
+		hud_tween.tween_property(battle_action_label, "modulate:a", 0.0, 0.45)
 
 func _animate_lunge(actor: Node3D, target: Node3D) -> void:
 	if not is_instance_valid(actor) or not is_instance_valid(target):

@@ -18,7 +18,17 @@ var interval = 0
 var _preload_started = false
 
 func _ready() -> void:
-	get_node("titlebgm").play()
+	var bgm := get_node_or_null("/root/BGMManager")
+	if bgm and bgm.has_method("play_title"):
+		# シーン内の BGM と重複しないよう、共通 BGM マネージャーでループ再生する。
+		var local_bgm := get_node_or_null("titlebgm")
+		if local_bgm and local_bgm is AudioStreamPlayer:
+			local_bgm.stop()
+		elif local_bgm and local_bgm is AudioStreamPlayer2D:
+			local_bgm.stop()
+		bgm.play_title()
+	else:
+		get_node("titlebgm").play()
 
 	if has_node("VBoxContainer/Button"):
 		get_node("VBoxContainer/Button").pressed.connect(_on_button_pressed)

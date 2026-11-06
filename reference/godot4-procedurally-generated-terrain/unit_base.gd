@@ -89,6 +89,11 @@ var animation_library_path: String = ""
 var animation_library_loaded: bool = false
 var base_animation_player: AnimationPlayer = null
 
+# アニメーションを持たない GLB（ビジネスマンなど）向けの簡易プロシージャル演出。
+var procedural_animation_enabled: bool = false
+var _procedural_tween: Tween = null
+var _procedural_base_position := Vector3(0, -0.4, 0)
+
 # 装飾用アニメーションは戦闘・移動で使わないため読み込み対象から除外する。
 # 1体あたり約20本のフルモデルGLBを読み込む構成なので、ここを絞る効果が大きい。
 const EXCLUDED_ANIMATION_KEYWORDS := ["dance", "groove", "gesture", "boxing", "practice"]
@@ -109,6 +114,30 @@ var hp_camera: Camera3D
 func _setup_unit_base():
 	_create_collision_shape()
 	_setup_visual_model()
+	_add_element_ring()
+
+func _add_element_ring() -> void:
+	if get_node_or_null("ElementColorRing") != null:
+		return
+	var tint := _resolve_element_color_for_tint()
+	if tint == Color.WHITE:
+		return
+	var ring := MeshInstance3D.new()
+	ring.name = "ElementColorRing"
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.55
+	torus.outer_radius = 0.78
+	torus.rings = 20
+	torus.ring_segments = 6
+	ring.mesh = torus
+	ring.position = Vector3(0, 0.12, 0)
+	ring.rotation_degrees = Vector3(90, 0, 0)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(tint.r, tint.g, tint.b, 0.8)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	ring.material_override = mat
+	add_child(ring)
 
 func setup_hp_bar_for_battle():
 	_create_hp_billboard()
@@ -132,8 +161,15 @@ func _setup_visual_model():
 		current_visual_model_root.name = "VisualModelRoot"
 		add_child(current_visual_model_root)
 	current_visual_model_root.position.y = -0.4
+	_procedural_base_position = current_visual_model_root.position
 	_ensure_base_model()
+	_apply_element_tint_to_node(current_visual_model_root)
 	_load_animation_library()
+	# AnimationPlayer が無いモデルは、ツイーンによる簡易アニメーションで動かす。
+	procedural_animation_enabled = animation_models.is_empty()
+	if not procedural_animation_enabled:
+		var ap := _find_base_animation_player()
+		procedural_animation_enabled = ap == null and not animation_library_loaded
 
 func _ensure_base_model() -> void:
 	if current_visual_model_root == null or current_visual_model_root.get_child_count() > 0:
@@ -163,6 +199,48 @@ func _pick_base_animation_key() -> String:
 		if str(animation_models[key]) != "":
 			return str(key)
 	return ""
+
+# 白っぽいモデルや無彩色モデルに属性色を付けて判別しやすくする。
+func _apply_element_tint_to_node(root: Node) -> void:
+	if root == null:
+		return
+	var tint := _resolve_element_color_for_tint()
+	if tint == Color.WHITE or tint.a <= 0.0:
+		return
+	for mesh in root.find_children("*", "MeshInstance3D", true, false):
+		if not (mesh is MeshInstance3D) or mesh.mesh == null:
+			continue
+		var surface_count: int = mesh.mesh.get_surface_count()
+		for s in range(surface_count):
+			var mat = mesh.get_active_material(s)
+			if mat is StandardMaterial3D:
+				var std := mat as StandardMaterial3D
+				var is_white := false
+				if std.albedo_texture == null:
+					var c := std.albedo_color
+					if c.r > 0.72 and c.g > 0.72 and c.b > 0.72:
+						is_white = true
+				if is_white:
+					var dup := std.duplicate() as StandardMaterial3D
+					dup.albedo_color = tint.lerp(Color.WHITE, 0.45)
+					mesh.set_surface_override_material(s, dup)
+
+func _resolve_element_color_for_tint() -> Color:
+	var el := element
+	if el <= 0:
+		var id := ""
+		var enemy_id = get("enemy_name")
+		if enemy_id != null:
+			id = str(enemy_id)
+		else:
+			var char_id = get("character_name")
+			if char_id != null:
+				id = str(char_id)
+		if id != "":
+			el = GameData.element_for_character(id, type)
+	if el <= 0:
+		return Color.WHITE
+	return GameData.element_color(el)
 
 func _load_animation_library() -> void:
 	if animation_library_loaded or animation_library_path == "":
@@ -231,11 +309,59 @@ func _should_load_animation(anim_name: String) -> bool:
 			return false
 	return true
 
+func _play_procedural_animation(kind: String) -> void:
+	if current_visual_model_root == null or not is_instance_valid(current_visual_model_root):
+		return
+	var lower := kind.to_lower()
+	if _procedural_tween != null and _procedural_tween.is_valid():
+		_procedural_tween.kill()
+	var target := current_visual_model_root
+	target.position = _procedural_base_position
+	target.rotation = Vector3.ZERO
+	target.scale = Vector3.ONE
+	current_animation_name = kind
+	isanim = true
+
+	if "dead" in lower:
+		var tw := create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(target, "rotation:z", 1.35, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(target, "position:y", _procedural_base_position.y - 0.28, 0.5)
+		_procedural_tween = tw
+	elif "behit" in lower or "hit" in lower or "damage" in lower:
+		var tw := create_tween()
+		tw.tween_property(target, "position:x", _procedural_base_position.x + 0.22, 0.07)
+		tw.tween_property(target, "position:x", _procedural_base_position.x - 0.18, 0.09)
+		tw.tween_property(target, "position:x", _procedural_base_position.x, 0.11)
+		_procedural_tween = tw
+	elif "attack" in lower or "skill" in lower or "combo" in lower:
+		var tw := create_tween()
+		tw.tween_property(target, "position:z", _procedural_base_position.z - 0.42, 0.13).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(target, "rotation:x", 0.16, 0.13)
+		tw.tween_property(target, "position:z", _procedural_base_position.z, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(target, "rotation:x", 0.0, 0.24)
+		_procedural_tween = tw
+	elif "run" in lower or "walk" in lower or "move" in lower:
+		var tw := create_tween().set_loops()
+		tw.tween_property(target, "position:y", _procedural_base_position.y + 0.1, 0.22)
+		tw.parallel().tween_property(target, "rotation:z", 0.06, 0.22)
+		tw.tween_property(target, "position:y", _procedural_base_position.y, 0.22)
+		tw.parallel().tween_property(target, "rotation:z", -0.06, 0.22)
+		_procedural_tween = tw
+	else:
+		var tw := create_tween().set_loops()
+		tw.tween_property(target, "position:y", _procedural_base_position.y + 0.08, 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tw.tween_property(target, "position:y", _procedural_base_position.y, 0.7).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_procedural_tween = tw
+
 func _is_looping_animation(anim_name: String) -> bool:
 	var lower := anim_name.to_lower()
 	return "idle" in lower or "alert" in lower or "walk" in lower or "run" in lower or "dance" in lower
 
 func assign_battle_idle_anim():
+	if procedural_animation_enabled or animation_models.is_empty():
+		battle_idle_anim = "procedural_idle"
+		return
 	var idle_anim = []
 	for key in animation_models.keys():
 		if key in ["Animation_Alert_withSkin", "Animation_All_Night_Dance_withSkin", "Animation_Boom_Dance_withSkin"]:
@@ -249,6 +375,9 @@ func assign_battle_idle_anim():
 # アニメーション再生（キャッシュ活用）
 # ==============================
 func play_unit_animation(anim_name: String) -> void:
+	if procedural_animation_enabled:
+		_play_procedural_animation(anim_name)
+		return
 	if animation_models.is_empty():
 		return
 
@@ -322,6 +451,7 @@ func play_unit_animation(anim_name: String) -> void:
 
 		inst = scene_res.instantiate()
 		current_visual_model_root.add_child(inst)
+		_apply_element_tint_to_node(inst)
 		loaded_models[target_key] = inst
 		_trim_loaded_models(target_key)
 
@@ -462,7 +592,9 @@ func take_damage(amount: int) -> int:
 	else:
 		state = UnitState.DOWN
 		isanim = false
-		if animation_models.has("Animation_BeHit_FlyUp_withSkin"):
+		if procedural_animation_enabled:
+			_play_procedural_animation("behit")
+		elif animation_models.has("Animation_BeHit_FlyUp_withSkin"):
 			play_unit_animation("Animation_BeHit_FlyUp_withSkin")
 		elif battle_idle_anim != "":
 			play_unit_animation(battle_idle_anim)
@@ -488,7 +620,9 @@ func _show_damage_popup(amount: int):
 func _transition_to_dead():
 	state = UnitState.DEAD
 	isanim = false
-	if animation_models.has("Animation_Dead_withSkin"):
+	if procedural_animation_enabled:
+		_play_procedural_animation("dead")
+	elif animation_models.has("Animation_Dead_withSkin"):
 		play_unit_animation("Animation_Dead_withSkin")
 	elif battle_idle_anim != "":
 		play_unit_animation(battle_idle_anim)

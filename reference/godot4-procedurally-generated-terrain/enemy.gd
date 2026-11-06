@@ -25,6 +25,8 @@ var main_node: Node = null
 var target_time: float = 0.0
 var random_direction: Vector3 = Vector3.ZERO
 var enemy_name: String = ""
+var spawn_origin: Vector3 = Vector3.ZERO
+var has_spawn_origin: bool = false
 
 # ビックリマーク
 var exclamation_ui: Sprite3D = null
@@ -41,6 +43,8 @@ var is_boss: bool = false
 func _ready() -> void:
 	if name.ends_with("_Boss"):
 		is_boss = true
+	if element <= 0:
+		element = GameData.element_for_character(enemy_name, type)
 
 	_setup_unit_base()
 
@@ -63,8 +67,18 @@ func _ready() -> void:
 	_set_random_idle_duration()
 	_play_best_anim(["Idle", "Animation_Idle_withSkin"])
 
+func set_spawn_origin(pos: Vector3) -> void:
+	spawn_origin = pos
+	has_spawn_origin = true
+
 func _physics_process(delta: float) -> void:
 	if terrain_node and terrain_node.is_generating:
+		velocity = Vector3.ZERO
+		return
+
+	# 雪山などの崖から落ちて別バイオームへ移動しないよう、元の地面へ戻す。
+	if has_spawn_origin and global_position.y < spawn_origin.y - 4.0:
+		global_position = spawn_origin
 		velocity = Vector3.ZERO
 		return
 
@@ -109,6 +123,7 @@ func _physics_process(delta: float) -> void:
 
 	if not on_floor or velocity.x != 0.0 or velocity.z != 0.0:
 		move_and_slide()
+		_block_ocean_walk()
 
 		# 段差（高さ1）の自動踏破（ステップアップ）
 		if is_on_wall() and (state == State.MOVE or state == State.CHASE):
@@ -118,6 +133,24 @@ func _physics_process(delta: float) -> void:
 
 	if exclamation_ui and exclamation_state != "hidden":
 		_update_exclamation(delta)
+
+func _block_ocean_walk() -> void:
+	if terrain_node == null or not terrain_node.has_method("get_map3dnum"):
+		return
+	if "is_generating" in terrain_node and terrain_node.is_generating:
+		return
+	var sea_height := 30.0
+	if "SEAHEIGHT" in terrain_node:
+		sea_height = float(terrain_node.SEAHEIGHT)
+	if global_position.y > sea_height + 3.0:
+		return
+	var bx := int(round(global_position.x))
+	var bz := int(round(global_position.z))
+	var by := int(round(global_position.y - 0.55))
+	if int(terrain_node.get_map3dnum(bx, by, bz)) == 1 or int(terrain_node.get_map3dnum(bx, by - 1, bz)) == 1:
+		if has_spawn_origin:
+			global_position = spawn_origin
+		velocity = Vector3.ZERO
 
 func _try_step_up(movement_dir: Vector3) -> void:
 	if not is_on_floor() or movement_dir.length_squared() < 0.01:
@@ -162,6 +195,10 @@ func _process_idle(delta: float) -> void:
 		state_timer = 0.0
 		target_time = randf_range(1.5, 3.0)
 		random_direction = Vector3(randf_range(-1.0, 1.0), 0, randf_range(-1.0, 1.0)).normalized()
+		if has_spawn_origin and global_position.distance_to(spawn_origin) > 12.0:
+			random_direction = (spawn_origin - global_position)
+			random_direction.y = 0.0
+			random_direction = random_direction.normalized()
 		var target_rotation = atan2(random_direction.x, random_direction.z)
 		rotation.y = lerp_angle(rotation.y, target_rotation, 1.0)
 	else:
@@ -266,6 +303,9 @@ func _process_down(delta: float) -> void:
 		state = State.BATTLE_IDLE
 
 func _play_best_anim(preferred_names: Array) -> void:
+	if procedural_animation_enabled or animation_models.is_empty():
+		_play_procedural_animation(str(preferred_names[0]) if not preferred_names.is_empty() else "idle")
+		return
 	# 1. 完全一致
 	for anim in preferred_names:
 		if animation_models.has(anim):
@@ -371,6 +411,10 @@ func _transition_to_battle(biome: int, encountered_enemy: String) -> void:
 		return
 
 	if parent.has_node("battle_scene"):
+		return
+	if parent.has_method("has_battle_party") and not parent.has_battle_party():
+		if parent.has_method("show_need_companion_message"):
+			parent.show_need_companion_message()
 		return
 
 	var battle_scene_res = load("res://battle_scene.tscn")

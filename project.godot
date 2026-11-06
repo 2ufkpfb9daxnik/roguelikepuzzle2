@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 GlobalSettings="*res://reference/godot4-procedurally-generated-terrain/GlobalSettings.gd"
 SettingsManager="*res://reference/godot4-procedurally-generated-terrain/settings_manager.gd"
+BGMManager="*res://reference/godot4-procedurally-generated-terrain/bgm_manager.gd"
 
 [display]
 

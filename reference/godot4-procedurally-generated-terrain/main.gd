@@ -8,9 +8,13 @@ extends Node3D
 # パーティデータ管理 (CharacterData による一元管理)
 # ==============================
 var party: Array[CharacterData] = []
+var battle_member_ids: Array[String] = []
 var isshoping: bool = false
 var money: int = 500
+var potions: int = 1000
 const MAX_PARTY_SIZE: int = 3
+const MAX_ROSTER_SIZE: int = 50
+const MAX_TOTAL_PARTY_SIZE: int = 51
 var minimap_root: Control
 var minimap_container: SubViewportContainer
 var minimap_viewport: SubViewport
@@ -27,7 +31,9 @@ var poi_container: Control
 var poi_marker_nodes: Dictionary = {}
 var _minimap_render_timer: float = 0.0
 var _last_hud_money: int = -999999
+var _last_hud_potions: int = -999999
 var _last_hud_biome: String = ""
+var shop_reopen_block_until_ms: int = 0
 
 # 全キャラクターのマスター定義
 # [base_hp, base_atk, base_def, type, model_path, price]
@@ -35,6 +41,7 @@ var all_characters: Dictionary = {
 	"aquatic_guardian": [80, 15, 25, 0, "res://model/enemy/have_animation/aquatic_guardian/", 300],
 	"bee": [25, 45, 5, 8, "res://model/enemy/have_animation/bee/", 500],
 	"blue_dragon": [155, 75, 65, 4, "res://model/enemy/have_animation/blue_dragon/", 50000],
+	"businessman": [120, 20, 15, 4, "res://model/businessman 3d model.glb", 0],
 	"cave_dragon": [155, 75, 65, 8, "res://model/enemy/have_animation/cave_dragon/", 15000],
 	"demon": [475, 125, 135, 10, "res://model/enemy/have_animation/demon/", 1000000],
 	"enigmatic_sorcerer": [75, 45, 15, 10, "res://model/enemy/have_animation/enigmatic_sorcerer/", 100000],
@@ -195,14 +202,18 @@ func _sync_from_legacy_arrays(prop_name: String, values: Array) -> void:
 func _ready() -> void:
 	if not terrain_node:
 		terrain_node = get_node_or_null("terrain")
-	# 初期パーティ登録（red_magician）
-	add_character_by_id("red_magician")
+	# 初期パーティ登録（businessman）
+	add_character_by_id("businessman")
 	_setup_hud()
 	_setup_pause_menu()
 	_setup_loading_screen()
 	_setup_minimap()
 	_setup_fill_light()
 	_setup_shop_signals()
+	_setup_shop_objective()
+	var bgm := get_node_or_null("/root/BGMManager")
+	if bgm and bgm.has_method("play_field"):
+		bgm.play_field()
 
 func _setup_shop_signals() -> void:
 	# 各ショップの Area3D は player_entered_shop を発行するだけなので、
@@ -210,7 +221,22 @@ func _setup_shop_signals() -> void:
 	for child in get_children():
 		var shop_area := child.get_node_or_null("Area3D") as Area3D
 		if shop_area:
+			shop_area.set_meta("shop_biome", _shop_biome_from_name(str(child.name)))
 			_connect_shop_signals_instance(shop_area)
+
+func _shop_biome_from_name(shop_name: String) -> int:
+	match shop_name.to_lower():
+		"plain_shop":
+			return 0
+		"cave_shop":
+			return 1
+		"desert_shop":
+			return 2
+		"snow_shop":
+			return 3
+		"castle_shop":
+			return 4
+	return -1
 
 func _setup_fill_light() -> void:
 	if player_node == null:
@@ -359,6 +385,9 @@ var hud_layer: CanvasLayer = null
 var hud_money_label: Label = null
 var hud_biome_label: Label = null
 var hud_guide_panel: PanelContainer = null
+var shop_objective_panel: PanelContainer = null
+var shop_objective_label: Label = null
+var startup_banner: Label = null
 
 func _setup_hud() -> void:
 	hud_layer = CanvasLayer.new()
@@ -370,7 +399,7 @@ func _setup_hud() -> void:
 	hud_money_label.name = "HUDMoneyLabel"
 	hud_money_label.text = "💰 Money: 0"
 	hud_money_label.anchors_preset = Control.PRESET_TOP_RIGHT
-	hud_money_label.offset_left = -220
+	hud_money_label.offset_left = -320
 	hud_money_label.offset_top = 20
 	hud_money_label.offset_right = -20
 	hud_money_label.offset_bottom = 60
@@ -413,16 +442,87 @@ func _setup_hud() -> void:
 	hud_guide_panel.add_theme_stylebox_override("panel", style)
 
 	var guide_label = Label.new()
-	guide_label.text = "[W][A][S][D] 移動\n[Shift] 走る (Sprint)\n[Space] ジャンプ\n[マウス] 視点操作\n[M] ミニマップ切替\n[+][-] マップ拡大縮小\n[Esc] メニュー・設定"
+	guide_label.text = "[W][A][S][D] 移動\n[Shift] 走る (Sprint)\n[Space] ジャンプ\n[マウス] 視点操作\n[V] 一人称/三人称切替\n[M] ミニマップ切替\n[+][-] マップ拡大縮小\n[Esc] メニュー・設定"
 	guide_label.add_theme_font_size_override("font_size", 14)
 	guide_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85, 0.9))
 	hud_guide_panel.add_child(guide_label)
 	hud_layer.add_child(hud_guide_panel)
 
+func _setup_shop_objective() -> void:
+	if hud_layer == null:
+		return
+	shop_objective_panel = PanelContainer.new()
+	shop_objective_panel.name = "ShopObjectivePanel"
+	shop_objective_panel.position = Vector2(20, 196)
+	shop_objective_panel.custom_minimum_size = Vector2(360, 78)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.07, 0.12, 0.82)
+	style.border_color = Color(1.0, 0.78, 0.25, 0.9)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(8)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	shop_objective_panel.add_theme_stylebox_override("panel", style)
+	shop_objective_label = Label.new()
+	shop_objective_label.add_theme_font_size_override("font_size", 16)
+	shop_objective_label.add_theme_color_override("font_color", Color(1.0, 0.92, 0.60))
+	shop_objective_panel.add_child(shop_objective_label)
+	hud_layer.add_child(shop_objective_panel)
+	_refresh_shop_objective()
+	call_deferred("_show_startup_shop_banner")
+
+func _refresh_shop_objective() -> void:
+	if shop_objective_panel == null:
+		return
+	var need_recruit := party.size() < 2
+	shop_objective_panel.visible = need_recruit
+	if shop_objective_label:
+		shop_objective_label.text = "【目的】ショップで仲間を買おう！\nショップに近づいて [E] キー\n所持コイン: %d" % money
+
+func show_need_companion_message() -> void:
+	_show_startup_shop_banner("戦闘メンバーがいません！\nショップでキャラクターを雇おう！", 3.0)
+	_refresh_shop_objective()
+
+func _show_startup_shop_banner(custom_text: String = "", duration: float = 4.0) -> void:
+	if hud_layer == null:
+		return
+	if startup_banner and is_instance_valid(startup_banner):
+		startup_banner.queue_free()
+		startup_banner = null
+	startup_banner = Label.new()
+	startup_banner.name = "StartupShopBanner"
+	startup_banner.text = custom_text if custom_text != "" else "まずはショップでキャラクターを買おう！\nショップに近づいて [E] キー"
+	startup_banner.anchors_preset = Control.PRESET_CENTER_TOP
+	startup_banner.offset_left = -420
+	startup_banner.offset_right = 420
+	startup_banner.offset_top = 96
+	startup_banner.offset_bottom = 210
+	startup_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	startup_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	startup_banner.add_theme_font_size_override("font_size", 34)
+	startup_banner.add_theme_color_override("font_color", Color(1.0, 0.90, 0.35))
+	startup_banner.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
+	startup_banner.add_theme_constant_override("outline_size", 8)
+	startup_banner.modulate.a = 0.0
+	hud_layer.add_child(startup_banner)
+	var tween := create_tween()
+	tween.tween_property(startup_banner, "modulate:a", 1.0, 0.25)
+	tween.tween_interval(duration)
+	tween.tween_property(startup_banner, "modulate:a", 0.0, 0.45)
+	tween.tween_callback(func():
+		if is_instance_valid(startup_banner):
+			startup_banner.queue_free()
+			startup_banner = null
+	)
+
 func _update_hud(ppos: Vector3, is_castle: bool, castle_floor: int) -> void:
-	if hud_money_label and money != _last_hud_money:
+	if hud_money_label and (money != _last_hud_money or potions != _last_hud_potions):
 		_last_hud_money = money
-		hud_money_label.text = "💰 Money: %d" % money
+		_last_hud_potions = potions
+		hud_money_label.text = "💰 %d   🧪 %d" % [money, potions]
+		_refresh_shop_objective()
 
 	# プレイヤー位置に応じたバイオーム表示（変化時のみLabelを更新）
 	if hud_biome_label and player_node:
@@ -536,7 +636,7 @@ func _open_inventory_from_pause() -> void:
 	if shop_ui and shop_ui.has_method("open_shop"):
 		shop_ui.open_shop()
 		if "tabs" in shop_ui and shop_ui.tabs:
-			shop_ui.tabs.current_tab = 2
+			shop_ui.tabs.current_tab = 3
 
 func _open_settings_from_pause() -> void:
 	var settings_manager = get_node_or_null("/root/SettingsManager")
@@ -616,7 +716,7 @@ func add_character_by_id(char_id: String, starting_level: int = 1) -> CharacterD
 	if not all_characters.has(char_id):
 		push_warning("Unknown character id: " + char_id)
 		return null
-	if party.size() >= MAX_PARTY_SIZE:
+	if party.size() >= MAX_TOTAL_PARTY_SIZE:
 		return null
 	for existing in party:
 		if existing.id == char_id:
@@ -624,10 +724,20 @@ func add_character_by_id(char_id: String, starting_level: int = 1) -> CharacterD
 	var config = all_characters[char_id]
 	var data = CharacterData.create_from_config(char_id, config, starting_level)
 	party.append(data)
+	if char_id != "businessman" and battle_member_ids.size() < MAX_PARTY_SIZE:
+		battle_member_ids.append(char_id)
+	_refresh_shop_objective()
 	return data
 
+func get_roster() -> Array:
+	var result: Array = []
+	for c in party:
+		if c != null and c.id != "businessman":
+			result.append(c)
+	return result
+
 func can_recruit_more() -> bool:
-	return party.size() < MAX_PARTY_SIZE
+	return party.size() < MAX_TOTAL_PARTY_SIZE
 
 func spend_money(amount: int) -> bool:
 	if amount < 0 or money < amount:
@@ -638,13 +748,22 @@ func spend_money(amount: int) -> bool:
 func add_money(amount: int) -> void:
 	money = max(0, money + amount)
 
+func spend_potions(amount: int) -> bool:
+	if amount < 0 or potions < amount:
+		return false
+	potions -= amount
+	return true
+
+func add_potions(amount: int) -> void:
+	potions = max(0, potions + amount)
+
 func add_exp_to_party(amount: int) -> void:
 	for c in party:
 		c.add_exp(amount)
 
 # 戦闘勝利時に敵が低確率で起き上がり、仲間になる処理。
 func try_recruit_enemy(enemy_name: String, model_path: String = "", enemy_type: int = 4, base_hp: int = 80, base_atk: int = 20, base_def: int = 10) -> CharacterData:
-	if party.size() >= MAX_PARTY_SIZE:
+	if not can_recruit_more():
 		return null
 	if all_characters.has(enemy_name):
 		return add_character_by_id(enemy_name)
@@ -665,10 +784,49 @@ func try_recruit_enemy(enemy_name: String, model_path: String = "", enemy_type: 
 	]
 	var data := CharacterData.create_from_config(enemy_name, config, 1)
 	party.append(data)
+	if data.id != "businessman" and battle_member_ids.size() < MAX_PARTY_SIZE:
+		battle_member_ids.append(data.id)
 	return data
 
 func calculate_status(base: float, lvl: int, power: float = 2.0 / 3.0) -> int:
 	return CharacterData.calculate_status(base, lvl, power)
+
+func get_battle_party() -> Array:
+	var result: Array = []
+	for c in party:
+		if c != null and c.id != "businessman" and battle_member_ids.has(c.id):
+			result.append(c)
+			if result.size() >= MAX_PARTY_SIZE:
+				break
+	# 編成が未設定の場合は先頭の仲間を自動選択する。
+	if result.is_empty():
+		for c in get_roster():
+			result.append(c)
+			if result.size() >= MAX_PARTY_SIZE:
+				break
+	return result
+
+func toggle_battle_member(char_id: String) -> bool:
+	if char_id == "businessman":
+		return false
+	if battle_member_ids.has(char_id):
+		if battle_member_ids.size() <= 1:
+			return false
+		battle_member_ids.erase(char_id)
+		return true
+	if battle_member_ids.size() >= MAX_PARTY_SIZE:
+		return false
+	for c in party:
+		if c.id == char_id:
+			battle_member_ids.append(char_id)
+			return true
+	return false
+
+func is_battle_member(char_id: String) -> bool:
+	return battle_member_ids.has(char_id)
+
+func has_battle_party() -> bool:
+	return not get_battle_party().is_empty()
 
 func generate_allies_to_spawn() -> Array:
 	var allies_to_spawn = []
@@ -676,8 +834,9 @@ func generate_allies_to_spawn() -> Array:
 	var def_mult = 1.0 + 0.15 * get_shop_buff_level("defense")
 	var hp_mult = 1.0 + 0.12 * get_shop_buff_level("max_hp")
 	var start_shield = 5 * get_shop_buff_level("start_shield")
-	for i in range(min(party.size(), MAX_PARTY_SIZE)):
-		var char_data = party[i]
+	var battle_party := get_battle_party()
+	for i in range(min(battle_party.size(), MAX_PARTY_SIZE)):
+		var char_data = battle_party[i]
 		var info: Dictionary = char_data.get_spawn_info()
 		info["attack"] = int(round(float(info["attack"]) * atk_mult))
 		info["defense"] = int(round(float(info["defense"]) * def_mult))
@@ -690,11 +849,12 @@ func generate_allies_to_spawn() -> Array:
 
 # 戦闘終了時に HP / EXP / スキルゲージを本体データへ戻す。
 func apply_battle_results(results: Array) -> void:
+	var battle_party := get_battle_party()
 	for result in results:
 		var idx: int = int(result.get("index", -1))
-		if idx < 0 or idx >= party.size():
+		if idx < 0 or idx >= battle_party.size():
 			continue
-		var c := party[idx]
+		var c: CharacterData = battle_party[idx]
 		c.cur_health = int(result.get("hp", c.cur_health))
 		if c.cur_health <= 0:
 			# 全滅寸前で次戦に持ち越さない。勝利時は 1 で蘇生する。
@@ -713,6 +873,8 @@ func _connect_shop_signals_instance(shop_area: Area3D):
 		shop_area.player_exited_shop.connect(exit_callable)
 
 func _on_player_entered_shop(_shop_root_node: Node3D):
+	if Time.get_ticks_msec() < shop_reopen_block_until_ms:
+		return
 	if shop_ui and shop_ui.visible:
 		return
 
@@ -720,7 +882,10 @@ func _on_player_entered_shop(_shop_root_node: Node3D):
 		player_node.set_movement_enabled(false) 
 
 	if shop_ui and shop_ui.has_method("open_shop"):
-		shop_ui.open_shop()
+		var shop_biome := -1
+		if is_instance_valid(_shop_root_node):
+			shop_biome = int(_shop_root_node.get_meta("shop_biome", -1))
+		shop_ui.open_shop(shop_biome)
 	elif shop_ui:
 		shop_ui.show()
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)

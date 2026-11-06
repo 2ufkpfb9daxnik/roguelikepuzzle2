@@ -91,6 +91,9 @@ func _process_down(delta: float) -> void:
 		state = State.BATTLE_IDLE
 
 func _play_any_idle_animation() -> void:
+	if procedural_animation_enabled or animation_models.is_empty():
+		_play_procedural_animation("idle")
+		return
 	for key in animation_models.keys():
 		if "Idle" in key or "Alert" in key or "Dance" in key:
 			play_unit_animation(key)
@@ -99,6 +102,9 @@ func _play_any_idle_animation() -> void:
 		play_unit_animation(animation_models.keys()[0])
 
 func _play_best_anim(preferred_names: Array) -> void:
+	if procedural_animation_enabled or animation_models.is_empty():
+		_play_procedural_animation(str(preferred_names[0]) if not preferred_names.is_empty() else "idle")
+		return
 	for anim in preferred_names:
 		if animation_models.has(anim):
 			play_unit_animation(anim)

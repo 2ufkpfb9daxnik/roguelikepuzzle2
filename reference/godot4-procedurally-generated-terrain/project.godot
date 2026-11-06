@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 GlobalSettings="*res://GlobalSettings.gd"
 SettingsManager="*res://settings_manager.gd"
+BGMManager="*res://bgm_manager.gd"
 
 [display]
 

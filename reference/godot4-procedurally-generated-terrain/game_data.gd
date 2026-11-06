@@ -34,6 +34,27 @@ const SKILL_PIECE_OFFSET := 4
 const MAX_PARTY_SIZE := 3
 const RECRUIT_CHANCE := 0.12
 
+# 二属性キャラの副属性。0 の場合は単属性。
+const SECONDARY_ELEMENT_BY_CHARACTER := {
+	"bee": Element.POISON,
+	"blue_dragon": Element.WATER,
+	"businessman": Element.EARTH,
+	"cave_dragon": Element.WIND,
+	"demon": Element.POISON,
+	"enigmatic_sorcerer": Element.DARK,
+	"fantasy_wolf": Element.WIND,
+	"mushroom_man": Element.POISON,
+	"mysterious_mummy": Element.EARTH,
+	"rainbow_snake_dragon": Element.LIGHT,
+	"scorpion": Element.EARTH,
+	"sea_dragon": Element.ICE,
+	"skeleton": Element.DARK,
+	"snake_head": Element.DARK,
+	"spider": Element.DARK,
+	"swamp_guardian": Element.WATER,
+	"wolf": Element.THUNDER
+}
+
 const ELEMENT_INFO := {
 	Element.FIRE: {
 		"key": "fire", "name": "火", "category": "force",
@@ -246,6 +267,8 @@ static func element_for_character(character_id: String, fallback_type: int = 4) 
 			return Element.FIRE
 		"fantasy_wolf", "wolf":
 			return Element.FIRE
+		"businessman":
+			return Element.LIGHT
 		"plain_shop", "snow_shop":
 			return Element.ICE
 	# 既存の type は 0=回復, 4=単体, 8=全体, 10=魔法
@@ -254,6 +277,18 @@ static func element_for_character(character_id: String, fallback_type: int = 4) 
 		8: return Element.WIND
 		10: return Element.DARK
 		_: return Element.FIRE
+
+# キャラクターが持つ属性の一覧（先頭が主属性）。
+static func elements_for_character(character_id: String, fallback_type: int = 4) -> Array:
+	var primary := element_for_character(character_id, fallback_type)
+	var result: Array = [primary]
+	var secondary := int(SECONDARY_ELEMENT_BY_CHARACTER.get(character_id.to_lower(), Element.NONE))
+	if secondary > 0 and secondary != primary:
+		result.append(secondary)
+	return result
+
+static func secondary_element_for_character(character_id: String) -> int:
+	return int(SECONDARY_ELEMENT_BY_CHARACTER.get(character_id.to_lower(), Element.NONE))
 
 # ============================================================
 # 経験値・レベル
@@ -331,6 +366,22 @@ static func get_skill_tree(element: int) -> Array:
 			"effect": {"defense": 3}
 		},
 		{
+			"id": "guard_evo_a", "branch": "guard", "type": "evolution",
+			"name": "生命の泉",
+			"desc": "進化: 最大HP +80、回復効果 +15%",
+			"max_level": 1, "cost": 2, "requires": ["guard_2"], "requires_any": [],
+			"char_level": 6, "exclusive_group": "guard_evolution",
+			"effect": {"max_health": 80, "heal_bonus": 0.15}
+		},
+		{
+			"id": "guard_evo_b", "branch": "guard", "type": "evolution",
+			"name": "不落の城壁",
+			"desc": "進化: 防御力 +8、シールド効果 +25%",
+			"max_level": 1, "cost": 2, "requires": ["guard_2"], "requires_any": [],
+			"char_level": 6, "exclusive_group": "guard_evolution",
+			"effect": {"defense": 8, "shield_bonus": 0.25}
+		},
+		{
 			"id": "guard_relic", "branch": "guard", "type": "relic",
 			"name": "古の守護像",
 			"desc": "レリック: 戦闘開始時、味方全員にシールド +80 / Lv",
@@ -339,10 +390,18 @@ static func get_skill_tree(element: int) -> Array:
 			"effect": {"start_shield": 80}
 		},
 		{
+			"id": "relic_old_shield", "branch": "guard", "type": "relic",
+			"name": "古びた大盾",
+			"desc": "レリック: 開始シールド +60、盾防御 +10% / Lv",
+			"max_level": 2, "cost": 2, "requires": ["guard_2"], "requires_any": [],
+			"char_level": 5, "exclusive_group": "",
+			"effect": {"start_shield": 60, "shield_bonus": 0.1}
+		},
+		{
 			"id": "guard_3", "branch": "guard", "type": "skill",
 			"name": "不壊の意志",
 			"desc": "受けるダメージ -5% / Lv",
-			"max_level": 2, "cost": 2, "requires": ["guard_relic"], "requires_any": [],
+			"max_level": 2, "cost": 2, "requires_any": ["guard_evo_a", "guard_evo_b"], "requires": [],
 			"char_level": 7, "exclusive_group": "",
 			"effect": {"damage_reduction": 0.05}
 		},
@@ -353,6 +412,30 @@ static func get_skill_tree(element: int) -> Array:
 			"max_level": 3, "cost": 1, "requires": [], "requires_any": [],
 			"char_level": 1, "exclusive_group": "",
 			"effect": {"coin_bonus": 0.1}
+		},
+		{
+			"id": "fortune_evo_a", "branch": "fortune", "type": "evolution",
+			"name": "黄金律",
+			"desc": "進化: コイン獲得 +30%、EXP獲得 +10%",
+			"max_level": 1, "cost": 2, "requires": ["fortune_1"], "requires_any": [],
+			"char_level": 6, "exclusive_group": "fortune_evolution",
+			"effect": {"coin_bonus": 0.3, "exp_bonus": 0.1}
+		},
+		{
+			"id": "fortune_evo_b", "branch": "fortune", "type": "evolution",
+			"name": "属性共鳴",
+			"desc": "進化: 属性ダメージ +20%、クリティカル率 +5%",
+			"max_level": 1, "cost": 2, "requires": ["fortune_1"], "requires_any": [],
+			"char_level": 6, "exclusive_group": "fortune_evolution",
+			"effect": {"element_bonus": 0.20, "crit_chance": 0.05}
+		},
+		{
+			"id": "relic_chain_ring", "branch": "fortune", "type": "relic",
+			"name": "連鎖の指輪",
+			"desc": "レリック: コンボ倍率 +8% / Lv",
+			"max_level": 2, "cost": 2, "requires": ["fortune_1"], "requires_any": [],
+			"char_level": 4, "exclusive_group": "",
+			"effect": {"combo_bonus": 0.08}
 		},
 		{
 			"id": "fortune_relic", "branch": "fortune", "type": "relic",
@@ -369,6 +452,14 @@ static func get_skill_tree(element: int) -> Array:
 			"max_level": 2, "cost": 2, "requires": ["fortune_1"], "requires_any": [],
 			"char_level": 5, "exclusive_group": "",
 			"effect": {"element_bonus": 0.12}
+		},
+		{
+			"id": "relic_fire_orb", "branch": "fortune", "type": "relic",
+			"name": "紅蓮の宝珠",
+			"desc": "レリック: 属性ダメージ +10%、剣攻撃 +10% / Lv",
+			"max_level": 2, "cost": 2, "requires": ["fortune_1"], "requires_any": [],
+			"char_level": 5, "exclusive_group": "",
+			"effect": {"element_bonus": 0.1, "sword_bonus": 0.1}
 		},
 		{
 			"id": "fortune_2", "branch": "fortune", "type": "skill",
@@ -451,7 +542,12 @@ static func _empty_modifiers() -> Dictionary:
 		"coin_bonus": 0.0,
 		"exp_bonus": 0.0,
 		"element_bonus": 0.0,
-		"crit_chance": 0.0
+		"crit_chance": 0.0,
+		"heal_bonus": 0.0,
+		"shield_bonus": 0.0,
+		"sword_bonus": 0.0,
+		"combo_bonus": 0.0,
+		"fever_bonus": 0.0
 	}
 
 static func _add_effect(target: Dictionary, effects: Dictionary, level: int) -> void:

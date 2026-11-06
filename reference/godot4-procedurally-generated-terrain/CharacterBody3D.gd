@@ -11,6 +11,13 @@ var money: int = 0
 var movement_enabled: bool = true
 var safe_respawn_position: Vector3 = Vector3(0, 10, 0)
 var safe_pos_timer: float = 0.0
+var _last_land_position: Vector3 = Vector3.ZERO
+var _has_land_position: bool = false
+var player_model_root: Node3D = null
+var camera_mode: int = 0 # 0: 一人称, 1: 三人称
+var _first_person_camera_pos := Vector3(0, 0.7, 0)
+var _procedural_walk_time := 0.0
+var _last_on_floor := true
 
 #==> OTHER <==#
 var gravity: float = 9.8
@@ -38,6 +45,25 @@ func _ready():
 
 	if camera:
 		camera.fov = normal_fov
+		_first_person_camera_pos = camera.position
+	_setup_player_model()
+
+func _setup_player_model() -> void:
+	var model_path := "res://model/businessman 3d model.glb"
+	if not ResourceLoader.exists(model_path):
+		model_path = "res://model/businessman (1).glb"
+	if not ResourceLoader.exists(model_path):
+		return
+	var scene_res = load(model_path)
+	if not (scene_res is PackedScene):
+		return
+	player_model_root = Node3D.new()
+	player_model_root.name = "BusinessmanModel"
+	add_child(player_model_root)
+	var model = scene_res.instantiate()
+	model.rotation.y = PI
+	player_model_root.add_child(model)
+	player_model_root.visible = camera_mode == 1
 
 func _physics_process(delta: float):
 	# 戦闘中はプレイヤーの物理演算・重力・衝突を完全停止
@@ -101,6 +127,7 @@ func _physics_process(delta: float):
 	velocity.z = movement_dir.z * cur_speed
 
 	move_and_slide()
+	_block_ocean_walk()
 
 	# 段差（高さ1）の自動踏破（ステップアップ）
 	if is_on_wall():
@@ -114,7 +141,86 @@ func _physics_process(delta: float):
 		var target_fov = sprint_fov if (is_sprinting and input.length_squared() > 0.01) else normal_fov
 		camera.fov = lerp(camera.fov, target_fov, delta * 8.0)
 
+	_update_player_model(delta)
+	_last_on_floor = is_on_floor()
 	time_passed += delta
+
+func _block_ocean_walk() -> void:
+	var parent_node = get_parent()
+	if parent_node == null:
+		return
+	var t_node = parent_node.get_node_or_null("terrain")
+	if t_node == null or not t_node.has_method("get_map3dnum"):
+		return
+	if "is_generating" in t_node and t_node.is_generating:
+		return
+	var sea_height := 30.0
+	if "SEAHEIGHT" in t_node:
+		sea_height = float(t_node.SEAHEIGHT)
+	if global_position.y > sea_height + 3.0:
+		# 海面より十分高い場所は対象外。
+		if is_on_floor():
+			_last_land_position = global_position
+			_has_land_position = true
+		return
+	var bx := int(round(global_position.x))
+	var bz := int(round(global_position.z))
+	var by := int(round(global_position.y - 0.55))
+	var cell := int(t_node.get_map3dnum(bx, by, bz))
+	var below := int(t_node.get_map3dnum(bx, by - 1, bz))
+	if cell == 1 or below == 1:
+		if _has_land_position:
+			global_position = _last_land_position
+		else:
+			global_position = safe_respawn_position + Vector3(0, 2.0, 0)
+		velocity = Vector3.ZERO
+		return
+	if is_on_floor():
+		_last_land_position = global_position
+		_has_land_position = true
+
+func _toggle_camera_mode() -> void:
+	if isbattle:
+		return
+	camera_mode = 1 - camera_mode
+	if camera == null:
+		return
+	if camera_mode == 1:
+		camera.position = Vector3(0, 2.35, 4.6)
+		camera.rotation.x = -0.12
+	else:
+		camera.position = _first_person_camera_pos
+		camera.rotation.x = 0.0
+	if player_model_root:
+		player_model_root.visible = camera_mode == 1
+	print("Camera mode: ", "THIRD" if camera_mode == 1 else "FIRST")
+
+func _update_player_model(delta: float) -> void:
+	if player_model_root == null or not is_instance_valid(player_model_root):
+		return
+	if isbattle:
+		return
+	var horizontal_speed := Vector2(velocity.x, velocity.z).length()
+	var on_floor := is_on_floor()
+	var target_pos := Vector3.ZERO
+	var target_rot := Vector3.ZERO
+	var target_scale := Vector3.ONE
+	if not on_floor:
+		# ジャンプ中: 少し前傾＋縦に伸ばす。
+		target_rot.x = -0.22
+		target_scale = Vector3(0.96, 1.08, 0.96)
+		target_pos.y = 0.05
+	elif horizontal_speed > 0.5:
+		_procedural_walk_time += delta * (6.0 + horizontal_speed * 0.7)
+		target_pos.y = absf(sin(_procedural_walk_time)) * 0.10
+		target_rot.z = sin(_procedural_walk_time) * 0.06
+		target_rot.x = -0.05
+	else:
+		_procedural_walk_time += delta * 2.0
+		target_pos.y = sin(_procedural_walk_time) * 0.025
+	player_model_root.position = player_model_root.position.lerp(target_pos, minf(1.0, delta * 12.0))
+	player_model_root.rotation = player_model_root.rotation.lerp(target_rot, minf(1.0, delta * 12.0))
+	player_model_root.scale = player_model_root.scale.lerp(target_scale, minf(1.0, delta * 10.0))
 
 func _try_step_up(movement_dir: Vector3) -> void:
 	if not is_on_floor() or movement_dir.length_squared() < 0.01:
@@ -167,6 +273,9 @@ func _input(event):
 			var map_rect = get_node_or_null("../CanvasLayer/map/TextureRect")
 			if map_rect:
 				map_rect.visible = !map_rect.visible
+
+		elif event.keycode == KEY_V:
+			_toggle_camera_mode()
 
 		elif event.keycode == KEY_ESCAPE:
 			var main_node = get_parent()

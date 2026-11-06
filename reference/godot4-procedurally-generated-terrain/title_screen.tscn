@@ -89,7 +89,6 @@ text = "SETTINGS"
 
 [node name="titlebgm" type="AudioStreamPlayer2D" parent="."]
 stream = ExtResource("3_ig5kc")
-autoplay = true
 parameters/looping = true
 
 [node name="click" type="AudioStreamPlayer2D" parent="."]

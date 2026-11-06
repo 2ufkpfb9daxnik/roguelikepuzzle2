@@ -40,6 +40,11 @@ var skill_piece_id: int = 0
 var allow_skill_pieces := false
 var piece_pool: Array = []
 
+# パーティ構成から決まるスキル駒の生成表。
+# 例: { Piece.SWORD: [FIRE, DARK], Piece.SHIELD: [ICE] }
+var party_skill_map: Dictionary = {}
+var party_skill_elements: Array = []
+
 var score: Array = [0, 0, 0, 0, 0, 0]
 var combocount: int = 0
 var element_hits: Dictionary = {}
@@ -55,27 +60,99 @@ func _ready() -> void:
 	_create_ui_nodes()
 	queue_redraw()
 
-func configure(element: int, level: int, skills_unlocked: bool = false, skill_attribute: int = -1) -> void:
+# パーティ全員の「スキル属性 → 属性」を盤面へ登録する。
+# 同じ基本駒を4個以上消したとき、この表に応じた属性スキル駒が生まれる。
+func set_party_skills(party_members: Array) -> void:
+	var new_map: Dictionary = {}
+	var new_elements: Array = []
+	for member in party_members:
+		if member == null:
+			continue
+		var elements: Array = member.get_elements() if member.has_method("get_elements") else [member.element]
+		var attribute := int(member.get_skill_attribute())
+		if not new_map.has(attribute):
+			new_map[attribute] = []
+		for raw_element in elements:
+			var element := int(raw_element)
+			if element <= 0:
+				continue
+			if not new_map[attribute].has(element):
+				new_map[attribute].append(element)
+			if not new_elements.has(element):
+				new_elements.append(element)
+	var changed := not _skill_map_equals(new_map)
+	party_skill_map = new_map
+	party_skill_elements = new_elements
+	if changed and not board.is_empty():
+		_normalize_skill_pieces()
+		_refresh_all_piece_visuals()
+
+func _skill_map_equals(other: Dictionary) -> bool:
+	if party_skill_map.size() != other.size():
+		return false
+	for key in party_skill_map.keys():
+		if not other.has(key):
+			return false
+		var a: Array = party_skill_map[key]
+		var b: Array = other[key]
+		if a.size() != b.size():
+			return false
+		for value in a:
+			if not b.has(value):
+				return false
+	return true
+
+func configure(element: int, level: int, skills_unlocked: bool = false, skill_attribute: int = -1, party_members: Array = []) -> void:
 	var old_skill_piece := skill_piece_id
 	var old_skill_attribute := active_skill_attribute
+	if not party_members.is_empty():
+		set_party_skills(party_members)
 	active_element = element if element > 0 else GameData.Element.FIRE
 	active_level = max(1, level)
 	if skill_attribute >= 0:
 		active_skill_attribute = skill_attribute
 	skill_piece_id = GameData.piece_id_for_element(active_element)
-	allow_skill_pieces = skills_unlocked
+	allow_skill_pieces = skills_unlocked or not party_skill_elements.is_empty()
 	_rebuild_pool()
 	if old_skill_piece == 0:
 		# 初回設定時は、解禁状況に応じた盤面を作り直す。
 		if not board.is_empty():
 			_generate_initial_board()
 			_refresh_all_piece_visuals()
-	elif old_skill_piece != skill_piece_id and allow_skill_pieces:
-		_convert_existing_skill_pieces()
 	elif not allow_skill_pieces:
 		_remove_existing_skill_pieces()
-	elif old_skill_attribute != active_skill_attribute:
+	elif old_skill_piece != skill_piece_id or old_skill_attribute != active_skill_attribute:
+		# 操作キャラが変わっても、他パーティのスキル駒は残す。
+		_normalize_skill_pieces()
 		_refresh_all_piece_visuals()
+
+# 盤面のスキル駒が現在のパーティ属性に含まれない場合、操作キャラの属性へ置き換える。
+func _normalize_skill_pieces() -> void:
+	if party_skill_elements.is_empty():
+		return
+	var fallback_element: int = active_element if party_skill_elements.has(active_element) else int(party_skill_elements[0])
+	for r in range(board.size()):
+		for c in range(board[r].size()):
+			var piece_id: int = int(board[r][c])
+			if not GameData.is_skill_piece(piece_id):
+				continue
+			var element := GameData.element_for_piece(piece_id)
+			if party_skill_elements.has(element):
+				continue
+			var replacement := GameData.piece_id_for_element(fallback_element)
+			board[r][c] = replacement
+			var node: TextureRect = cells[r][c]
+			if node and is_instance_valid(node):
+				_apply_piece_visual(node, replacement)
+
+func _skill_attribute_for_element(element: int) -> int:
+	for attribute in party_skill_map.keys():
+		var elements: Array = party_skill_map[attribute]
+		if elements.has(element):
+			return int(attribute)
+	if party_skill_map.has(active_skill_attribute):
+		return active_skill_attribute
+	return active_skill_attribute
 
 func _refresh_all_piece_visuals() -> void:
 	for r in range(board.size()):
@@ -201,21 +278,27 @@ func _create_piece_node(piece_id: int) -> TextureRect:
 func _apply_piece_visual(node: TextureRect, piece_id: int) -> void:
 	node.texture = _get_texture_for_piece(piece_id)
 	if GameData.is_skill_piece(piece_id):
-		node.self_modulate = GameData.element_color(GameData.element_for_piece(piece_id)).lerp(GameData.skill_attribute_color(active_skill_attribute), 0.55)
+		node.self_modulate = GameData.element_color(GameData.element_for_piece(piece_id))
 	else:
 		node.self_modulate = Color.WHITE
 
 func _get_texture_for_piece(piece_id: int) -> Texture2D:
 	if GameData.is_skill_piece(piece_id):
-		var attribute_texture: Texture2D = piece_textures.get(active_skill_attribute, null)
+		var element := GameData.element_for_piece(piece_id)
+		var attribute := _skill_attribute_for_element(element)
+		var attribute_texture: Texture2D = piece_textures.get(attribute, null)
 		if attribute_texture:
 			return attribute_texture
 		return skill_texture
 	return piece_textures.get(piece_id, null)
 
-func place_skill_piece() -> bool:
-	if skill_piece_id <= GameData.SKILL_PIECE_OFFSET:
-		return false
+func place_skill_piece(piece_id: int = -1) -> bool:
+	if piece_id <= GameData.SKILL_PIECE_OFFSET:
+		piece_id = skill_piece_id
+	if piece_id <= GameData.SKILL_PIECE_OFFSET:
+		if party_skill_elements.is_empty():
+			return false
+		piece_id = GameData.piece_id_for_element(int(party_skill_elements[0]))
 	var candidates: Array = []
 	for r in range(BOARD_HEIGHT):
 		for c in range(BOARD_WIDTH):
@@ -229,17 +312,17 @@ func place_skill_piece() -> bool:
 	# 盤面に即時の3マッチを作らないセルを優先する。
 	for coord in candidates:
 		var old_piece: int = int(board[coord.y][coord.x])
-		board[coord.y][coord.x] = skill_piece_id
+		board[coord.y][coord.x] = piece_id
 		if cell_matching().is_empty():
 			chosen = coord
 			break
 		board[coord.y][coord.x] = old_piece
 	if chosen.x < 0:
 		chosen = candidates[0]
-		board[chosen.y][chosen.x] = skill_piece_id
+		board[chosen.y][chosen.x] = piece_id
 	var node: TextureRect = cells[chosen.y][chosen.x]
 	if node and is_instance_valid(node):
-		_apply_piece_visual(node, skill_piece_id)
+		_apply_piece_visual(node, piece_id)
 		var base_scale := node.scale
 		node.scale = base_scale * 0.2
 		var tween := create_tween()
@@ -451,10 +534,10 @@ func _process_matches_loop() -> void:
 			matched_dict[coord] = true
 		_apply_bonus_clears(matched_dict)
 		matched = matched_dict.keys()
-		var special_cell := _select_special_spawn_cell(matched)
+		var special := _select_special_spawn(matched)
 		combocount += 1
 		combo_changed.emit(combocount)
-		await _break_matches(matched, special_cell)
+		await _break_matches(matched, special)
 		await _apply_gravity_and_refill()
 
 func _apply_bonus_clears(matched: Dictionary) -> void:
@@ -487,12 +570,19 @@ func _apply_bonus_clears(matched: Dictionary) -> void:
 		matched[candidates[i]] = true
 
 func _select_special_spawn_cell(matched: Array) -> Vector2i:
-	if not allow_skill_pieces or skill_piece_id <= 4:
-		return Vector2i(-1, -1)
+	var special := _select_special_spawn(matched)
+	return special.get("cell", Vector2i(-1, -1))
+
+# 4個以上の並びから、パーティ構成に対応するスキル駒の生成位置と属性を決める。
+# 戻り値: {"cell": Vector2i, "piece_id": int, "element": int, "base": int}
+func _select_special_spawn(matched: Array) -> Dictionary:
+	if not allow_skill_pieces or party_skill_map.is_empty():
+		return {}
 	var matched_set: Dictionary = {}
 	for coord in matched:
 		matched_set[coord] = true
 	var best_run: Array = []
+	var best_base := -1
 	# 横方向の4個以上の並び
 	for r in range(BOARD_HEIGHT):
 		var c := 0
@@ -507,6 +597,7 @@ func _select_special_spawn_cell(matched: Array) -> Vector2i:
 			var run_length := c - start + 1
 			if run_length >= 4 and run_length > best_run.size():
 				best_run.clear()
+				best_base = int(piece_id)
 				for x in range(start, c + 1):
 					best_run.append(Vector2i(x, r))
 			c += 1
@@ -524,25 +615,38 @@ func _select_special_spawn_cell(matched: Array) -> Vector2i:
 			var run_length := r - start + 1
 			if run_length >= 4 and run_length > best_run.size():
 				best_run.clear()
+				best_base = int(piece_id)
 				for y in range(start, r + 1):
 					best_run.append(Vector2i(c, y))
 			r += 1
-	if best_run.is_empty():
-		return Vector2i(-1, -1)
-	return best_run[best_run.size() >> 1]
+	if best_run.is_empty() or best_base < 0 or not party_skill_map.has(best_base):
+		return {}
+	var elements: Array = party_skill_map[best_base]
+	if elements.is_empty():
+		return {}
+	# パーティに複数属性がいれば、そのどれかがスキル駒になる。
+	var element := int(elements.pick_random())
+	return {
+		"cell": best_run[best_run.size() >> 1],
+		"piece_id": GameData.piece_id_for_element(element),
+		"element": element,
+		"base": best_base
+	}
 
-func _break_matches(matched: Array, special_cell: Vector2i = Vector2i(-1, -1)) -> void:
+func _break_matches(matched: Array, special: Dictionary = {}) -> void:
 	var tween := create_tween().set_parallel(true)
 	var spawned_special := false
+	var special_cell: Vector2i = special.get("cell", Vector2i(-1, -1))
+	var special_piece: int = int(special.get("piece_id", -1))
 	for coord in matched:
 		var r: int = coord.y
 		var c: int = coord.x
-		if not spawned_special and coord == special_cell:
-			# 4個以上のマッチの中央をスキル駒へ進化させる。
-			board[r][c] = skill_piece_id
+		if not spawned_special and coord == special_cell and special_piece > GameData.SKILL_PIECE_OFFSET:
+			# 4個以上のマッチの中央を、パーティ属性に対応したスキル駒へ進化させる。
+			board[r][c] = special_piece
 			var special_node: TextureRect = cells[r][c]
 			if special_node and is_instance_valid(special_node):
-				_apply_piece_visual(special_node, skill_piece_id)
+				_apply_piece_visual(special_node, special_piece)
 				special_node.modulate = Color.WHITE
 			spawned_special = true
 			continue

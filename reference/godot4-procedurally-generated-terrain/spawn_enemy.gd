@@ -87,43 +87,11 @@ func delete_enemy() -> void:
 
 func spawn_enemy(pos: Vector3) -> void:
 	var enemy_key: String = ""
-	var biome_type: int = 0
 	var spawn_pos_int = Vector3i(round(pos.x), round(pos.y), round(pos.z))
-
-	# バイオーム判定
-	if spawn_pos_int.x >= plane_range_hl and spawn_pos_int.x <= plane_range_hr and spawn_pos_int.z >= plane_range_wl and spawn_pos_int.z <= plane_range_wr:
-		var mat = 4
-		if is_instance_valid(terrain_node):
-			var check_y = spawn_pos_int.y
-			while check_y >= 0 and check_y < 90:
-				var m = terrain_node.get_map3dnum(spawn_pos_int.x, check_y, spawn_pos_int.z)
-				if m != -1:
-					mat = m
-					break
-				check_y -= 1
-		# マテリアル 3 は雪、それ以外 (4:草, 5:土, 2:岩) は草原
-		if mat == 3 and not stage_enemy[3].is_empty():
-			enemy_key = stage_enemy[3].pick_random()
-			biome_type = 3
-		else:
-			if stage_enemy[0].is_empty(): return
-			enemy_key = stage_enemy[0].pick_random()
-			biome_type = 0
-	elif spawn_pos_int.x >= cave_range_hl and spawn_pos_int.x <= cave_range_hr and spawn_pos_int.z >= cave_range_wl and spawn_pos_int.z <= cave_range_wr:
-		if stage_enemy[1].is_empty(): return
-		enemy_key = stage_enemy[1].pick_random()
-		biome_type = 1
-	elif spawn_pos_int.x >= desert_range_hl and spawn_pos_int.x <= desert_range_hr and spawn_pos_int.z >= desert_range_wl and spawn_pos_int.z <= desert_range_wr:
-		if stage_enemy[2].is_empty(): return
-		enemy_key = stage_enemy[2].pick_random()
-		biome_type = 2
-	elif spawn_pos_int.x >= castle_range_hl and spawn_pos_int.x <= castle_range_hr and spawn_pos_int.z >= castle_range_wl and spawn_pos_int.z <= castle_range_wr:
-		if stage_enemy[4].is_empty(): return
-		enemy_key = stage_enemy[4].pick_random()
-		biome_type = 4
-
-	if enemy_key == "":
+	var biome_type: int = _biome_for_position(pos)
+	if stage_enemy[biome_type].is_empty():
 		return
+	enemy_key = stage_enemy[biome_type].pick_random()
 
 	var enemy_info = enemy_data.get(enemy_key)
 	if enemy_info == null:
@@ -159,9 +127,10 @@ func spawn_enemy(pos: Vector3) -> void:
 
 	get_tree().current_scene.add_child(enemy_instance)
 	enemy_instance.global_position = pos
+	enemy_instance.set_spawn_origin(pos)
 	spawned_enemies.append(enemy_instance)
 
-func list_enemy_in_folder(path: String) -> void:
+func list_enemy_in_folder(path: String, overwrite: bool = true) -> void:
 	var dir = DirAccess.open(path)
 	if dir == null:
 		push_error("Enemy Spawner Error: Directory not found at: " + path)
@@ -196,7 +165,7 @@ func list_enemy_in_folder(path: String) -> void:
 				if def_model_path == "" and not anim_paths.is_empty():
 					def_model_path = anim_paths[0]
 
-				if not anim_paths.is_empty():
+				if not anim_paths.is_empty() and (overwrite or not enemy_data.has(item_name)):
 					enemy_data[item_name] = [def_model_path, anim_paths, []]
 		item_name = dir.get_next()
 	dir.list_dir_end()
@@ -215,7 +184,8 @@ func list_enemy_in_folder(path: String) -> void:
 
 	for key in enemy_data.keys():
 		for stage_idx in enemy_data[key][2]:
-			stage_enemy[stage_idx].append(key)
+			if not stage_enemy[stage_idx].has(key):
+				stage_enemy[stage_idx].append(key)
 
 var _spawn_queue: Array = []  # キュー: [Vector3] のリスト
 
@@ -236,46 +206,104 @@ func _process(delta: float) -> void:
 		return  # スポーンしたフレームはスキャンしない
 
 	spawn_time += delta
-	if spawn_time >= 2.0:
-		spawn_time = 0.0
-		spawned_enemies = spawned_enemies.filter(func(e): return is_instance_valid(e))
-		if spawned_enemies.size() >= 15:
-			return
-		var cur_pos = player.global_transform.origin
-		var ground_y_size = d
-		var ground_x_size = terrain_node.worldh
-		var ground_z_size = terrain_node.worldw
+	var cur_pos = player.global_transform.origin
+	var biome := _biome_at_player(cur_pos)
+	var tight_quarters := biome == 1 or biome == 4
+	var spawn_interval := 0.65 if tight_quarters else 1.2
+	if spawn_time < spawn_interval:
+		return
+	spawn_time = 0.0
+	spawned_enemies = spawned_enemies.filter(func(e): return is_instance_valid(e))
+	var max_spawned := 24 if tight_quarters else 18
+	if spawned_enemies.size() >= max_spawned:
+		return
+	var ground_y_size = d
+	var ground_x_size = terrain_node.worldh
+	var ground_z_size = terrain_node.worldw
 
-		# 12グリッド単位に直接スナップしてサンプリング回数を最小化
-		var sample_count = 8
-		var check_y = int(cur_pos.y)
-		if check_y < 0 or check_y >= ground_y_size:
-			return
-		for _s in range(sample_count):
-			var angle = randf() * PI * 2.0
-			var dist = randf_range(min_spawn_range, max_spawn_range)
-			var raw_x = cur_pos.x + cos(angle) * dist
-			var raw_z = cur_pos.z + sin(angle) * dist
-			var check_x = int(round(raw_x / 12.0)) * 12
-			var check_z = int(round(raw_z / 12.0)) * 12
+	# 洞窟・城は狭いので近距離で細かく、屋外はやや広めに探索する。
+	var sample_count := 28 if tight_quarters else 12
+	var sample_min := 8.0 if tight_quarters else 20.0
+	var sample_max := 30.0 if tight_quarters else 55.0
+	var snap_size := 4.0 if tight_quarters else 8.0
+	var check_y = int(cur_pos.y)
+	if check_y < 0 or check_y >= ground_y_size:
+		return
+	for _s in range(sample_count):
+		var angle = randf() * PI * 2.0
+		var dist = randf_range(sample_min, sample_max)
+		var raw_x = cur_pos.x + cos(angle) * dist
+		var raw_z = cur_pos.z + sin(angle) * dist
+		var check_x = int(round(raw_x / snap_size)) * int(snap_size)
+		var check_z = int(round(raw_z / snap_size)) * int(snap_size)
 
-			if check_x < 0 or check_x >= ground_x_size: continue
-			if check_z < 0 or check_z >= ground_z_size: continue
+		if check_x < 0 or check_x >= ground_x_size: continue
+		if check_z < 0 or check_z >= ground_z_size: continue
 
-			var dx = float(check_x) - cur_pos.x
-			var dz = float(check_z) - cur_pos.z
-			var d_sq = dx * dx + dz * dz
-			if d_sq < float(min_spawn_range * min_spawn_range) or d_sq > float(max_spawn_range * max_spawn_range):
+		var dx = float(check_x) - cur_pos.x
+		var dz = float(check_z) - cur_pos.z
+		var d_sq = dx * dx + dz * dz
+		if d_sq < sample_min * sample_min or d_sq > sample_max * sample_max:
+			continue
+
+		var ground_y = terrain_node.get_ground_y(check_x, check_y, check_z)
+		if ground_y < 0: continue
+		if biome == 4:
+			# 城内の範囲内だけをスポーン対象にする（フロアのY判定は地形に任せる）。
+			if check_x < castle_range_hl or check_x > castle_range_hr:
+				continue
+			if check_z < castle_range_wl or check_z > castle_range_wr:
 				continue
 
-			var ground_y = terrain_node.get_ground_y(check_x, check_y, check_z)
-			if ground_y <= 30: continue
-			
-			var spawn_coord = Vector3i(check_x, ground_y, check_z)
-			if not isspawned.has(spawn_coord):
-				isspawned[spawn_coord] = true
-				_spawn_queue.append(Vector3(float(check_x), float(ground_y) + 0.6, float(check_z)))
-				break # 1回のチェック処理で最大1体だけキューに入れる（分散させる）
+		var spawn_coord = Vector3i(check_x, ground_y, check_z)
+		if not isspawned.has(spawn_coord):
+			isspawned[spawn_coord] = true
+			_spawn_queue.append(Vector3(float(check_x), float(ground_y) + 0.6, float(check_z)))
+			break # 1回のチェック処理で最大1体だけキューに入れる（分散させる）
+
+func _biome_at_player(pos: Vector3) -> int:
+	return _biome_for_position(pos)
+
+# バイオーム矩形は境界が重なるため、X/Z と高さ（Y）を組み合わせて判定する。
+func _biome_for_position(pos: Vector3) -> int:
+	var px := int(round(pos.x))
+	var pz := int(round(pos.z))
+	var py := int(round(pos.y))
+	# 洞窟は地下（Y<=30）を優先。
+	if py <= cave_range_dr:
+		if px >= cave_range_hl and px <= cave_range_hr and pz >= cave_range_wl and pz <= cave_range_wr:
+			return 1
+		return 1
+	# 魔王城内は城内判定を優先。
+	if terrain_node and terrain_node.has_method("is_player_in_castle") and terrain_node.is_player_in_castle(pos):
+		return 4
+	if px >= castle_range_hl and px <= castle_range_hr and pz >= castle_range_wl and pz <= castle_range_wr and py >= castle_range_dl:
+		return 4
+	# 砂漠は低地（Y31〜41）。
+	if px >= desert_range_hl and px <= desert_range_hr and pz >= desert_range_wl and pz <= desert_range_wr and py >= desert_range_dl and py <= desert_range_dr:
+		return 2
+	# 草原・雪原は同じX/Z帯で、Yの高さで分かれる。
+	if px >= plane_range_hl and px <= plane_range_hr and pz >= plane_range_wl and pz <= plane_range_wr:
+		if py >= snow_range_dl:
+			return 3
+		return 0
+	# フォールバック: 最も近い中心。
+	var centers := {
+		0: Vector2(float(plane_start_h) + float(h) * 0.5, float(plane_start_w) + float(w) * 0.5),
+		1: Vector2(float(cave_start_h) + float(h) * 0.5, float(cave_start_w) + float(w) * 0.5),
+		2: Vector2(float(desert_start_h) + float(h) * 0.5, float(desert_start_w) + float(w) * 0.5),
+		3: Vector2(float(plane_start_h) + float(h) * 0.5, float(plane_start_w) + float(w) * 0.5),
+		4: Vector2(float(castle_start_h) + float(h) * 0.5, float(castle_start_w) + float(w) * 0.5)
+	}
+	var flat := Vector2(pos.x, pos.z)
+	var best_biome := 0
+	var best_dist := INF
+	for biome in centers.keys():
+		var dist := flat.distance_squared_to(centers[biome])
+		if dist < best_dist:
+			best_dist = dist
+			best_biome = int(biome)
+	return best_biome
 
 func _ready() -> void:
 	var parent = get_parent()
@@ -338,9 +366,14 @@ func _ready() -> void:
 	castle_range_dr = d - 1
 
 	list_enemy_in_folder("res://model/enemy/have_animation/")
+	# アニメーション無しモデルも、プロシージャル演出で登場させる。
+	list_enemy_in_folder("res://model/enemy/no_animation/", false)
 
 
 func spawn_boss(enemy_key: String, pos: Vector3, scale_mult: float = 3.0, biome: int = 4) -> Node3D:
+	if not enemy_data.has(enemy_key):
+		# 地形生成との順序ずれに備えて、ボス生成直前にもう一度スキャンする。
+		list_enemy_in_folder("res://model/enemy/have_animation/")
 	if not enemy_data.has(enemy_key):
 		push_error("Boss enemy key not found: " + enemy_key)
 		return null
@@ -381,6 +414,24 @@ func spawn_boss(enemy_key: String, pos: Vector3, scale_mult: float = 3.0, biome:
 	var target_scene = get_tree().current_scene if (get_tree() and get_tree().current_scene) else get_parent()
 	if target_scene:
 		target_scene.add_child(enemy_instance)
-	enemy_instance.global_position = pos
+	var final_pos := pos
+	var terrain = get_parent().get_node_or_null("terrain") if get_parent() else null
+	if terrain and terrain.has_method("get_ground_y"):
+		var gy := int(terrain.get_ground_y(int(round(pos.x)), int(round(pos.y)) + 8, int(round(pos.z))))
+		if gy >= 0:
+			final_pos.y = float(gy) + 1.0
+	enemy_instance.global_position = final_pos
+	enemy_instance.set_spawn_origin(final_pos)
+	# 各ボスがひと目で分かるよう、頭上にボス名を表示する。
+	var boss_label := Label3D.new()
+	boss_label.text = "BOSS  " + enemy_key.replace("_", " ").capitalize()
+	boss_label.font_size = 48
+	boss_label.modulate = Color(1.0, 0.35, 0.30)
+	boss_label.outline_size = 10
+	boss_label.outline_modulate = Color(0, 0, 0, 0.95)
+	boss_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	boss_label.pixel_size = 0.01
+	boss_label.position = Vector3(0, 3.5 / maxf(scale_mult, 0.001), 0)
+	enemy_instance.add_child(boss_label)
 	spawned_enemies.append(enemy_instance)
 	return enemy_instance
