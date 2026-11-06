@@ -43,6 +43,10 @@ var piece_pool: Array = []
 var score: Array = [0, 0, 0, 0, 0, 0]
 var combocount: int = 0
 var element_hits: Dictionary = {}
+var battle_buffs: Dictionary = {}
+
+func set_battle_buffs(buffs: Dictionary) -> void:
+	battle_buffs = buffs.duplicate(true)
 
 func _ready() -> void:
 	_init_piece_definitions()
@@ -442,11 +446,45 @@ func _process_matches_loop() -> void:
 		var matched := cell_matching()
 		if matched.is_empty():
 			break
+		var matched_dict: Dictionary = {}
+		for coord in matched:
+			matched_dict[coord] = true
+		_apply_bonus_clears(matched_dict)
+		matched = matched_dict.keys()
 		var special_cell := _select_special_spawn_cell(matched)
 		combocount += 1
 		combo_changed.emit(combocount)
 		await _break_matches(matched, special_cell)
 		await _apply_gravity_and_refill()
+
+func _apply_bonus_clears(matched: Dictionary) -> void:
+	if battle_buffs.is_empty():
+		return
+	var present_types: Dictionary = {}
+	for coord in matched.keys():
+		var piece_id: int = int(board[coord.y][coord.x])
+		if piece_id >= 0 and piece_id < 5:
+			present_types[piece_id] = true
+	var extra_needed := 0
+	if int(battle_buffs.get("sword_extra", 0)) > 0 and present_types.has(GameData.Piece.SWORD):
+		extra_needed += int(battle_buffs.get("sword_extra", 0))
+	if int(battle_buffs.get("food_extra", 0)) > 0 and present_types.has(GameData.Piece.FOOD):
+		extra_needed += int(battle_buffs.get("food_extra", 0))
+	if int(battle_buffs.get("coin_extra", 0)) > 0 and present_types.has(GameData.Piece.COIN):
+		extra_needed += int(battle_buffs.get("coin_extra", 0))
+	if int(battle_buffs.get("shield_extra", 0)) > 0 and present_types.has(GameData.Piece.SHIELD):
+		extra_needed += int(battle_buffs.get("shield_extra", 0))
+	if extra_needed <= 0:
+		return
+	var candidates: Array = []
+	for r in range(BOARD_HEIGHT):
+		for c in range(BOARD_WIDTH):
+			if int(board[r][c]) >= 0 and not matched.has(Vector2i(c, r)):
+				candidates.append(Vector2i(c, r))
+	candidates.shuffle()
+	var add_count := mini(extra_needed, candidates.size())
+	for i in range(add_count):
+		matched[candidates[i]] = true
 
 func _select_special_spawn_cell(matched: Array) -> Vector2i:
 	if not allow_skill_pieces or skill_piece_id <= 4:

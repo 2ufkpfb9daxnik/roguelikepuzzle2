@@ -112,7 +112,7 @@ func _build_ui() -> void:
 
 	level_box = _add_tab("レベルアップ")
 	recruit_box = _add_tab("仲間を雇う")
-	inventory_root = _add_tab("インベントリ / スキルツリー")
+	inventory_root = _add_tab("インベントリ / スキルツリー / バフ")
 
 func _add_tab(tab_title: String) -> VBoxContainer:
 	var scroll := ScrollContainer.new()
@@ -467,6 +467,68 @@ func _populate_inventory() -> void:
 		for node in GameData.get_branch_nodes(selected.element, branch):
 			var button := _create_node_button(selected, node)
 			column_box.add_child(button)
+
+	_populate_buffs()
+
+# ============================================================
+# ショップバフ（元の Buy Buff 機能を新ショップへ統合）
+# ============================================================
+func _populate_buffs() -> void:
+	var main_node := get_main_node()
+	if not main_node or not main_node.has_method("get_shop_buff_catalog"):
+		return
+	inventory_root.add_child(_label("ショップバフ強化（パーティ全体）", 22, COL_GOLD))
+	inventory_root.add_child(_label("コインで購入してLvを上げる。攻撃・防御・HPなどは次回戦闘から反映される。", 14, COL_SUBTEXT))
+	for buff in main_node.get_shop_buff_catalog():
+		var id := str(buff["id"])
+		var level := int(main_node.get_shop_buff_level(id))
+		var max_level := int(buff["max_level"])
+		var cost := int(main_node.get_shop_buff_cost(id))
+
+		var card := PanelContainer.new()
+		card.add_theme_stylebox_override("panel", _style(COL_PANEL, COL_BORDER.darkened(0.2)))
+		inventory_root.add_child(card)
+
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 16)
+		card.add_child(row)
+
+		var info := VBoxContainer.new()
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		info.add_theme_constant_override("separation", 4)
+		row.add_child(info)
+		info.add_child(_label("%s  Lv.%d / %d" % [str(buff["name"]), level, max_level], 21, COL_GOLD))
+		info.add_child(_label(str(buff["description"]), 15, COL_SUBTEXT))
+
+		var button := Button.new()
+		if level >= max_level:
+			button.text = "MAX"
+			button.disabled = true
+		else:
+			button.text = "強化\n%d コイン" % cost
+			button.disabled = int(main_node.money) < cost
+		button.custom_minimum_size = Vector2(150, 70)
+		button.add_theme_font_size_override("font_size", 16)
+		button.pressed.connect(_on_buy_buff.bind(id))
+		row.add_child(button)
+
+func _on_buy_buff(id: String) -> void:
+	var main_node := get_main_node()
+	if not main_node or not main_node.has_method("purchase_shop_buff"):
+		return
+	var definition: Dictionary = main_node.get_shop_buff_definition(id)
+	var result: Dictionary = main_node.purchase_shop_buff(id)
+	if bool(result.get("ok", false)):
+		message_text = "%s を Lv.%d に強化した！" % [str(definition.get("name", id)), int(result.get("level", 0))]
+	else:
+		var reason := str(result.get("reason", ""))
+		if reason == "money":
+			message_text = "コインが足りません。"
+		elif reason == "max":
+			message_text = "すでに最大レベルです。"
+		else:
+			message_text = "強化できませんでした。"
+	_refresh_all()
 
 func _create_owned_nodes_panel(character: CharacterData) -> PanelContainer:
 	var panel := PanelContainer.new()

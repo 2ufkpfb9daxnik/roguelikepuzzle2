@@ -57,6 +57,65 @@ var all_characters: Dictionary = {
 }
 
 # ==============================
+# ショップバフ（戦闘・盤面に反映）
+# ==============================
+var shop_buff_catalog: Array[Dictionary] = [
+	{"id": "attack", "name": "攻撃強化", "description": "味方全員の攻撃力が Lv ごとに +15% される。", "base_cost": 80, "cost_growth": 1.60, "max_level": 10},
+	{"id": "defense", "name": "防御強化", "description": "味方全員の防御力が Lv ごとに +15% される。", "base_cost": 80, "cost_growth": 1.60, "max_level": 10},
+	{"id": "heal", "name": "回復強化", "description": "回復マッチと回復スキルの回復量が Lv ごとに +20% される。", "base_cost": 60, "cost_growth": 1.55, "max_level": 10},
+	{"id": "money", "name": "獲得金額強化", "description": "コインで獲得するお金が Lv ごとに +25% される。", "base_cost": 100, "cost_growth": 1.60, "max_level": 10},
+	{"id": "max_hp", "name": "最大HP強化", "description": "味方全員の最大HPが Lv ごとに +12% される（次回戦闘から）。", "base_cost": 120, "cost_growth": 1.65, "max_level": 10},
+	{"id": "potion", "name": "ポーション強化", "description": "フィーバーゲージ獲得量 +25%/Lv、フィーバー倍率 +0.25/Lv。", "base_cost": 90, "cost_growth": 1.60, "max_level": 10},
+	{"id": "start_shield", "name": "開始シールド", "description": "戦闘開始時にパーティシールドが +5/Lv される。", "base_cost": 70, "cost_growth": 1.55, "max_level": 10},
+	{"id": "combo", "name": "コンボ強化", "description": "コンボ倍率の上昇量が +0.05/Lv される。", "base_cost": 150, "cost_growth": 1.70, "max_level": 10},
+	{"id": "sword_extra", "name": "剣の追撃", "description": "剣をマッチした時、Lv 個のランダムな駒を追加で消す。", "base_cost": 200, "cost_growth": 1.80, "max_level": 5},
+	{"id": "food_extra", "name": "食料の追撃", "description": "回復駒をマッチした時、Lv 個のランダムな駒を追加で消す。", "base_cost": 150, "cost_growth": 1.75, "max_level": 5},
+	{"id": "coin_extra", "name": "コインの追撃", "description": "コインをマッチした時、Lv 個のランダムな駒を追加で消す。", "base_cost": 150, "cost_growth": 1.75, "max_level": 5},
+	{"id": "shield_extra", "name": "盾の追撃", "description": "盾をマッチした時、Lv 個のランダムな駒を追加で消す。", "base_cost": 150, "cost_growth": 1.75, "max_level": 5}
+]
+var shop_buff_levels: Dictionary = {}
+
+func get_shop_buff_catalog() -> Array:
+	return shop_buff_catalog
+
+func get_shop_buff_definition(id: String) -> Dictionary:
+	for info in shop_buff_catalog:
+		if str(info["id"]) == id:
+			return info
+	return {}
+
+func get_shop_buff_level(id: String) -> int:
+	return int(shop_buff_levels.get(id, 0))
+
+func get_shop_buff_cost(id: String) -> int:
+	var info = get_shop_buff_definition(id)
+	if info.is_empty():
+		return 0
+	var lvl = get_shop_buff_level(id)
+	return int(int(info["base_cost"]) * pow(float(info["cost_growth"]), lvl))
+
+func purchase_shop_buff(id: String) -> Dictionary:
+	var info = get_shop_buff_definition(id)
+	if info.is_empty():
+		return {"ok": false, "reason": "unknown"}
+	var lvl = get_shop_buff_level(id)
+	if lvl >= int(info["max_level"]):
+		return {"ok": false, "reason": "max", "level": lvl}
+	var cost = get_shop_buff_cost(id)
+	if not spend_money(cost):
+		return {"ok": false, "reason": "money", "cost": cost}
+	shop_buff_levels[id] = lvl + 1
+	return {"ok": true, "cost": cost, "level": lvl + 1}
+
+func get_board_buff_config() -> Dictionary:
+	return {
+		"sword_extra": get_shop_buff_level("sword_extra"),
+		"food_extra": get_shop_buff_level("food_extra"),
+		"coin_extra": get_shop_buff_level("coin_extra"),
+		"shield_extra": get_shop_buff_level("shield_extra")
+	}
+
+# ==============================
 # 後方互換用プロパティ（外部スクリプトの直接参照用）
 # ==============================
 var allies: Array:
@@ -613,9 +672,20 @@ func calculate_status(base: float, lvl: int, power: float = 2.0 / 3.0) -> int:
 
 func generate_allies_to_spawn() -> Array:
 	var allies_to_spawn = []
+	var atk_mult = 1.0 + 0.15 * get_shop_buff_level("attack")
+	var def_mult = 1.0 + 0.15 * get_shop_buff_level("defense")
+	var hp_mult = 1.0 + 0.12 * get_shop_buff_level("max_hp")
+	var start_shield = 5 * get_shop_buff_level("start_shield")
 	for i in range(min(party.size(), MAX_PARTY_SIZE)):
 		var char_data = party[i]
-		allies_to_spawn.append(char_data.get_spawn_info())
+		var info: Dictionary = char_data.get_spawn_info()
+		info["attack"] = int(round(float(info["attack"]) * atk_mult))
+		info["defense"] = int(round(float(info["defense"]) * def_mult))
+		var new_max = int(round(float(info["max_health"]) * hp_mult))
+		info["max_health"] = new_max
+		info["health"] = min(int(info["health"]), new_max)
+		info["start_shield"] = start_shield
+		allies_to_spawn.append(info)
 	return allies_to_spawn
 
 # 戦闘終了時に HP / EXP / スキルゲージを本体データへ戻す。

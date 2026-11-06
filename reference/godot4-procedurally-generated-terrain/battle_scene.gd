@@ -78,6 +78,16 @@ var enemy_intent_labels: Dictionary = {}
 var enemy_statuses: Dictionary = {}
 var fever_charge: int = 0
 var fever_turns: int = 0
+var shop_attack_mult: float = 1.0
+var shop_defense_mult: float = 1.0
+var shop_heal_mult: float = 1.0
+var shop_money_mult: float = 1.0
+var shop_shield_mult: float = 1.0
+var shop_max_hp_mult: float = 1.0
+var shop_combo_bonus: float = 0.0
+var shop_potion_mult: float = 1.0
+var shop_fever_mult: float = 2.0
+var shop_start_shield: float = 0.0
 
 # 画面レイアウト（論理解像度 1920x1080、CanvasLayer 側で拡縮される）
 const HUD_MARGIN := 24.0
@@ -163,6 +173,33 @@ func _setup_battle_layout() -> void:
 # ============================================================
 # 戦闘準備
 # ============================================================
+func _setup_shop_battle_buffs() -> void:
+	shop_attack_mult = 1.0
+	shop_defense_mult = 1.0
+	shop_heal_mult = 1.0
+	shop_money_mult = 1.0
+	shop_shield_mult = 1.0
+	shop_max_hp_mult = 1.0
+	shop_combo_bonus = 0.0
+	shop_potion_mult = 1.0
+	shop_fever_mult = 2.0
+	shop_start_shield = 0.0
+	if main_ref and main_ref.has_method("get_shop_buff_level"):
+		shop_attack_mult = 1.0 + 0.15 * main_ref.get_shop_buff_level("attack")
+		shop_defense_mult = 1.0 + 0.15 * main_ref.get_shop_buff_level("defense")
+		shop_heal_mult = 1.0 + 0.20 * main_ref.get_shop_buff_level("heal")
+		shop_money_mult = 1.0 + 0.25 * main_ref.get_shop_buff_level("money")
+		shop_shield_mult = 1.0 + 0.15 * main_ref.get_shop_buff_level("defense")
+		shop_max_hp_mult = 1.0 + 0.12 * main_ref.get_shop_buff_level("max_hp")
+		shop_combo_bonus = 0.05 * main_ref.get_shop_buff_level("combo")
+		var potion_lv = main_ref.get_shop_buff_level("potion")
+		shop_potion_mult = 1.0 + 0.25 * potion_lv
+		shop_fever_mult = 2.0 + 0.25 * potion_lv
+		shop_start_shield = 5.0 * main_ref.get_shop_buff_level("start_shield")
+		party_relic_mods["start_shield"] = float(party_relic_mods.get("start_shield", 0.0)) + shop_start_shield
+	if main_ref and main_ref.has_method("get_board_buff_config") and puzzle_board and puzzle_board.has_method("set_battle_buffs"):
+		puzzle_board.set_battle_buffs(main_ref.get_board_buff_config())
+
 func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Array, allies_data: Array) -> void:
 	main_ref = get_parent()
 	player_ref = player
@@ -178,6 +215,7 @@ func prepare_battle(player: Node3D, touched_enemy: Node3D, existing_enemies: Arr
 	allies_to_spawn = allies_data
 	party = main_ref.party if main_ref and "party" in main_ref else []
 	party_relic_mods = GameData.collect_party_relic_modifiers(party)
+	_setup_shop_battle_buffs()
 
 	# 触れた敵はこの直後に existing_enemies として解放される。
 	# 解放後は参照できなくなるため、名前だけを先に控えておく。
@@ -911,30 +949,30 @@ func _resolve_player_actions(result: Dictionary) -> void:
 	var scores: Array = result.get("score", [])
 	var combo: int = int(result.get("combo", 1))
 	var element_hits: Dictionary = result.get("element_hits", {})
-	var combo_mult: float = 1.0 + max(0, combo - 1) * 0.25
+	var combo_mult: float = 1.0 + max(0, combo - 1) * (0.25 + shop_combo_bonus)
 	var shield_count := int(scores[0]) if scores.size() > 0 else 0
 	var sword_count := int(scores[1]) if scores.size() > 1 else 0
 	var coin_count := int(scores[2]) if scores.size() > 2 else 0
 	var potion_count := int(scores[3]) if scores.size() > 3 else 0
 	var food_count := int(scores[4]) if scores.size() > 4 else 0
 	var skill_count := int(scores[5]) if scores.size() > 5 else 0
-	var fever_mult: float = 2.0 if fever_turns > 0 else 1.0
+	var fever_mult: float = shop_fever_mult if fever_turns > 0 else 1.0
 	var active_char: CharacterData = party[active_index] if active_index < party.size() else null
 
 	if coin_count > 0:
 		var coin_mod: float = 1.0 + float(party_relic_mods.get("coin_bonus", 0.0))
 		if active_char:
 			coin_mod += float(active_char.get_character_modifiers().get("coin_bonus", 0.0))
-		var gain := int(coin_count * 8 * coin_mod * fever_mult)
+		var gain := int(coin_count * 8 * coin_mod * fever_mult * shop_money_mult)
 		battle_coin += gain
 		_log("コイン +%d" % gain)
 
 	if food_count > 0:
-		var heal := int((food_count * 24 + 8) * combo_mult * fever_mult)
+		var heal := int((food_count * 24 + 8) * combo_mult * fever_mult * shop_heal_mult)
 		_heal_lowest_ally(heal)
 
 	if shield_count > 0:
-		var shield := int(shield_count * 32 * combo_mult * fever_mult)
+		var shield := int(shield_count * 32 * combo_mult * fever_mult * shop_shield_mult)
 		party_shield += shield
 		_log("シールド +%d" % shield)
 
@@ -942,7 +980,7 @@ func _resolve_player_actions(result: Dictionary) -> void:
 		if fever_turns > 0:
 			_log("フィーバー中：ポーションは次回分として蓄積されません")
 		else:
-			var fever_gain := mini(100, int(potion_count * 18 * combo_mult))
+			var fever_gain := mini(100, int(potion_count * 18 * combo_mult * shop_potion_mult))
 			fever_charge = clampi(fever_charge + fever_gain, 0, 100)
 			_log("フィーバーゲージ +%d" % fever_gain)
 			if fever_charge >= 100:
@@ -992,7 +1030,8 @@ func _party_physical_attack(active_char: CharacterData, sword_count: int, combo_
 		var target = _living_enemies().pick_random()
 		var char_index: int = ally.character_index
 		var char_data: CharacterData = party[char_index] if char_index >= 0 and char_index < party.size() else active_char
-		var raw := int(sword_count * (float(char_data.get_attack()) + 10.0) * 0.55 * combo_mult)
+		var attack_stat := float(ally.attack)
+		var raw := int(sword_count * (attack_stat + 10.0) * 0.55 * combo_mult)
 		await _animate_lunge(ally, target)
 		var dealt := _damage_enemy(target, raw, char_data.element, char_data)
 		_log("%s の攻撃: %d" % [_display_name(char_data.id), dealt])
@@ -1015,7 +1054,7 @@ func _trigger_element_skill(active_char: CharacterData, count: int, combo_mult: 
 	if actor:
 		await _animate_actor_forward(actor)
 
-	var base := int((count * (18 + active_char.level * 5)) * active_char.get_skill_power() * combo_mult)
+	var base := int((count * (18 + active_char.level * 5)) * active_char.get_skill_power() * combo_mult * shop_attack_mult)
 	var targets := _living_enemies()
 	for target in targets:
 		if is_instance_valid(target):
@@ -1054,13 +1093,13 @@ func _trigger_element_skill(active_char: CharacterData, count: int, combo_mult: 
 					status["stun"] = maxi(int(status["stun"]), 1)
 			_log("%sスキル：敵に感電を付与した" % GameData.element_name(element))
 		GameData.Element.WATER, GameData.Element.WOOD:
-			var heal := int(count * (8 + active_char.level * 3) * combo_mult)
+			var heal := int(count * (8 + active_char.level * 3) * combo_mult * shop_heal_mult)
 			for ally in _living_allies():
 				ally.receive_heal(heal)
 				_sync_ally_to_party(ally)
 			_log("%sスキル：味方全員を %d 回復" % [GameData.element_name(element), heal])
 		GameData.Element.LIGHT:
-			var heal := int(count * (10 + active_char.level * 3) * combo_mult)
+			var heal := int(count * (10 + active_char.level * 3) * combo_mult * shop_heal_mult)
 			for ally in _living_allies():
 				ally.receive_heal(heal)
 				_sync_ally_to_party(ally)
@@ -1071,17 +1110,17 @@ func _trigger_element_skill(active_char: CharacterData, count: int, combo_mult: 
 					status["burn"] = 0
 			_log("%sスキル：味方を回復し、敵の状態異常を浄化" % GameData.element_name(element))
 		GameData.Element.DARK:
-			var heal := int(base * 0.35)
+			var heal := int(base * 0.35 * shop_heal_mult)
 			if actor and is_instance_valid(actor):
 				actor.receive_heal(heal)
 				_sync_ally_to_party(actor)
 			_log("%sスキル：与えたダメージの一部を吸収" % GameData.element_name(element))
 		GameData.Element.EARTH:
-			var shield_gain := int(count * (24 + active_char.level * 5) * combo_mult)
+			var shield_gain := int(count * (24 + active_char.level * 5) * combo_mult * shop_shield_mult)
 			party_shield += shield_gain
 			_log("%sスキル：シールド +%d" % [GameData.element_name(element), shield_gain])
 		GameData.Element.WIND:
-			var shield_gain := int(count * (14 + active_char.level * 3) * combo_mult)
+			var shield_gain := int(count * (14 + active_char.level * 3) * combo_mult * shop_shield_mult)
 			party_shield += shield_gain
 			_log("%sスキル：風の護りでシールド +%d" % [GameData.element_name(element), shield_gain])
 		_:
@@ -1454,8 +1493,10 @@ func _update_hud() -> void:
 		panel.visible = true
 		var c: CharacterData = party[i]
 		var ally = _ally_for_index(i)
-		var max_hp := c.get_max_health()
+		var max_hp: int = int(ally.max_hp) if ally else int(c.get_max_health() * shop_max_hp_mult)
 		var hp: int = ally.hp if ally else (c.cur_health if c.cur_health >= 0 else max_hp)
+		var shown_atk: int = int(ally.attack) if ally else int(c.get_attack() * shop_attack_mult)
+		var shown_def: int = int(ally.defense) if ally else int(c.get_defense() * shop_defense_mult)
 		var border_color := c.get_element_color()
 		if i == active_index:
 			panel.add_theme_stylebox_override("panel", _panel_style(Color(0.14, 0.17, 0.26, 0.98), border_color))
@@ -1466,7 +1507,7 @@ func _update_hud() -> void:
 			_display_name(c.id), c.level, c.get_element_name(), c.get_skill_attribute_name()
 		]
 		card["hp_label"].text = "HP %d / %d   ATK %d   DEF %d   EXP %d/%d" % [
-			hp, max_hp, c.get_attack(), c.get_defense(), c.exp, c.get_exp_to_next()
+			hp, max_hp, shown_atk, shown_def, c.exp, c.get_exp_to_next()
 		]
 		card["hp_bar"].max_value = max_hp
 		card["hp_bar"].value = hp
