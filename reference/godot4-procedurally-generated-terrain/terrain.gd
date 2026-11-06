@@ -94,6 +94,7 @@ var desert_battle_pos:Vector3
 var desert_shop_pos:Vector3
 var snow_battle_pos:Vector3
 var snow_shop_pos:Vector3
+var castle_battle_pos:Vector3
 #地形生成
 func diamondsquare(map:Array,amplitude=1.5)->Array:
 	var size = h - 1
@@ -363,63 +364,112 @@ func make_corridor(map:Array,p1:Vector2,p2:Vector2,wide:int):
 						map[p2.y+k][x] = 0
 
 func cell_automaton(map:Array,num:int,steps:int=1):
-	for i in range(steps):
-		var nmap = map.duplicate(true)
-		for y in range(map.size()):
-			for x in range(map[0].size()):
-				if map[y][x] == 0:
+	var rows: int = map.size()
+	if rows == 0:
+		return map
+	var cols: int = map[0].size()
+	var src := PackedInt32Array()
+	src.resize(rows * cols)
+	for y in range(rows):
+		var row = map[y]
+		var base: int = y * cols
+		for x in range(cols):
+			src[base + x] = int(row[x])
+	var dst := PackedInt32Array()
+	dst.resize(rows * cols)
+	for _step in range(steps):
+		for y in range(rows):
+			var base: int = y * cols
+			for x in range(cols):
+				var idx: int = base + x
+				if src[idx] == 0:
+					dst[idx] = 0
 					continue
-				var wallcnt = 0
-				for dy in range(-1,2):
-					for dx in range(-1,2):
+				var wallcnt := 0
+				for dy in range(-1, 2):
+					var ny: int = y + dy
+					for dx in range(-1, 2):
 						if dx == 0 and dy == 0:
 							continue
-						var ny = y+dy
-						var nx = x+dx
-						if ny < 0 or nx < 0 or ny >= map.size() or nx >= map[0].size():
+						var nx: int = x + dx
+						if ny < 0 or nx < 0 or ny >= rows or nx >= cols:
 							wallcnt += 1
-						elif map[ny][nx] == num:
+						elif src[ny * cols + nx] == num:
 							wallcnt += 1
-				if wallcnt > 4:
-					nmap[y][x] = num
-				else:
-					nmap[y][x] = -1
-		map = nmap
-	return map
+				dst[idx] = num if wallcnt > 4 else -1
+		var swap := src
+		src = dst
+		dst = swap
+	var result := []
+	for y in range(rows):
+		var row := []
+		row.resize(cols)
+		var base: int = y * cols
+		for x in range(cols):
+			row[x] = src[base + x]
+		result.append(row)
+	return result
 
 func bfs(map:Array) -> Array:
-	var labels = []
-	for y in range(map.size()):
-		labels.append([])
-		for x in range(map[0].size()):
-			labels[y].append(-1)
-	
-	var id = 0
-	for y in range(map.size()):
-		for x in range(map[0].size()):
-			if map[y][x] == -1 and labels[y][x] == -1:
-				var queue = [Vector2(x,y)]
-				var q_head = 0
-				while q_head < queue.size():
-					var p = queue[q_head]
-					q_head += 1
-					if labels[p.y][p.x] != -1:
-						continue
-					labels[p.y][p.x] = id
-					if p.x-1>=0 :
-						if map[p.y][p.x-1]==-1 and labels[p.y][p.x-1] == -1:
-							queue.append(Vector2(p.x-1,p.y))
-					if p.y-1>=0 :
-						if map[p.y-1][p.x]==-1 and labels[p.y-1][p.x] == -1:
-							queue.append(Vector2(p.x,p.y-1))
-					if p.x+1<map[0].size():
-						if map[p.y][p.x+1]==-1 and labels[p.y][p.x+1] == -1:
-							queue.append(Vector2(p.x+1,p.y))
-					if p.y+1<map.size() :
-						if map[p.y+1][p.x]==-1 and labels[p.y+1][p.x] == -1:
-							queue.append(Vector2(p.x,p.y+1))
-				id += 1
-	return labels
+	var rows: int = map.size()
+	if rows == 0:
+		return []
+	var cols: int = map[0].size()
+	var flat := PackedInt32Array()
+	flat.resize(rows * cols)
+	for y in range(rows):
+		var row = map[y]
+		var base: int = y * cols
+		for x in range(cols):
+			flat[base + x] = int(row[x])
+	var labels := PackedInt32Array()
+	labels.resize(rows * cols)
+	labels.fill(-1)
+	var id := 0
+	var queue := PackedInt32Array()
+	for y in range(rows):
+		var base: int = y * cols
+		for x in range(cols):
+			var start: int = base + x
+			if flat[start] != -1 or labels[start] != -1:
+				continue
+			queue.clear()
+			queue.append(start)
+			var head := 0
+			while head < queue.size():
+				var idx: int = queue[head]
+				head += 1
+				if labels[idx] != -1:
+					continue
+				labels[idx] = id
+				var py: int = idx / cols
+				var px: int = idx % cols
+				if px - 1 >= 0:
+					var n: int = idx - 1
+					if flat[n] == -1 and labels[n] == -1:
+						queue.append(n)
+				if py - 1 >= 0:
+					var n: int = idx - cols
+					if flat[n] == -1 and labels[n] == -1:
+						queue.append(n)
+				if px + 1 < cols:
+					var n: int = idx + 1
+					if flat[n] == -1 and labels[n] == -1:
+						queue.append(n)
+				if py + 1 < rows:
+					var n: int = idx + cols
+					if flat[n] == -1 and labels[n] == -1:
+						queue.append(n)
+			id += 1
+	var result := []
+	for y in range(rows):
+		var row := []
+		row.resize(cols)
+		var base: int = y * cols
+		for x in range(cols):
+			row[x] = labels[base + x]
+		result.append(row)
+	return result
 func generate_cave(width:int,height:int,floorheightmi:int,min_size:int=15):
 	var cavemap = []
 	var caves = []
@@ -506,34 +556,57 @@ func generate_cave(width:int,height:int,floorheightmi:int,min_size:int=15):
 				if y == 0 or x == 0 or y == height-1 or x == width-1:
 					caves[i][y][x] = 5
 	return caves
+func _prefix_box_sum(acc: PackedInt32Array, hw: int, w: int, lx: int, ly: int, lz: int, rx: int, ry: int, rz: int) -> int:
+	var sum: int = acc[ry * hw + rx * w + rz]
+	if ly - 1 >= 0:
+		sum -= acc[(ly - 1) * hw + rx * w + rz]
+	if lx - 1 >= 0:
+		sum -= acc[ry * hw + (lx - 1) * w + rz]
+	if lz - 1 >= 0:
+		sum -= acc[ry * hw + rx * w + lz - 1]
+	if lx - 1 >= 0 and ly - 1 >= 0:
+		sum += acc[(ly - 1) * hw + (lx - 1) * w + rz]
+	if lx - 1 >= 0 and lz - 1 >= 0:
+		sum += acc[ry * hw + (lx - 1) * w + lz - 1]
+	if ly - 1 >= 0 and lz - 1 >= 0:
+		sum += acc[(ly - 1) * hw + rx * w + lz - 1]
+	if lx - 1 >= 0 and ly - 1 >= 0 and lz - 1 >= 0:
+		sum -= acc[(ly - 1) * hw + (lx - 1) * w + lz - 1]
+	return sum
+
 func find_cave_entrance(sth:int,stw:int,map:Array):
 	var candidates = []
-	var rock_acc = []
+	var hw: int = h * w
+	var rock_acc := PackedInt32Array()
+	rock_acc.resize(d * hw)
+	rock_acc.fill(0)
 	for k in range(d):
-		var arrhw = []
+		var k_off: int = k * hw
 		for i in range(h):
-			var arrw = []
-			arrw.resize(w)
-			arrw.fill(0)
-			arrhw.append(arrw)
-		rock_acc.append(arrhw)
-	for k in range(d):
-		for i in range(h):
+			var i_off: int = k_off + i * w
 			for j in range(w):
 				if _map3dnum_flat[(k) * worldh * worldw + (i+sth) * worldw + (j+stw)] == 2:
-					rock_acc[k][i][j] += 1
+					rock_acc[i_off + j] += 1
+	# x 方向の累積和
 	for k in range(d):
+		var k_off: int = k * hw
 		for j in range(w):
 			for i in range(h-1):
-				rock_acc[k][i+1][j] += rock_acc[k][i][j]
+				rock_acc[k_off + (i+1) * w + j] += rock_acc[k_off + i * w + j]
+	# z 方向の累積和
 	for k in range(d):
+		var k_off: int = k * hw
 		for i in range(h):
+			var i_off: int = k_off + i * w
 			for j in range(w-1):
-				rock_acc[k][i][j+1] += rock_acc[k][i][j]
+				rock_acc[i_off + j + 1] += rock_acc[i_off + j]
+	# y 方向の累積和
 	for i in range(h):
+		var i_off: int = i * w
 		for j in range(w):
+			var col: int = i_off + j
 			for k in range(d-1):
-				rock_acc[k+1][i][j] += rock_acc[k][i][j]
+				rock_acc[(k+1) * hw + col] += rock_acc[k * hw + col]
 	for y in range(30,d):
 		for x in range(h):
 			for z in range(w):
@@ -544,56 +617,26 @@ func find_cave_entrance(sth:int,stw:int,map:Array):
 				if x+entrance_width_radius < h and x-entrance_width_radius >= 0 and y+entrance_height_radius < d and y-entrance_height_radius >= 0 and z+1 < w and z-1 >= 0:
 					if _map3dnum_flat[(y-entrance_height_radius) * worldh * worldw + (x+sth) * worldw + (y+stw)] != 2:
 						continue
-					var rock_sum = 0
 					var lx = int(x-entrance_width_radius)
 					var ly = int(y-entrance_height_radius)
 					var lz = z-1
 					var rx = int(x+entrance_width_radius)
 					var ry = int(y+entrance_height_radius)
 					var rz = z+1
-					rock_sum += rock_acc[ry][rx][rz]
-					if ly-1 >= 0:
-						rock_sum -= rock_acc[ly-1][rx][rz]
-					if lx-1 >= 0:
-						rock_sum -= rock_acc[ry][lx-1][rz]
-					if lz-1 >= 0:
-						rock_sum -= rock_acc[ry][rx][lz-1]
-					if lx-1 >= 0 and ly-1 >= 0:
-						rock_sum += rock_acc[ly-1][lx-1][rz]
-					if lx-1 >= 0 and lz-1 >= 0:
-						rock_sum += rock_acc[ry][lx-1][lz-1]
-					if ly-1 >= 0 and lz-1 >= 0:
-						rock_sum += rock_acc[ly-1][rx][lz-1]
-					if lx-1 >= 0 and ly-1 >= 0 and lz-1 >= 0:
-						rock_sum -= rock_acc[ly-1][lx-1][lz-1]
-					if (entrance_width_radius*2-1)*(entrance_height_radius*2-1) <= rock_sum:			
+					var rock_sum: int = _prefix_box_sum(rock_acc, hw, w, lx, ly, lz, rx, ry, rz)
+					if (entrance_width_radius*2-1)*(entrance_height_radius*2-1) <= rock_sum:
 						if  map[x][z-1] < map[x][z] || map[x][z] < map[x][z+1]:
 							candidates.append([Vector3i(x+sth,y,z+stw),0,1])
 						else:
 							candidates.append([Vector3i(x+sth,y,z+stw),0,0])
 				if x+1 < h and x-1 >= 0 and y+entrance_height_radius < d and y-entrance_height_radius >= 0 and z+entrance_width_radius < w and z-entrance_width_radius >= 0:
-					var rock_sum = 0
 					var lx = x-1
 					var ly = int(y-entrance_height_radius)
 					var lz = int(z-entrance_width_radius)
 					var rx = x+1
 					var ry = int(y+entrance_height_radius)
 					var rz = int(z+entrance_width_radius)
-					rock_sum += rock_acc[ry][rx][rz]
-					if ly-1 >= 0:
-						rock_sum -= rock_acc[ly-1][rx][rz]
-					if lx-1 >= 0:
-						rock_sum -= rock_acc[ry][lx-1][rz]
-					if lz-1 >= 0:
-						rock_sum -= rock_acc[ry][rx][lz-1]
-					if lx-1 >= 0 and ly-1 >= 0:
-						rock_sum += rock_acc[ly-1][lx-1][rz]
-					if lx-1 >= 0 and lz-1 >= 0:
-						rock_sum += rock_acc[ry][lx-1][lz-1]
-					if ly-1 >= 0 and lz-1 >= 0:
-						rock_sum += rock_acc[ly-1][rx][lz-1]
-					if lx-1 >= 0 and ly-1 >= 0 and lz-1 >= 0:
-						rock_sum -= rock_acc[ly-1][lx-1][lz-1]
+					var rock_sum: int = _prefix_box_sum(rock_acc, hw, w, lx, ly, lz, rx, ry, rz)
 					if (entrance_width_radius*2-1)*(entrance_height_radius*2-1) <= rock_sum:
 						if  map[x-1][z] < map[x][z] or map[x][z] < map[x+1][z]:
 							candidates.append([Vector3i(x+sth,y,z+stw),1,1])
@@ -663,6 +706,23 @@ func assign_num(snowheight:float,assignnum:Array,map:Array,max_height:float)->Ar
 	var SNOW_START_HEIGHT = snowheight
 	var ROCK_SLOPE_MIN = 0.55
 	var ROCK_HEIGHT_FACTOR = 0.3
+	# --- 草と土を1:1に分割するためのノイズ中央値を先に求める（地形サイズに依存しない割り当て） ---
+	var noise_vals = PackedFloat32Array()
+	for i in range(h):
+		for j in range(w):
+			var h0: float = map[i][j]
+			if h0 == 0.0:
+				continue
+			var nh0: float = h0 / max_height if max_height > 0 else 0.0
+			if nh0 > SNOW_START_HEIGHT:
+				continue
+			if get_slope(i, j, map) > ROCK_SLOPE_MIN - (nh0 * ROCK_HEIGHT_FACTOR):
+				continue
+			noise_vals.append(noise.get_noise_2d(float(i), float(j)))
+	var split_threshold := 0.0
+	if noise_vals.size() > 0:
+		noise_vals.sort()
+		split_threshold = noise_vals[noise_vals.size() / 2]
 	for i in range(h):
 		for j in range(w):
 			if(i>=h||j>=w):
@@ -691,8 +751,8 @@ func assign_num(snowheight:float,assignnum:Array,map:Array,max_height:float)->Ar
 				continue
 
 			### 変更: 残りのエリアを草と土で1:1に分割
-			var n = (noise.get_noise_2d(float(i), float(j)) + 1.0) / 2.0
-			if n < 0.5:
+			var n = noise.get_noise_2d(float(i), float(j))
+			if n < split_threshold:
 				assignnum[i][j] = 4
 			else:
 				assignnum[i][j] = 5
@@ -795,7 +855,6 @@ var _chunk_queue_needs_sort: bool = false
 func _process(delta):
 	if is_generating:
 		return
-	var start_process = Time.get_ticks_usec()
 
 	var cur_pos = player.global_transform.origin
 	var px = int(cur_pos.x / rh)
@@ -825,17 +884,8 @@ func _process(delta):
 				player.process_mode = Node.PROCESS_MODE_INHERIT
 				is_player_frozen_for_chunk = false
 			
-	var processed_chunks = 0
 	if not chunk_queue.is_empty():
-		processed_chunks = _process_chunk_queue(cur_pos)
-
-	var end_process = Time.get_ticks_usec()
-	var frame_ms = (end_process - start_process) / 1000.0
-	frame_times.append(frame_ms)
-	if frame_ms > 16.6:
-		over_16ms_count += 1
-		if processed_chunks > 0:
-			over_16ms_chunk_count += 1
+		_process_chunk_queue(cur_pos)
 
 
 
@@ -1277,6 +1327,12 @@ func _thread_calculate_chunk_data(i1: int, j1: int, result_container: Array):
 				if curmap3dnum == -1:
 					_chunk_mask_flat[c_idx] = 1
 					continue
+				if curmap3dnum == 1:
+					var in_cave_region: bool = gi >= cave_start_h and gi < cave_start_h + h and gj >= cave_start_w and gj < cave_start_w + w
+					if k < 30 or in_cave_region:
+						# 洞窟内の水は通り抜け可能にする。
+						# 見た目の水面は残すため、ここではスキップせずに面カリングへ進む。
+						_chunk_mask_flat[c_idx] = 1
 
 				# 6方向それぞれの隣接ブロックを調べ、露出している面のビットマスク(0..63)を計算
 				var fmask = 0
@@ -1321,28 +1377,36 @@ func _thread_calculate_chunk_data(i1: int, j1: int, result_container: Array):
 					mat_face_counts[curmap3dnum] += fcnt
 
 	# スレッド安全なローカル面テンプレート定義（WorkerThreadPoolでのArray共有参照競合を完全回避）
+	# 各方向の正しい立方体面（反時計回り）。方向順は f_norms と一致。
+	# 0:-X / 1:+X / 2:-Y / 3:+Y / 4:-Z / 5:+Z
 	var f_v0 = PackedVector3Array([
-		Vector3(-0.5, 0.5, -0.5), Vector3(0.5, 0.5, 0.5), Vector3(-0.5, -0.5, 0.5),
-		Vector3(-0.5, 0.5, -0.5), Vector3(0.5, 0.5, -0.5), Vector3(-0.5, 0.5, 0.5)
+		Vector3(-0.5, -0.5, -0.5), Vector3(0.5, -0.5, 0.5), Vector3(-0.5, -0.5, -0.5),
+		Vector3(-0.5, 0.5, -0.5), Vector3(-0.5, -0.5, -0.5), Vector3(-0.5, -0.5, 0.5)
 	])
 	var f_v1 = PackedVector3Array([
-		Vector3(-0.5, 0.5, 0.5), Vector3(0.5, 0.5, -0.5), Vector3(0.5, -0.5, 0.5),
-		Vector3(0.5, 0.5, -0.5), Vector3(-0.5, 0.5, -0.5), Vector3(0.5, 0.5, 0.5)
+		Vector3(-0.5, -0.5, 0.5), Vector3(0.5, -0.5, -0.5), Vector3(0.5, -0.5, -0.5),
+		Vector3(-0.5, 0.5, 0.5), Vector3(-0.5, 0.5, -0.5), Vector3(0.5, -0.5, 0.5)
 	])
 	var f_v2 = PackedVector3Array([
-		Vector3(-0.5, -0.5, 0.5), Vector3(0.5, -0.5, -0.5), Vector3(0.5, -0.5, -0.5),
-		Vector3(0.5, 0.5, 0.5), Vector3(-0.5, -0.5, -0.5), Vector3(0.5, -0.5, 0.5)
+		Vector3(-0.5, 0.5, 0.5), Vector3(0.5, 0.5, -0.5), Vector3(0.5, -0.5, 0.5),
+		Vector3(0.5, 0.5, 0.5), Vector3(0.5, 0.5, -0.5), Vector3(0.5, 0.5, 0.5)
 	])
 	var f_v3 = PackedVector3Array([
-		Vector3(-0.5, -0.5, -0.5), Vector3(0.5, -0.5, 0.5), Vector3(-0.5, -0.5, -0.5),
-		Vector3(-0.5, 0.5, 0.5), Vector3(0.5, -0.5, -0.5), Vector3(-0.5, -0.5, 0.5)
+		Vector3(-0.5, 0.5, -0.5), Vector3(0.5, 0.5, 0.5), Vector3(-0.5, -0.5, 0.5),
+		Vector3(0.5, 0.5, -0.5), Vector3(0.5, -0.5, -0.5), Vector3(-0.5, 0.5, 0.5)
 	])
 	var f_norms = PackedVector3Array([
 		Vector3(-1.0, 0.0, 0.0), Vector3(1.0, 0.0, 0.0), Vector3(0.0, -1.0, 0.0),
 		Vector3(0.0, 1.0, 0.0), Vector3(0.0, 0.0, -1.0), Vector3(0.0, 0.0, 1.0)
 	])
-	var f_tx = PackedFloat32Array([0.0, 0.0, 1.0, 1.0, -1.0, 1.0])
-	var f_tz = PackedFloat32Array([1.0, -1.0, 0.0, 0.0, 0.0, 0.0])
+	# UV の U 方向に対応する接線ベクトル（v1 - v0 の向き）
+	var f_tangents = PackedVector3Array([
+		Vector3(0.0, 0.0, 1.0), Vector3(0.0, 0.0, -1.0), Vector3(1.0, 0.0, 0.0),
+		Vector3(0.0, 0.0, 1.0), Vector3(0.0, 1.0, 0.0), Vector3(1.0, 0.0, 0.0)
+	])
+	# UV の V 方向（v3 - v0）が normal × tangent の反対向きになるため、
+	# 従法線の符号はすべて -1 にする。
+	var f_tangent_sign := -1.0
 	var uv0 = Vector2(0.0, 0.0)
 	var uv1 = Vector2(1.0, 0.0)
 	var uv2 = Vector2(1.0, 1.0)
@@ -1382,8 +1446,7 @@ func _thread_calculate_chunk_data(i1: int, j1: int, result_container: Array):
 				if (fmask & (1 << d_dir)) == 0:
 					continue
 				var f_norm: Vector3 = f_norms[d_dir]
-				var tx = f_tx[d_dir]
-				var tz = f_tz[d_dir]
+				var f_tan: Vector3 = f_tangents[d_dir]
 
 				verts[v_cursor + 0] = center_pos + f_v0[d_dir]
 				verts[v_cursor + 1] = center_pos + f_v1[d_dir]
@@ -1395,22 +1458,23 @@ func _thread_calculate_chunk_data(i1: int, j1: int, result_container: Array):
 				norms[v_cursor + 2] = f_norm
 				norms[v_cursor + 3] = f_norm
 
-				tans[t_cursor + 0] = tx; tans[t_cursor + 1] = 0.0; tans[t_cursor + 2] = tz; tans[t_cursor + 3] = 1.0
-				tans[t_cursor + 4] = tx; tans[t_cursor + 5] = 0.0; tans[t_cursor + 6] = tz; tans[t_cursor + 7] = 1.0
-				tans[t_cursor + 8] = tx; tans[t_cursor + 9] = 0.0; tans[t_cursor + 10] = tz; tans[t_cursor + 11] = 1.0
-				tans[t_cursor + 12] = tx; tans[t_cursor + 13] = 0.0; tans[t_cursor + 14] = tz; tans[t_cursor + 15] = 1.0
+				tans[t_cursor + 0] = f_tan.x; tans[t_cursor + 1] = f_tan.y; tans[t_cursor + 2] = f_tan.z; tans[t_cursor + 3] = f_tangent_sign
+				tans[t_cursor + 4] = f_tan.x; tans[t_cursor + 5] = f_tan.y; tans[t_cursor + 6] = f_tan.z; tans[t_cursor + 7] = f_tangent_sign
+				tans[t_cursor + 8] = f_tan.x; tans[t_cursor + 9] = f_tan.y; tans[t_cursor + 10] = f_tan.z; tans[t_cursor + 11] = f_tangent_sign
+				tans[t_cursor + 12] = f_tan.x; tans[t_cursor + 13] = f_tan.y; tans[t_cursor + 14] = f_tan.z; tans[t_cursor + 15] = f_tangent_sign
 
 				uvs[v_cursor + 0] = uv0
 				uvs[v_cursor + 1] = uv1
 				uvs[v_cursor + 2] = uv2
 				uvs[v_cursor + 3] = uv3
 
+				# Godot の前面判定に合わせた巻き順（反時計回りの頂点順を逆に使う）
 				indices[i_cursor + 0] = v_cursor + 0
-				indices[i_cursor + 1] = v_cursor + 1
-				indices[i_cursor + 2] = v_cursor + 2
+				indices[i_cursor + 1] = v_cursor + 2
+				indices[i_cursor + 2] = v_cursor + 1
 				indices[i_cursor + 3] = v_cursor + 0
-				indices[i_cursor + 4] = v_cursor + 2
-				indices[i_cursor + 5] = v_cursor + 3
+				indices[i_cursor + 4] = v_cursor + 3
+				indices[i_cursor + 5] = v_cursor + 2
 
 				v_cursor += 4
 				t_cursor += 16
@@ -1954,33 +2018,33 @@ func snow_leveling(map:Array):
 	for i in range(h):
 		for j in range(w):
 			sum_height[i][j] = map[i][j]
-			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
+			if i-5 < 0 or i+5 >= h or j-5 < 0 or j+5 >= w or map[i][j] == 0.0:
 				continue
-			if map[i-1][j] <= SNOWHEIGHT:
+			if map[i-1][j] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i-2][j] <= SNOWHEIGHT:
+			if map[i-2][j] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i+1][j] <= SNOWHEIGHT:
+			if map[i+1][j] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i+2][j] <= SNOWHEIGHT:
+			if map[i+2][j] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i][j-1] <= SNOWHEIGHT:
+			if map[i][j-1] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i][j-2] <= SNOWHEIGHT:
+			if map[i][j-2] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i][j+1] <= SNOWHEIGHT:
+			if map[i][j+1] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i][j+2] <= SNOWHEIGHT:
+			if map[i][j+2] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i][j] <= SNOWHEIGHT:
+			if map[i][j] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i+1][j+1] <= SNOWHEIGHT:
+			if map[i+1][j+1] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i+1][j-1] <= SNOWHEIGHT:
+			if map[i+1][j-1] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i-1][j-1] <= SNOWHEIGHT:
+			if map[i-1][j-1] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i-1][j+1] <= SNOWHEIGHT:
+			if map[i-1][j+1] <= SNOWHEIGHT * max_height:
 				continue
 			sum[i][j] = 1
 	for i in range(h):
@@ -2013,7 +2077,9 @@ func snow_leveling(map:Array):
 				cur_height += sum_height[i-1][j-1]
 			if cursum == battle_height*battle_width:
 				battle_point_candidate.append([i,j,cur_height])
-	var res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
+	var res = null
+	if battle_point_candidate.size() > 0:
+		res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
 	if res == null:
 		# Fallback: Find the highest point in the map to place the snow boss
 		var highest_i = int(h/2)
@@ -2068,33 +2134,33 @@ func snow_leveling1(map:Array,pos:Vector2):
 	for i in range(h):
 		for j in range(w):
 			sum_height[i][j] = map[i][j]
-			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
+			if i-5 < 0 or i+5 >= h or j-5 < 0 or j+5 >= w or map[i][j] == 0.0:
 				continue
-			if map[i-1][j] <= SNOWHEIGHT:
+			if map[i-1][j] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i-2][j] <= SNOWHEIGHT:
+			if map[i-2][j] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i+1][j] <= SNOWHEIGHT:
+			if map[i+1][j] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i+2][j] <= SNOWHEIGHT:
+			if map[i+2][j] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i][j-1] <= SNOWHEIGHT:
+			if map[i][j-1] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i][j-2] <= SNOWHEIGHT:
+			if map[i][j-2] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i][j+1] <= SNOWHEIGHT:
+			if map[i][j+1] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i][j+2] <= SNOWHEIGHT:
+			if map[i][j+2] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i][j] <= SNOWHEIGHT:
+			if map[i][j] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i+1][j+1] <= SNOWHEIGHT:
+			if map[i+1][j+1] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i+1][j-1] <= SNOWHEIGHT:
+			if map[i+1][j-1] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i-1][j-1] <= SNOWHEIGHT:
+			if map[i-1][j-1] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i-1][j+1] <= SNOWHEIGHT:
+			if map[i-1][j+1] <= SNOWHEIGHT * max_height:
 				continue
 			if i >= pos.x and i < pos.x+battle_height:
 				continue
@@ -2131,7 +2197,9 @@ func snow_leveling1(map:Array,pos:Vector2):
 				cur_height += sum_height[i-1][j-1]
 			if cursum == shop_height*shop_width:
 				battle_point_candidate.append([i,j,cur_height])
-	var res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
+	var res = null
+	if battle_point_candidate.size() > 0:
+		res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
 	if res == null:
 		res = [h/2, w/2, 0.0]
 	
@@ -2156,33 +2224,33 @@ func plane_leveling(map:Array):
 	for i in range(h):
 		for j in range(w):
 			sum_height[i][j] = map[i][j]
-			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
+			if i-5 < 0 or i+5 >= h or j-5 < 0 or j+5 >= w or map[i][j] == 0.0:
 				continue
-			if map[i-1][j] > SNOWHEIGHT:
+			if map[i-1][j] > SNOWHEIGHT * max_height:
 				continue
-			if map[i-2][j] > SNOWHEIGHT:
+			if map[i-2][j] > SNOWHEIGHT * max_height:
 				continue
-			if map[i+1][j] > SNOWHEIGHT:
+			if map[i+1][j] > SNOWHEIGHT * max_height:
 				continue
-			if map[i+2][j] > SNOWHEIGHT:
+			if map[i+2][j] > SNOWHEIGHT * max_height:
 				continue
-			if map[i][j-1] > SNOWHEIGHT:
+			if map[i][j-1] > SNOWHEIGHT * max_height:
 				continue
-			if map[i][j-2] > SNOWHEIGHT:
+			if map[i][j-2] > SNOWHEIGHT * max_height:
 				continue
-			if map[i][j+1] > SNOWHEIGHT:
+			if map[i][j+1] > SNOWHEIGHT * max_height:
 				continue
-			if map[i][j+2] > SNOWHEIGHT:
+			if map[i][j+2] > SNOWHEIGHT * max_height:
 				continue
-			if map[i][j] > SNOWHEIGHT:
+			if map[i][j] > SNOWHEIGHT * max_height:
 				continue
-			if map[i+1][j+1] > SNOWHEIGHT:
+			if map[i+1][j+1] > SNOWHEIGHT * max_height:
 				continue
-			if map[i+1][j-1] > SNOWHEIGHT:
+			if map[i+1][j-1] > SNOWHEIGHT * max_height:
 				continue
-			if map[i-1][j-1] > SNOWHEIGHT:
+			if map[i-1][j-1] > SNOWHEIGHT * max_height:
 				continue
-			if map[i-1][j+1] > SNOWHEIGHT:
+			if map[i-1][j+1] > SNOWHEIGHT * max_height:
 				continue
 			sum[i][j] = 1
 	for i in range(h):
@@ -2215,7 +2283,9 @@ func plane_leveling(map:Array):
 				cur_height += sum_height[i-1][j-1]
 			if cursum == battle_height*battle_width:
 				battle_point_candidate.append([i,j,cur_height])
-	var res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
+	var res = null
+	if battle_point_candidate.size() > 0:
+		res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
 	if res == null:
 		res = [h/2, w/2, 0.0]
 	
@@ -2241,33 +2311,33 @@ func plane_leveling1(map:Array,pos:Vector2):
 	for i in range(h):
 		for j in range(w):
 			sum_height[i][j] = map[i][j]
-			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
+			if i-5 < 0 or i+5 >= h or j-5 < 0 or j+5 >= w or map[i][j] == 0.0:
 				continue
-			if map[i-1][j] > SNOWHEIGHT:
+			if map[i-1][j] > SNOWHEIGHT * max_height:
 				continue
-			if map[i-2][j] > SNOWHEIGHT:
+			if map[i-2][j] > SNOWHEIGHT * max_height:
 				continue
-			if map[i+1][j] > SNOWHEIGHT:
+			if map[i+1][j] > SNOWHEIGHT * max_height:
 				continue
-			if map[i+2][j] > SNOWHEIGHT:
+			if map[i+2][j] > SNOWHEIGHT * max_height:
 				continue
-			if map[i][j-1] > SNOWHEIGHT:
+			if map[i][j-1] > SNOWHEIGHT * max_height:
 				continue
-			if map[i][j-2] > SNOWHEIGHT:
+			if map[i][j-2] > SNOWHEIGHT * max_height:
 				continue
-			if map[i][j+1] > SNOWHEIGHT:
+			if map[i][j+1] > SNOWHEIGHT * max_height:
 				continue
-			if map[i][j+2] > SNOWHEIGHT:
+			if map[i][j+2] > SNOWHEIGHT * max_height:
 				continue
-			if map[i][j] > SNOWHEIGHT:
+			if map[i][j] > SNOWHEIGHT * max_height:
 				continue
-			if map[i+1][j+1] > SNOWHEIGHT:
+			if map[i+1][j+1] > SNOWHEIGHT * max_height:
 				continue
-			if map[i+1][j-1] > SNOWHEIGHT:
+			if map[i+1][j-1] > SNOWHEIGHT * max_height:
 				continue
-			if map[i-1][j-1] > SNOWHEIGHT:
+			if map[i-1][j-1] > SNOWHEIGHT * max_height:
 				continue
-			if map[i-1][j+1] > SNOWHEIGHT:
+			if map[i-1][j+1] > SNOWHEIGHT * max_height:
 				continue
 			if i >= pos.x and i < pos.x+battle_height:
 				continue
@@ -2304,7 +2374,9 @@ func plane_leveling1(map:Array,pos:Vector2):
 				cur_height += sum_height[i-1][j-1]
 			if cursum == shop_height*shop_width:
 				battle_point_candidate.append([i,j,cur_height])
-	var res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
+	var res = null
+	if battle_point_candidate.size() > 0:
+		res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
 	if res == null:
 		res = [h/2, w/2, 0.0]
 	
@@ -2329,7 +2401,7 @@ func desert_leveling(map:Array):
 	for i in range(h):
 		for j in range(w):
 			sum_height[i][j] = map[i][j]
-			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
+			if i-5 < 0 or i+5 >= h or j-5 < 0 or j+5 >= w or map[i][j] == 0.0:
 				continue
 			if map[i-1][j] == 0:
 				continue
@@ -2388,7 +2460,9 @@ func desert_leveling(map:Array):
 				cur_height += sum_height[i-1][j-1]
 			if cursum == battle_height*battle_width:
 				battle_point_candidate.append([i,j,cur_height])
-	var res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
+	var res = null
+	if battle_point_candidate.size() > 0:
+		res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
 	if res == null:
 		# Fallback: Find the highest point in the map to place the snow boss
 		var highest_i = int(h/2)
@@ -2443,7 +2517,7 @@ func desert_leveling1(map:Array,pos:Vector2):
 	for i in range(h):
 		for j in range(w):
 			sum_height[i][j] = map[i][j]
-			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
+			if i-5 < 0 or i+5 >= h or j-5 < 0 or j+5 >= w or map[i][j] == 0.0:
 				continue
 			if map[i-1][j] == 0:
 				continue
@@ -2506,7 +2580,9 @@ func desert_leveling1(map:Array,pos:Vector2):
 				cur_height += sum_height[i-1][j-1]
 			if cursum == shop_height*shop_width:
 				battle_point_candidate.append([i,j,cur_height])
-	var res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
+	var res = null
+	if battle_point_candidate.size() > 0:
+		res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
 	if res == null:
 		res = [h/2, w/2, 0.0]
 	
@@ -2531,7 +2607,7 @@ func cave_leveling(map:Array,floor:Array):
 	for i in range(h):
 		for j in range(w):
 			sum_height[i][j] = floor[i][j]
-			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
+			if i-5 < 0 or i+5 >= h or j-5 < 0 or j+5 >= w or map[i][j] == 0.0:
 				continue
 			if map[i-1][j] == 5:
 				continue
@@ -2590,7 +2666,9 @@ func cave_leveling(map:Array,floor:Array):
 				cur_height += sum_height[i-1][j-1]
 			if cursum == battle_height*battle_width:
 				battle_point_candidate.append([i,j,cur_height])
-	var res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
+	var res = null
+	if battle_point_candidate.size() > 0:
+		res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
 	if res == null:
 		res = [h/2, w/2, 0.0]
 	for i in range(battle_height):
@@ -2614,7 +2692,7 @@ func cave_leveling1(map:Array,floor:Array,pos:Vector2):
 	for i in range(h):
 		for j in range(w):
 			sum_height[i][j] = floor[i][j]
-			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
+			if i-5 < 0 or i+5 >= h or j-5 < 0 or j+5 >= w or map[i][j] == 0.0:
 				continue
 			if map[i-1][j] == 5:
 				continue
@@ -2677,7 +2755,9 @@ func cave_leveling1(map:Array,floor:Array,pos:Vector2):
 				cur_height += sum_height[i-1][j-1]
 			if cursum == shop_height*shop_width:
 				battle_point_candidate.append([i,j,cur_height])
-	var res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
+	var res = null
+	if battle_point_candidate.size() > 0:
+		res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
 	if res == null:
 		res = [h/2, w/2, 0.0]
 	for i in range(shop_height):
@@ -2701,33 +2781,33 @@ func castle_leveling(map:Array):
 	for i in range(h):
 		for j in range(w):
 			sum_height[i][j] = map[i][j]
-			if i-2 < 0 or i+2 >= h or j-2 < 0 or j+2 >= w:
+			if i-5 < 0 or i+5 >= h or j-5 < 0 or j+5 >= w or map[i][j] == 0.0:
 				continue
-			if map[i-1][j] <= SNOWHEIGHT:
+			if map[i-1][j] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i-2][j] <= SNOWHEIGHT:
+			if map[i-2][j] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i+1][j] <= SNOWHEIGHT:
+			if map[i+1][j] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i+2][j] <= SNOWHEIGHT:
+			if map[i+2][j] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i][j-1] <= SNOWHEIGHT:
+			if map[i][j-1] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i][j-2] <= SNOWHEIGHT:
+			if map[i][j-2] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i][j+1] <= SNOWHEIGHT:
+			if map[i][j+1] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i][j+2] <= SNOWHEIGHT:
+			if map[i][j+2] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i][j] <= SNOWHEIGHT:
+			if map[i][j] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i+1][j+1] <= SNOWHEIGHT:
+			if map[i+1][j+1] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i+1][j-1] <= SNOWHEIGHT:
+			if map[i+1][j-1] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i-1][j-1] <= SNOWHEIGHT:
+			if map[i-1][j-1] <= SNOWHEIGHT * max_height:
 				continue
-			if map[i-1][j+1] <= SNOWHEIGHT:
+			if map[i-1][j+1] <= SNOWHEIGHT * max_height:
 				continue
 			sum[i][j] = 1
 	for i in range(h):
@@ -2760,7 +2840,9 @@ func castle_leveling(map:Array):
 				cur_height += sum_height[i-1][j-1]
 			if cursum == battle_height*battle_width:
 				battle_point_candidate.append([i,j,cur_height])
-	var res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
+	var res = null
+	if battle_point_candidate.size() > 0:
+		res = battle_point_candidate[_rng.randi() % battle_point_candidate.size()]
 	if res == null:
 		# Fallback: Find the highest point in the map to place the snow boss
 		var highest_i = int(h/2)
@@ -3438,6 +3520,12 @@ func make_castle():
 	# Position castle_shop if node exists
 	var c_shop = get_parent().get_node_or_null("castle_shop")
 	var base_y_int = int(floor(baseheightma / 0.1))
+	# 3F のボス部屋（33x33 の開けた床）を城内の戦場として使う。
+	castle_battle_pos = Vector3(
+		sth + 10 + int(height / 2) - 5,
+		base_y_int + 15,
+		stw + 10 + int(width / 2) - 5
+	)
 	if c_shop:
 		castle_shop_pos = Vector3(sth + 18, base_y_int + 4 + shop_height / 2, stw + 14)
 		c_shop.position = castle_shop_pos
@@ -4077,6 +4165,8 @@ func _async_generate_terrain():
 				map[i][j] += snowseparation
 	max_height = maxheight_val + snowseparation
 	SNOWHEIGHT = snow_threshold / max_height
+	assignnum = await assign_num(SNOWHEIGHT,assignnum,map,max_height)
+	apply_surrounding_sea_coastline(map, assignnum, plane_start_h, plane_start_w, 6)
 	await _set_loading_text("Generating Snow Biome...")
 	var res_leveling = await snow_leveling(map)
 	map = res_leveling[0]
@@ -4086,21 +4176,21 @@ func _async_generate_terrain():
 	map = res_leveling1[0]
 	var res_shop_leveling1 = await plane_leveling1(map,Vector2(res_leveling[1],res_leveling[2]))
 	aroundheightmin = await assign_aroundheightmin(aroundheightmin,map)
-	assignnum = await assign_num(SNOWHEIGHT,assignnum,map,max_height)
-	apply_surrounding_sea_coastline(map, assignnum, plane_start_h, plane_start_w, 12)
-	aroundheightmin = await assign_aroundheightmin(aroundheightmin,map)
 	for i in range(h):
 		aroundheightmin[i][0] = min(aroundheightmin[i][0], 0.0)
 		aroundheightmin[i][w-1] = min(aroundheightmin[i][w-1], 0.0)
 	for i in range(w):
 		aroundheightmin[0][i] = min(aroundheightmin[0][i], 0.0)
 		aroundheightmin[h-1][i] = min(aroundheightmin[h-1][i], 0.0)			
+	var stride: int = worldh * worldw
 	for i in range(worldh):
+		var col: int = i * worldw
 		for j in range(worldw):
 			# Solid seabed under 2 blocks of ocean water
-			_map3dnum_flat[(28) * worldh * worldw + (i) * worldw + (j)] = 5
-			_map3dnum_flat[(29) * worldh * worldw + (i) * worldw + (j)] = 5
-			_map3dnum_flat[(30) * worldh * worldw + (i) * worldw + (j)] = 1
+			_map3dnum_flat[28 * stride + col] = 5
+			_map3dnum_flat[29 * stride + col] = 5
+			_map3dnum_flat[30 * stride + col] = 1
+			col += 1
 	for i in range(h):
 		for j in range(w):
 			map[i][j] += 3.0
@@ -4117,12 +4207,15 @@ func _async_generate_terrain():
 	get_parent().get_node("plain_shop/Area3D/CollisionShape3D").scale *= shop_height
 	var main_node = get_parent()
 	for i in range(h):
+		var row_off: int = (i + plane_start_h) * worldw + plane_start_w
 		for j in range(w):
-			var height = int(floor(map[i][j]/0.1))
-			var around = int(floor(aroundheightmin[i][j]/0.1))
-			var diff = height-around
+			var height: int = int(floor(map[i][j]/0.1))
+			var around: int = int(floor(aroundheightmin[i][j]/0.1))
+			var diff: int = height-around
+			var value: int = assignnum[i][j]
+			var col: int = row_off + j
 			for k in range(diff+1):
-				_map3dnum_flat[(height-k) * worldh * worldw + (i+plane_start_h) * worldw + (j+plane_start_w)] = assignnum[i][j]
+				_map3dnum_flat[(height-k) * stride + col] = value
 	#洞窟生成
 	var floor = []#迷路の床
 	var floorheightmin = []
@@ -4214,11 +4307,13 @@ func _async_generate_terrain():
 	get_parent().get_node("cave_shop").scale *= shop_height
 	get_parent().get_node("cave_shop/Area3D/CollisionShape3D").scale *= shop_height
 	for i in range(h):
+		var cave_row_off: int = (i + cave_start_h) * worldw + cave_start_w
 		for j in range(w):
-			var height = int(floor(floor[i][j]/0.1))+10
+			var height: int = int(floor(floor[i][j]/0.1))+10
+			var cave_col: int = cave_row_off + j
 			for k in range(height,30):
 				if caves[k-height][i][j] == 5:
-					_map3dnum_flat[(k) * worldh * worldw + (i+cave_start_h) * worldw + (j+cave_start_w)] = 5
+					_map3dnum_flat[k * stride + cave_col] = 5
 	#砂漠生成
 	_end_phase("Phase 2: Cave", map, floor, ceiling, null, map3dnum)
 	_start_phase("Phase 3: Desert")
@@ -4269,20 +4364,20 @@ func _async_generate_terrain():
 				desert[i][j] = 0
 	
 	desertheightmax += 1.0
+	desertassignnum = await assign_num(SNOWHEIGHT,desertassignnum,desert,desertheightmax)
+	apply_surrounding_sea_coastline(desert, desertassignnum, desert_start_h, desert_start_w, 6)
 	res_leveling = await desert_leveling(desert)
 	desert = res_leveling[0]
 	res_shop_leveling = await desert_leveling1(desert,Vector2(res_leveling[1],res_leveling[2]))
-	desertassignnum = await assign_num(SNOWHEIGHT,desertassignnum,desert,desertheightmax)
 	for i in range(h):
 		for j in range(w):
 			desert[i][j] += 3.0
 	desertheightmi = 3.0
-	desert_battle_pos = Vector3(res_leveling[1]+desert_start_h,int(floor(desert[res_leveling[1]][res_leveling[2]])),res_leveling[2]+desert_start_w)
-	desert_shop_pos = Vector3(res_shop_leveling[1]+desert_start_h,int(floor(desert[res_shop_leveling[1]][res_shop_leveling[2]]))+shop_height/2,res_shop_leveling[2]+desert_start_w)
+	desert_battle_pos = Vector3(res_leveling[1]+desert_start_h,int(floor(desert[res_leveling[1]][res_leveling[2]]/0.1)),res_leveling[2]+desert_start_w)
+	desert_shop_pos = Vector3(res_shop_leveling[1]+desert_start_h,int(floor(desert[res_shop_leveling[1]][res_shop_leveling[2]]/0.1))+shop_height/2,res_shop_leveling[2]+desert_start_w)
 	get_parent().get_node("desert_shop").position = desert_shop_pos
 	get_parent().get_node("desert_shop").scale *= shop_height
 	get_parent().get_node("desert_shop/Area3D/CollisionShape3D").scale *= shop_height
-	apply_surrounding_sea_coastline(desert, desertassignnum, desert_start_h, desert_start_w, 12)
 	desertheightmin = await assign_aroundheightmin(desertheightmin,desert)
 	for i in range(h):
 		desertheightmin[i][0] = min(desertheightmin[i][0],3.0)
@@ -4295,12 +4390,15 @@ func _async_generate_terrain():
 			if desertassignnum[i][j] != 2 and desertassignnum[i][j] != 1:
 				desertassignnum[i][j] = 5
 	for i in range(h):
+		var desert_row_off: int = (i + desert_start_h) * worldw + desert_start_w
 		for j in range(w):
-			var height = int(floor(desert[i][j]/0.1))
-			var around = int(floor(desertheightmin[i][j]/0.1))
-			var diff = height-around
+			var height: int = int(floor(desert[i][j]/0.1))
+			var around: int = int(floor(desertheightmin[i][j]/0.1))
+			var diff: int = height-around
+			var value: int = desertassignnum[i][j]
+			var desert_col: int = desert_row_off + j
 			for k in range(diff+1):
-				_map3dnum_flat[(height-k) * worldh * worldw + (i+desert_start_h) * worldw + (j+desert_start_w)] = desertassignnum[i][j]
+				_map3dnum_flat[(height-k) * stride + desert_col] = value
 	#洞窟の入口生成		
 	var caveentrance = await find_cave_entrance(plane_start_h,plane_start_w,map)
 	get_parent().get_node("CharacterBody3D").position = caveentrance[0]+Vector3i(0,100,0)
@@ -4496,6 +4594,10 @@ func _async_generate_terrain():
 		player_char.position = best_player_pos
 		if "safe_respawn_position" in player_char:
 			player_char.safe_respawn_position = best_player_pos
+		# ショップ方向を向いてスタートする。
+		var face_dir = plane_shop_pos - best_player_pos
+		if Vector2(face_dir.x, face_dir.z).length() > 1.0:
+			player_char.rotation.y = atan2(-face_dir.x, -face_dir.z)
 
 	# --- Populate POI Data for Map Highlighting ---
 	poi_data.clear()

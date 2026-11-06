@@ -149,7 +149,7 @@ func spawn_enemy(pos: Vector3) -> void:
 	var area_shape = CollisionShape3D.new()
 	if not _shared_detect_sphere:
 		_shared_detect_sphere = SphereShape3D.new()
-		_shared_detect_sphere.radius = 2.5
+		_shared_detect_sphere.radius = 1.5
 	area_shape.shape = _shared_detect_sphere
 	detection_area.add_child(area_shape)
 	enemy_instance.add_child(detection_area)
@@ -359,15 +359,17 @@ func spawn_boss(enemy_key: String, pos: Vector3, scale_mult: float = 3.0, biome:
 	enemy_instance.state = 0 # IDLE
 	enemy_instance.enemy_name = enemy_key
 
-	# Detection Area (boss has scale_mult applied to node, so 3.5 becomes 10.5m~17.5m in world space)
+	# Detection Area (boss has scale_mult applied to node, so compensate the area scale
+	# to keep the world-space trigger radius tight)
 	var detection_area = Area3D.new()
 	detection_area.name = "DetectionArea"
 	detection_area.monitoring = true
 	detection_area.monitorable = true
+	detection_area.scale = Vector3(1.0 / maxf(scale_mult, 0.001), 1.0 / maxf(scale_mult, 0.001), 1.0 / maxf(scale_mult, 0.001))
 	var area_shape = CollisionShape3D.new()
 	if not _shared_boss_sphere:
 		_shared_boss_sphere = SphereShape3D.new()
-		_shared_boss_sphere.radius = 3.5
+		_shared_boss_sphere.radius = 2.0
 	area_shape.shape = _shared_boss_sphere
 	detection_area.add_child(area_shape)
 	enemy_instance.add_child(detection_area)

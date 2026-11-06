@@ -13,6 +13,10 @@ enum State {
 
 @export var level: int = 1
 
+var character_index: int = -1
+var character_name: String = ""
+var skill_power: float = 1.0
+
 func _ready() -> void:
 	_setup_unit_base()
 	assign_battle_idle_anim()

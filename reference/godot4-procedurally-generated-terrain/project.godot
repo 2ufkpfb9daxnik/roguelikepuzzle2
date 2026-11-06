@@ -11,13 +11,25 @@ config_version=5
 [application]
 
 config/name="Procedurally Generated Terrain - Godot 4.2"
-run/main_scene="uid://dqe5jxgxghj8s"
+run/main_scene="res://title_screen.tscn"
 config/features=PackedStringArray("4.4", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+GlobalSettings="*res://GlobalSettings.gd"
+SettingsManager="*res://settings_manager.gd"
+
 [display]
 
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/window_width_override=1600
+window/size/window_height_override=900
+window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/size/min_width=1024
+window/size/min_height=576
 
 [input]
 

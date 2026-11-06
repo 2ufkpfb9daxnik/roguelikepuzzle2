@@ -4,13 +4,9 @@
 
 [resource]
 transparency = 1
-albedo_color = Color(0.12, 0.48, 0.75, 0.7)
-metallic = 0.15
-metallic_specular = 0.9
-roughness = 0.05
+albedo_color = Color(0.04, 0.3, 0.62, 0.85)
+roughness = 0.5
 normal_enabled = true
-normal_scale = 1.6
+normal_scale = 0.5
 normal_texture = ExtResource("2_f2ffk")
-refraction_enabled = true
-refraction_scale = 0.02
 uv1_scale = Vector3(4, 4, 4)

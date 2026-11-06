@@ -25,6 +25,7 @@ enum UnitState {
 @export var attack: int = 10
 @export var defense: int = 10
 @export var type: int = 0
+@export var element: int = 0
 @export var speed: float = 2.5
 @export var gravity: float = 9.8
 
@@ -59,6 +60,24 @@ static func preload_model_async(path: String) -> void:
 		_loading_paths[path] = true
 		ResourceLoader.load_threaded_request(path, "PackedScene", true)
 
+# 戦闘で最初に使うアニメーションを先に非同期ロードしておく。
+# 初回攻撃・被弾時の同期ロードによるフリーズを防ぐ。
+const COMBAT_PRELOAD_KEYWORDS := ["idle", "alert", "attack", "skill", "behit", "dead", "running"]
+
+func preload_battle_animations() -> void:
+	for key in animation_models.keys():
+		var lower := str(key).to_lower()
+		if _matches_any(lower, COMBAT_PRELOAD_KEYWORDS):
+			var path := str(animation_models[key])
+			if path != "":
+				preload_model_async(path)
+
+func _matches_any(text: String, keywords: Array) -> bool:
+	for keyword in keywords:
+		if str(keyword) in text:
+			return true
+	return false
+
 var animation_model_paths: Array = []
 var animation_models: Dictionary = {}        # anim_name -> path
 var loaded_models: Dictionary = {}           # anim_name -> instantiated Node
@@ -66,6 +85,14 @@ var animation_player: AnimationPlayer = null
 var current_visual_model_root: Node3D = null
 var current_animation_name: String = ""
 var battle_idle_anim: String = ""
+var animation_library_path: String = ""
+var animation_library_loaded: bool = false
+var base_animation_player: AnimationPlayer = null
+
+# 装飾用アニメーションは戦闘・移動で使わないため読み込み対象から除外する。
+# 1体あたり約20本のフルモデルGLBを読み込む構成なので、ここを絞る効果が大きい。
+const EXCLUDED_ANIMATION_KEYWORDS := ["dance", "groove", "gesture", "boxing", "practice"]
+const MAX_CACHED_ANIMATION_MODELS := 6
 
 # ==============================
 # HPバー ビルボード
@@ -105,19 +132,108 @@ func _setup_visual_model():
 		current_visual_model_root.name = "VisualModelRoot"
 		add_child(current_visual_model_root)
 	current_visual_model_root.position.y = -0.4
+	_ensure_base_model()
+	_load_animation_library()
+
+func _ensure_base_model() -> void:
+	if current_visual_model_root == null or current_visual_model_root.get_child_count() > 0:
+		return
+	if animation_models.is_empty():
+		return
+	var base_key := _pick_base_animation_key()
+	if base_key == "":
+		return
+	var path := str(animation_models.get(base_key, ""))
+	if path == "" or not ResourceLoader.exists(path):
+		return
+	var scene_res = load(path)
+	if scene_res is PackedScene:
+		var inst = scene_res.instantiate()
+		current_visual_model_root.add_child(inst)
+		loaded_models[base_key] = inst
+
+func _pick_base_animation_key() -> String:
+	for key in animation_models.keys():
+		var lower := str(key).to_lower()
+		if str(animation_models[key]) == "":
+			continue
+		if "idle" in lower or "alert" in lower:
+			return str(key)
+	for key in animation_models.keys():
+		if str(animation_models[key]) != "":
+			return str(key)
+	return ""
+
+func _load_animation_library() -> void:
+	if animation_library_loaded or animation_library_path == "":
+		return
+	if not ResourceLoader.exists(animation_library_path):
+		return
+	var lib = load(animation_library_path)
+	if not (lib is AnimationLibrary):
+		return
+	var base_ap := _find_base_animation_player()
+	if base_ap == null:
+		return
+	base_ap.add_animation_library("battle", lib)
+	base_animation_player = base_ap
+	animation_player = base_ap
+	animation_library_loaded = true
+	# GLBを削除してもアニメーション名を解決できるよう、ライブラリ内の名前を登録する。
+	for key in lib.get_animation_list():
+		if _should_load_animation(str(key)) and not animation_models.has(key):
+			animation_models[key] = ""
+
+func _find_base_animation_player() -> AnimationPlayer:
+	if current_visual_model_root == null:
+		return null
+	for child in current_visual_model_root.get_children():
+		var ap: AnimationPlayer = child.get_node_or_null("AnimationPlayer")
+		if ap == null:
+			ap = child.find_child("AnimationPlayer", true, false)
+		if ap:
+			return ap
+	return null
 
 func set_animation_model_paths(paths) -> void:
 	animation_models.clear()
 	if paths is Array:
-		animation_model_paths = paths.duplicate()
-		for p in animation_model_paths:
+		animation_model_paths = []
+		for p in paths:
 			if typeof(p) != TYPE_STRING:
 				continue
 			var fname = p.get_file().get_basename()
+			if not _should_load_animation(fname):
+				continue
+			animation_model_paths.append(p)
 			animation_models[fname] = p
 	elif paths is Dictionary:
-		animation_models = paths.duplicate()
-		animation_model_paths = paths.values()
+		for key in paths.keys():
+			if not _should_load_animation(str(key)):
+				continue
+			animation_models[key] = paths[key]
+		animation_model_paths = animation_models.values()
+	_update_animation_library_path()
+
+func _update_animation_library_path() -> void:
+	animation_library_path = ""
+	if animation_models.is_empty():
+		return
+	var first_path := str(animation_models.values()[0])
+	var candidate := first_path.get_base_dir().path_join("animations.tres")
+	if ResourceLoader.exists(candidate):
+		animation_library_path = candidate
+
+func _should_load_animation(anim_name: String) -> bool:
+	var lower := anim_name.to_lower()
+	for keyword in EXCLUDED_ANIMATION_KEYWORDS:
+		if keyword in lower:
+			return false
+	return true
+
+func _is_looping_animation(anim_name: String) -> bool:
+	var lower := anim_name.to_lower()
+	return "idle" in lower or "alert" in lower or "walk" in lower or "run" in lower or "dance" in lower
 
 func assign_battle_idle_anim():
 	var idle_anim = []
@@ -157,29 +273,34 @@ func play_unit_animation(anim_name: String) -> void:
 	if current_animation_name == target_key and isanim:
 		return
 
+	# AnimationLibrary があれば、1つのモデルの AnimationPlayer で全モーションを再生する。
+	if not animation_library_loaded:
+		_load_animation_library()
+	if animation_library_loaded and base_animation_player:
+		var library_anim := "battle/" + target_key
+		if base_animation_player.has_animation(library_anim):
+			var lib_anim_res: Animation = base_animation_player.get_animation(library_anim)
+			if lib_anim_res:
+				lib_anim_res.loop_mode = Animation.LOOP_LINEAR if _is_looping_animation(target_key) else Animation.LOOP_NONE
+			base_animation_player.play(library_anim)
+			current_animation_name = target_key
+			isanim = true
+			return
+
 	if not current_visual_model_root:
 		_setup_visual_model()
 
-	# 既存の表示モデルを非表示にし、非表示モデルのAnimationPlayer/Skeleton更新負荷を完全停止
-	for child in current_visual_model_root.get_children():
-		if "visible" in child:
-			child.visible = false
-		child.process_mode = Node.PROCESS_MODE_DISABLED
-
-	# すでにインスタンス化されているか確認
+	# すでにインスタンス化されているか、非同期ロード済みかを先に確認する。
+	# 読み込みが終わる前に現在のモデルを隠すと、ユニットが消えたままになるため注意。
 	var inst: Node3D = null
 	if loaded_models.has(target_key) and is_instance_valid(loaded_models[target_key]):
 		inst = loaded_models[target_key]
-		inst.process_mode = Node.PROCESS_MODE_INHERIT
-		if "visible" in inst:
-			inst.visible = true
 	else:
 		var model_path = animation_models[target_key]
 		if not ResourceLoader.exists(model_path):
 			push_warning("Model not found at: " + model_path)
 			return
 
-		# Static キャッシュから PackedScene を取得
 		var scene_res: PackedScene = null
 		if packed_scene_cache.has(model_path):
 			scene_res = packed_scene_cache[model_path]
@@ -190,10 +311,10 @@ func play_unit_animation(anim_name: String) -> void:
 				if scene_res is PackedScene:
 					packed_scene_cache[model_path] = scene_res
 			else:
-				# 非同期ロードが間に合わなかった・失敗した場合は同期ロード
-				scene_res = load(model_path)
-				if scene_res is PackedScene:
-					packed_scene_cache[model_path] = scene_res
+				# 同期 load() は数MB〜数十MBのGLBでフレーム停止を起こすため使わない。
+				# 非同期ロードを開始し、今回は現在のモデルのまま表示を続ける。
+				preload_model_async(model_path)
+				return
 
 		if not scene_res or not (scene_res is PackedScene):
 			push_warning("Failed to load PackedScene: " + model_path)
@@ -201,10 +322,19 @@ func play_unit_animation(anim_name: String) -> void:
 
 		inst = scene_res.instantiate()
 		current_visual_model_root.add_child(inst)
-		inst.process_mode = Node.PROCESS_MODE_INHERIT
-		if "visible" in inst:
-			inst.visible = true
 		loaded_models[target_key] = inst
+		_trim_loaded_models(target_key)
+
+	# 表示するモデルが確定してから、他のモデルを非表示・停止する。
+	for child in current_visual_model_root.get_children():
+		if child == inst:
+			continue
+		if "visible" in child:
+			child.visible = false
+		child.process_mode = Node.PROCESS_MODE_DISABLED
+	inst.process_mode = Node.PROCESS_MODE_INHERIT
+	if "visible" in inst:
+		inst.visible = true
 
 	current_animation_name = target_key
 	isanim = true
@@ -240,6 +370,18 @@ func play_unit_animation(anim_name: String) -> void:
 			if anim_res:
 				anim_res.loop_mode = Animation.LOOP_LINEAR
 			ap.play(play_name)
+
+func _trim_loaded_models(keep_key: String) -> void:
+	if loaded_models.size() <= MAX_CACHED_ANIMATION_MODELS:
+		return
+	for key in loaded_models.keys():
+		if key == keep_key:
+			continue
+		var node = loaded_models[key]
+		if node and is_instance_valid(node) and node != loaded_models.get(keep_key):
+			loaded_models.erase(key)
+			node.queue_free()
+			return
 
 # ==============================
 # HPバー（Sprite3D + SubViewport）

@@ -9,7 +9,8 @@ extends Node3D
 # ==============================
 var party: Array[CharacterData] = []
 var isshoping: bool = false
-var money: int = 0
+var money: int = 500
+const MAX_PARTY_SIZE: int = 3
 var minimap_root: Control
 var minimap_container: SubViewportContainer
 var minimap_viewport: SubViewport
@@ -141,10 +142,49 @@ func _ready() -> void:
 	_setup_pause_menu()
 	_setup_loading_screen()
 	_setup_minimap()
+	_setup_fill_light()
+	_setup_shop_signals()
+
+func _setup_shop_signals() -> void:
+	# 各ショップの Area3D は player_entered_shop を発行するだけなので、
+	# メイン側で接続してショップ UI を開く。
+	for child in get_children():
+		var shop_area := child.get_node_or_null("Area3D") as Area3D
+		if shop_area:
+			_connect_shop_signals_instance(shop_area)
+
+func _setup_fill_light() -> void:
+	if player_node == null:
+		return
+	# 進行方向の地形が真っ黒にならないよう、視界側から当たる補助光を付ける。
+	if player_node.get_node_or_null("ViewFillLight") == null:
+		var fill := DirectionalLight3D.new()
+		fill.name = "ViewFillLight"
+		fill.light_color = Color(0.72, 0.82, 1.0)
+		fill.light_energy = 0.85
+		fill.shadow_enabled = false
+		fill.rotation_degrees = Vector3(-28, 0, 0)
+		player_node.add_child(fill)
+	# 足元の崖や建物を回り込んで照らす弱い環境光。
+	if player_node.get_node_or_null("SurfaceFillLight") == null:
+		var player_light := OmniLight3D.new()
+		player_light.name = "SurfaceFillLight"
+		player_light.light_color = Color(0.78, 0.84, 1.0)
+		player_light.light_energy = 0.85
+		player_light.omni_range = 24.0
+		player_light.shadow_enabled = false
+		player_light.position = Vector3(0, 2.0, 0)
+		player_node.add_child(player_light)
 
 func _process(delta: float) -> void:
 	if not terrain_node:
 		terrain_node = get_node_or_null("terrain")
+
+	# 戦闘中はフィールド HUD / ミニマップの更新を停止して負荷を下げる。
+	if player_node and "isbattle" in player_node and player_node.isbattle:
+		if minimap_root and minimap_root.visible:
+			minimap_root.visible = false
+		return
 
 	var is_castle = false
 	var castle_floor = 0
@@ -294,15 +334,15 @@ func _setup_hud() -> void:
 	hud_biome_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9, 0.8))
 	hud_layer.add_child(hud_biome_label)
 
-	# 画面左下: 操作ガイド
+	# 画面左上: 操作ガイド
 	hud_guide_panel = PanelContainer.new()
 	hud_guide_panel.name = "HUDGuidePanel"
-	hud_guide_panel.anchors_preset = Control.PRESET_BOTTOM_LEFT
+	hud_guide_panel.anchors_preset = Control.PRESET_TOP_LEFT
 	hud_guide_panel.offset_left = 20
-	hud_guide_panel.offset_top = -140
-	hud_guide_panel.offset_right = 320
-	hud_guide_panel.offset_bottom = -20
-	hud_guide_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	hud_guide_panel.offset_top = 20
+	hud_guide_panel.offset_right = 380
+	hud_guide_panel.offset_bottom = 180
+	hud_guide_panel.grow_vertical = Control.GROW_DIRECTION_END
 
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.05, 0.05, 0.05, 0.6)
@@ -314,7 +354,7 @@ func _setup_hud() -> void:
 	hud_guide_panel.add_theme_stylebox_override("panel", style)
 
 	var guide_label = Label.new()
-	guide_label.text = "[W][A][S][D] 移動\n[Shift] 走る (Sprint)\n[Space] ジャンプ\n[M] ミニマップ\n[Esc] ポーズメニュー"
+	guide_label.text = "[W][A][S][D] 移動\n[Shift] 走る (Sprint)\n[Space] ジャンプ\n[マウス] 視点操作\n[M] ミニマップ切替\n[+][-] マップ拡大縮小\n[Esc] メニュー・設定"
 	guide_label.add_theme_font_size_override("font_size", 14)
 	guide_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85, 0.9))
 	hud_guide_panel.add_child(guide_label)
@@ -362,36 +402,93 @@ func _setup_pause_menu() -> void:
 	bg.color = Color(0, 0, 0, 0.65)
 	pause_layer.add_child(bg)
 
-	var center = VBoxContainer.new()
-	center.anchors_preset = Control.PRESET_CENTER
-	center.offset_left = -150
-	center.offset_top = -160
-	center.offset_right = 150
-	center.offset_bottom = 160
-	center.alignment = BoxContainer.ALIGNMENT_CENTER
-	center.add_theme_constant_override("separation", 20)
+	# 固定サイズの VBox を中央に置くと小さい画面でボタンがはみ出すため、
+	# 画面中央の CenterContainer + 内容に合わせて伸縮するパネルにする。
+	var center = CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	pause_layer.add_child(center)
+
+	pause_panel = PanelContainer.new()
+	pause_panel.name = "PausePanel"
+	pause_panel.custom_minimum_size = Vector2(420, 0)
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.045, 0.06, 0.10, 0.97)
+	panel_style.border_color = Color(0.30, 0.45, 0.72, 0.9)
+	panel_style.set_border_width_all(2)
+	panel_style.set_corner_radius_all(14)
+	panel_style.content_margin_left = 30
+	panel_style.content_margin_right = 30
+	panel_style.content_margin_top = 26
+	panel_style.content_margin_bottom = 26
+	panel_style.shadow_color = Color(0, 0, 0, 0.5)
+	panel_style.shadow_size = 12
+	pause_panel.add_theme_stylebox_override("panel", panel_style)
+	center.add_child(pause_panel)
+
+	var menu = VBoxContainer.new()
+	menu.add_theme_constant_override("separation", 14)
+	pause_panel.add_child(menu)
 
 	var title = Label.new()
 	title.text = "PAUSE"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 36)
-	center.add_child(title)
+	title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.35))
+	menu.add_child(title)
+
+	var hint = Label.new()
+	hint.text = "ESC で閉じる"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 14)
+	hint.add_theme_color_override("font_color", Color(0.65, 0.73, 0.86))
+	menu.add_child(hint)
 
 	var resume_btn = Button.new()
 	resume_btn.text = "再開 (Resume)"
-	resume_btn.custom_minimum_size = Vector2(200, 45)
+	resume_btn.custom_minimum_size = Vector2(0, 48)
+	resume_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	resume_btn.pressed.connect(func(): toggle_pause_menu())
-	center.add_child(resume_btn)
+	menu.add_child(resume_btn)
+
+	var inventory_btn = Button.new()
+	inventory_btn.text = "インベントリ / スキルツリー"
+	inventory_btn.custom_minimum_size = Vector2(0, 48)
+	inventory_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inventory_btn.pressed.connect(_open_inventory_from_pause)
+	menu.add_child(inventory_btn)
+
+	var settings_btn = Button.new()
+	settings_btn.text = "設定 (Settings)"
+	settings_btn.custom_minimum_size = Vector2(0, 48)
+	settings_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	settings_btn.pressed.connect(_open_settings_from_pause)
+	menu.add_child(settings_btn)
 
 	var quit_btn = Button.new()
 	quit_btn.text = "ゲーム終了 (Quit)"
-	quit_btn.custom_minimum_size = Vector2(200, 45)
+	quit_btn.custom_minimum_size = Vector2(0, 48)
+	quit_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	quit_btn.pressed.connect(func(): get_tree().quit())
-	center.add_child(quit_btn)
+	menu.add_child(quit_btn)
+
+func _open_inventory_from_pause() -> void:
+	if pause_layer:
+		pause_layer.visible = false
+	if shop_ui and shop_ui.has_method("open_shop"):
+		shop_ui.open_shop()
+		if "tabs" in shop_ui and shop_ui.tabs:
+			shop_ui.tabs.current_tab = 2
+
+func _open_settings_from_pause() -> void:
+	var settings_manager = get_node_or_null("/root/SettingsManager")
+	if settings_manager and settings_manager.has_method("open_settings"):
+		settings_manager.open_settings()
 
 func toggle_pause_menu() -> void:
 	if not pause_layer:
+		return
+	var settings_manager = get_node_or_null("/root/SettingsManager")
+	if settings_manager and settings_manager.has_method("is_open") and settings_manager.is_open():
 		return
 	if isshoping:
 		return # ショップ中はショップ操作優先
@@ -404,7 +501,8 @@ func toggle_pause_menu() -> void:
 	if will_open:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		var in_battle = player_node and "isbattle" in player_node and player_node.isbattle
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE if in_battle else Input.MOUSE_MODE_CAPTURED)
 
 # ==============================
 # ローディング画面（Loading Screen）
@@ -455,12 +553,58 @@ func _setup_loading_screen() -> void:
 			loading_layer.queue_free()
 	)
 
-func add_character_by_id(char_id: String) -> CharacterData:
+func add_character_by_id(char_id: String, starting_level: int = 1) -> CharacterData:
 	if not all_characters.has(char_id):
 		push_warning("Unknown character id: " + char_id)
 		return null
+	if party.size() >= MAX_PARTY_SIZE:
+		return null
+	for existing in party:
+		if existing.id == char_id:
+			return null
 	var config = all_characters[char_id]
-	var data = CharacterData.create_from_config(char_id, config)
+	var data = CharacterData.create_from_config(char_id, config, starting_level)
+	party.append(data)
+	return data
+
+func can_recruit_more() -> bool:
+	return party.size() < MAX_PARTY_SIZE
+
+func spend_money(amount: int) -> bool:
+	if amount < 0 or money < amount:
+		return false
+	money -= amount
+	return true
+
+func add_money(amount: int) -> void:
+	money = max(0, money + amount)
+
+func add_exp_to_party(amount: int) -> void:
+	for c in party:
+		c.add_exp(amount)
+
+# 戦闘勝利時に敵が低確率で起き上がり、仲間になる処理。
+func try_recruit_enemy(enemy_name: String, model_path: String = "", enemy_type: int = 4, base_hp: int = 80, base_atk: int = 20, base_def: int = 10) -> CharacterData:
+	if party.size() >= MAX_PARTY_SIZE:
+		return null
+	if all_characters.has(enemy_name):
+		return add_character_by_id(enemy_name)
+
+	var path := model_path
+	if path.get_extension().to_lower() in ["glb", "gltf", "tscn"]:
+		path = path.get_base_dir() + "/"
+	elif path == "":
+		path = "res://model/enemy/have_animation/%s/" % enemy_name
+
+	var config := [
+		max(1, base_hp),
+		max(1, base_atk),
+		max(1, base_def),
+		enemy_type,
+		path,
+		800
+	]
+	var data := CharacterData.create_from_config(enemy_name, config, 1)
 	party.append(data)
 	return data
 
@@ -469,22 +613,34 @@ func calculate_status(base: float, lvl: int, power: float = 2.0 / 3.0) -> int:
 
 func generate_allies_to_spawn() -> Array:
 	var allies_to_spawn = []
-	for i in range(party.size()):
+	for i in range(min(party.size(), MAX_PARTY_SIZE)):
 		var char_data = party[i]
-		var info = char_data.get_spawn_info()
-		if char_data.cur_health != -1:
-			info["name"] = "hero%d" % (i + 1)
-		allies_to_spawn.append(info)
+		allies_to_spawn.append(char_data.get_spawn_info())
 	return allies_to_spawn
+
+# 戦闘終了時に HP / EXP / スキルゲージを本体データへ戻す。
+func apply_battle_results(results: Array) -> void:
+	for result in results:
+		var idx: int = int(result.get("index", -1))
+		if idx < 0 or idx >= party.size():
+			continue
+		var c := party[idx]
+		c.cur_health = int(result.get("hp", c.cur_health))
+		if c.cur_health <= 0:
+			# 全滅寸前で次戦に持ち越さない。勝利時は 1 で蘇生する。
+			c.cur_health = 1
+		c.ult_charge = int(result.get("ult_charge", 0))
 
 # ==============================
 # ショップ連携
 # ==============================
 func _connect_shop_signals_instance(shop_area: Area3D):
-	if shop_area.has_signal("player_entered_shop"):
-		shop_area.player_entered_shop.connect(_on_player_entered_shop)
-	if shop_area.has_signal("player_exited_shop"):
-		shop_area.player_exited_shop.connect(_on_player_exited_shop)
+	var enter_callable := Callable(self, "_on_player_entered_shop")
+	if shop_area.has_signal("player_entered_shop") and not shop_area.is_connected("player_entered_shop", enter_callable):
+		shop_area.player_entered_shop.connect(enter_callable)
+	var exit_callable := Callable(self, "_on_player_exited_shop")
+	if shop_area.has_signal("player_exited_shop") and not shop_area.is_connected("player_exited_shop", exit_callable):
+		shop_area.player_exited_shop.connect(exit_callable)
 
 func _on_player_entered_shop(_shop_root_node: Node3D):
 	if shop_ui and shop_ui.visible:
@@ -509,7 +665,7 @@ func _setup_minimap() -> void:
 	minimap_root.name = "MinimapRoot"
 	minimap_root.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 20)
 	minimap_root.size = Vector2(256, 256)
-	minimap_root.position = Vector2(20, get_viewport().get_visible_rect().size.y - 276)
+	minimap_root.position = Vector2(20, get_viewport().get_visible_rect().size.y - 336)
 	
 	var border = ColorRect.new()
 	border.name = "Border"
@@ -637,7 +793,7 @@ func _update_map_mode() -> void:
 			minimap_root.show()
 			var m_size = Vector2(288, 288)
 			minimap_root.size = m_size
-			minimap_root.position = Vector2(20, viewport_size.y - 308)
+			minimap_root.position = Vector2(20, viewport_size.y - 368)
 			if border: border.size = m_size + Vector2(8, 8)
 			if solid_bg: solid_bg.size = m_size
 			if map_clip: map_clip.size = m_size

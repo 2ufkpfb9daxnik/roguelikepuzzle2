@@ -1,0 +1,102 @@
+extends SceneTree
+
+# 各キャラクターの20個前後のアニメーションGLBから Animation リソースだけを抽出し、
+# 1つの AnimationLibrary (.tres) にまとめるビルドスクリプト。
+#
+# 実行:
+#   godot --headless --path <project> --script res://build_animation_libraries.gd
+#
+# これにより実行時は「Idleの1モデル + animations.tres」だけを読み込めばよくなる。
+
+const ROOT := "res://model/enemy/have_animation"
+const EXCLUDED := ["dance", "groove", "gesture", "boxing", "practice"]
+
+func _init() -> void:
+	var dir := DirAccess.open(ROOT)
+	if dir == null:
+		push_error("Animation root not found: " + ROOT)
+		quit(1)
+		return
+	var total_libs := 0
+	var total_anims := 0
+	for character_name in dir.get_directories():
+		var character_dir := ROOT.path_join(character_name)
+		var result := _build_library(character_dir)
+		total_libs += 1
+		total_anims += int(result.get("animations", 0))
+		print("BUILT ", character_name, " animations=", result.get("animations", 0), " -> ", result.get("path", ""))
+	print("=== DONE libraries=", total_libs, " animations=", total_anims, " ===")
+	quit(0)
+
+func _build_library(character_dir: String) -> Dictionary:
+	var lib := AnimationLibrary.new()
+	var file_dir := DirAccess.open(character_dir)
+	if file_dir == null:
+		return {"animations": 0, "path": ""}
+	var files: Array = []
+	for file_name in file_dir.get_files():
+		if not file_name.to_lower().ends_with(".glb"):
+			continue
+		var key: String = str(file_name).get_basename()
+		if _is_excluded(key):
+			continue
+		files.append(file_name)
+	files.sort_custom(func(a, b):
+		var la := str(a).to_lower()
+		var lb := str(b).to_lower()
+		var pa := 0 if ("idle" in la or "alert" in la) else 1
+		var pb := 0 if ("idle" in lb or "alert" in lb) else 1
+		if pa != pb:
+			return pa < pb
+		return la < lb
+	)
+
+	var base_bones: Array = []
+	var skipped := 0
+	for file_name in files:
+		var path: String = character_dir.path_join(str(file_name))
+		var scene_res = ResourceLoader.load(path, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE)
+		if not (scene_res is PackedScene):
+			continue
+		var instance = scene_res.instantiate()
+		var ap: AnimationPlayer = instance.find_child("AnimationPlayer", true, false)
+		if ap == null:
+			instance.free()
+			continue
+		var skeleton: Skeleton3D = instance.find_child("Skeleton3D", true, false)
+		if skeleton:
+			var bones: Array = []
+			for i in range(skeleton.get_bone_count()):
+				bones.append(skeleton.get_bone_name(i))
+			if base_bones.is_empty():
+				base_bones = bones
+			elif bones != base_bones:
+				skipped += 1
+				print("  SKIP bone mismatch: ", file_name)
+				instance.free()
+				continue
+		var anim_names := ap.get_animation_list()
+		if not anim_names.is_empty():
+			var source_name: String = anim_names[0]
+			var anim: Animation = ap.get_animation(source_name)
+			if anim:
+				var key: String = str(file_name).get_basename()
+				var copied: Animation = anim.duplicate(true)
+				copied.resource_name = key
+				lib.add_animation(key, copied)
+		instance.free()
+		scene_res = null
+
+	var out_path := character_dir.path_join("animations.tres")
+	var err := ResourceSaver.save(lib, out_path)
+	if err != OK:
+		push_error("Failed to save %s (error %d)" % [out_path, err])
+		return {"animations": lib.get_animation_list().size(), "path": ""}
+	return {"animations": lib.get_animation_list().size(), "path": out_path, "skipped": skipped}
+
+func _is_excluded(name: String) -> bool:
+	var lower := name.to_lower()
+	for keyword in EXCLUDED:
+		if keyword in lower:
+			return true
+	return false

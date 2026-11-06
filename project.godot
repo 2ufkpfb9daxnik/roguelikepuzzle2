@@ -9,12 +9,24 @@
 config_version=5
 
 [application]
-run/main_scene="res://reference/godot4-procedurally-generated-terrain/title_screen.tscn"
 
-config/name="新しいゲームプロジェクト"
+config/name="roguelikepuzzle2"
+run/main_scene="res://reference/godot4-procedurally-generated-terrain/title_screen.tscn"
 config/features=PackedStringArray("4.4", "Forward Plus")
 config/icon="res://icon.svg"
 
 [autoload]
 
 GlobalSettings="*res://reference/godot4-procedurally-generated-terrain/GlobalSettings.gd"
+SettingsManager="*res://reference/godot4-procedurally-generated-terrain/settings_manager.gd"
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/window_width_override=1600
+window/size/window_height_override=900
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/size/min_width=1024
+window/size/min_height=576

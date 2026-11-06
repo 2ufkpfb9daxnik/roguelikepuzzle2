@@ -392,6 +392,7 @@ func _transition_to_battle(biome: int, encountered_enemy: String) -> void:
 			battle_scene.cave_battle_pos = t_node.cave_battle_pos
 			battle_scene.desert_battle_pos = t_node.desert_battle_pos
 			battle_scene.snow_battle_pos = t_node.snow_battle_pos
+			battle_scene.castle_battle_pos = t_node.castle_battle_pos
 
 		battle_scene.charactercamera = parent.get_node_or_null("CharacterBody3D/Camera3D")
 
@@ -408,5 +409,5 @@ func _transition_to_battle(biome: int, encountered_enemy: String) -> void:
 		if spawn_node:
 			existing_enemies = spawn_node.spawned_enemies
 		var spawned_allies = parent.generate_allies_to_spawn() if parent.has_method("generate_allies_to_spawn") else []
-		battle_scene.prepare_battle(player_node, self, existing_enemies, spawned_allies)
+		await battle_scene.prepare_battle(player_node, self, existing_enemies, spawned_allies)
 		battle_scene.start_battle()
